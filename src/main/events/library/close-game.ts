@@ -131,6 +131,18 @@ const closeGame = async (
       );
     }
   }
+
+  if (process.platform === "darwin" && launchedPid) {
+    try {
+      process.kill(-launchedPid, "SIGTERM");
+    } catch {
+      try {
+        process.kill(launchedPid, "SIGTERM");
+      } catch {
+        // Process may have already exited
+      }
+    }
+  }
 };
 
 registerEvent("closeGame", closeGame);

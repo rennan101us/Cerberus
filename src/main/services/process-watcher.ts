@@ -337,6 +337,19 @@ const hasLinuxCompatibilityProcessMatch = (
   });
 };
 
+const isPidAlive = (pid: number): boolean => {
+  try {
+    return process.kill(pid, 0);
+  } catch (error: unknown) {
+    return Boolean(
+      error &&
+        typeof error === "object" &&
+        "code" in error &&
+        (error as { code: string }).code === "EPERM"
+    );
+  }
+};
+
 export const watchProcesses = async () => {
   startOptionalExecutableCatalogueLoad(() => GameExecutables.ensureLoaded());
 
@@ -416,6 +429,17 @@ export const watchProcesses = async () => {
       )
     ) {
       matchedPath = executablePath;
+    }
+
+    if (
+      !matchedPath &&
+      platform === "darwin" &&
+      launchedGamePids.has(gameKey)
+    ) {
+      const launchedPid = launchedGamePids.get(gameKey);
+      if (launchedPid && isPidAlive(launchedPid)) {
+        matchedPath = executablePath;
+      }
     }
 
     if (game.shop === "epic") {

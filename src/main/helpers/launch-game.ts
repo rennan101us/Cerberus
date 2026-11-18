@@ -29,6 +29,7 @@ import {
   CrossOverRunner,
   type UmuStatus,
 } from "@main/services";
+import { watchProcesses } from "@main/services/process-watcher";
 import {
   clearGameLauncherStatuses,
   sendGameLauncherStatus,
@@ -638,6 +639,9 @@ const launchResolvedGame = async (
         );
         if (pid !== null) {
           launchedGamePids.set(gameKey, pid);
+          setImmediate(() => {
+            void watchProcesses();
+          });
         }
         return pid;
       }

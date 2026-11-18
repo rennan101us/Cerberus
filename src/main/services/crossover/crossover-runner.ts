@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import type { Game, MacOSCompatibilityOptions } from "@types";
 import { CrossOverDetector, DEFAULT_BOTTLE_NAME } from "./crossover-detector";
@@ -99,6 +100,50 @@ export class CrossOverRunner {
     return env;
   }
 
+  public static async toWineWindowsPath(
+    posixPath: string,
+    bottleDir: string
+  ): Promise<string> {
+    if (/^[a-zA-Z]:[/\\]/.test(posixPath)) {
+      return posixPath.replace(/\\/g, "/");
+    }
+
+    const driveC = path.join(bottleDir, "drive_c");
+    const relDriveC = path.relative(driveC, posixPath);
+
+    // 1. Inside bottle's drive_c -> C:/...
+    if (!relDriveC.startsWith("..") && !path.isAbsolute(relDriveC)) {
+      return `C:/${relDriveC.split(path.sep).join("/")}`;
+    }
+
+    // 2. Check dosdevices symlinks (e.g. d: -> /Volumes/Nintendo, y: -> /Users/rennan)
+    const dosdevicesDir = path.join(bottleDir, "dosdevices");
+    if (fs.existsSync(dosdevicesDir)) {
+      try {
+        const entries = await fs.promises.readdir(dosdevicesDir);
+        for (const entry of entries) {
+          if (!entry.endsWith(":") || entry.includes("::")) continue;
+          const linkPath = path.join(dosdevicesDir, entry);
+          try {
+            const target = await fs.promises.realpath(linkPath);
+            const relTarget = path.relative(target, posixPath);
+            if (!relTarget.startsWith("..") && !path.isAbsolute(relTarget)) {
+              const driveLetter = entry.slice(0, 1).toUpperCase();
+              return `${driveLetter}:/${relTarget.split(path.sep).join("/")}`;
+            }
+          } catch {
+            // Ignore broken link
+          }
+        }
+      } catch {
+        // Ignore read error
+      }
+    }
+
+    // 3. Fallback: Z: drive maps to root / in Wine
+    return `Z:/${posixPath.replace(/^\/+/, "")}`;
+  }
+
   public static async launchGame(
     game: Game,
     launchOptionsString?: string | null
@@ -121,8 +166,22 @@ export class CrossOverRunner {
 
     // 2. Determine bottle
     const bottlesDir = await CrossOverDetector.getBottlesDirectory();
-    const bottleName =
-      game.macOSCompatibility?.bottleName || DEFAULT_BOTTLE_NAME;
+    let bottleName = game.macOSCompatibility?.bottleName;
+
+    // Detect actual bottle if executable is located inside a bottle directory
+    if (bottlesDir && game.executablePath) {
+      const relToBottles = path.relative(bottlesDir, game.executablePath);
+      if (!relToBottles.startsWith("..") && !path.isAbsolute(relToBottles)) {
+        const detected = relToBottles.split(path.sep)[0];
+        if (detected) {
+          bottleName = detected;
+        }
+      }
+    }
+
+    if (!bottleName) {
+      bottleName = DEFAULT_BOTTLE_NAME;
+    }
 
     await CrossOverProvisioner.ensureBottle(bottleName).catch((err) => {
       logger.warn(`[CrossOver] Bottle ensure warning for '${bottleName}'`, err);
@@ -141,11 +200,17 @@ export class CrossOverRunner {
     env.CX_BOTTLE_PATH = bottlesDir;
 
     const workingDir = path.dirname(game.executablePath);
+    const windowsPath = await this.toWineWindowsPath(
+      game.executablePath,
+      bottleDir
+    );
+
     const args: string[] = [
       "--bottle",
       bottleName,
+      "--wait-children",
       "--cx-app",
-      game.executablePath,
+      windowsPath,
     ];
 
     // Append launch options
@@ -155,14 +220,21 @@ export class CrossOverRunner {
     }
 
     logger.info(
-      `[CrossOver] Launching game in bottle '${bottleName}': ${game.executablePath}`
+      `[CrossOver] Launching game in bottle '${bottleName}': ${game.executablePath} -> ${windowsPath}`
     );
 
     const proc = spawn(wineBin, args, {
       cwd: workingDir,
       env,
       detached: true,
-      stdio: "ignore",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      logger.info(`[FineWine:${bottleName}] ${chunk.toString().trim()}`);
+    });
+    proc.stderr?.on("data", (chunk: Buffer) => {
+      logger.warn(`[FineWine:${bottleName}] ${chunk.toString().trim()}`);
     });
 
     proc.on("error", (error) => {
@@ -191,7 +263,21 @@ export class CrossOverRunner {
     });
 
     const bottlesDir = await CrossOverDetector.getBottlesDirectory();
-    const bottleName = options.bottleName || DEFAULT_BOTTLE_NAME;
+    let bottleName = options.bottleName;
+
+    if (bottlesDir && options.installerPath) {
+      const relToBottles = path.relative(bottlesDir, options.installerPath);
+      if (!relToBottles.startsWith("..") && !path.isAbsolute(relToBottles)) {
+        const detected = relToBottles.split(path.sep)[0];
+        if (detected) {
+          bottleName = detected;
+        }
+      }
+    }
+
+    if (!bottleName) {
+      bottleName = DEFAULT_BOTTLE_NAME;
+    }
 
     await CrossOverProvisioner.ensureBottle(bottleName).catch((err) => {
       logger.warn(`[CrossOver] Bottle ensure warning for '${bottleName}'`, err);
@@ -210,16 +296,21 @@ export class CrossOverRunner {
     env.CX_BOTTLE_PATH = bottlesDir;
 
     const workingDir = path.dirname(options.installerPath);
+    const windowsPath = await this.toWineWindowsPath(
+      options.installerPath,
+      bottleDir
+    );
+
     const args: string[] = [
       "--bottle",
       bottleName,
       "--wait-children",
       "--cx-app",
-      options.installerPath,
+      windowsPath,
     ];
 
     logger.info(
-      `[CrossOver] Executing installer in bottle '${bottleName}': ${options.installerPath}`
+      `[CrossOver] Executing installer in bottle '${bottleName}': ${options.installerPath} -> ${windowsPath}`
     );
 
     const proc: ChildProcess = spawn(wineBin, args, {

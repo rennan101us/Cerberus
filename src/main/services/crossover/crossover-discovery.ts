@@ -9,6 +9,7 @@ import { getGameAssets } from "@main/events/catalogue/get-game-assets";
 import { createGame } from "@main/services/library-sync";
 import { WindowManager } from "@main/services/window-manager";
 import { LocalNotificationManager } from "@main/services/notifications/local-notifications";
+import { HydraApi } from "@main/services/hydra-api";
 import type { Game, GameShop } from "@types";
 
 export interface BottleGameCandidate {
@@ -224,6 +225,83 @@ export class CrossOverDiscovery {
     return sorted[0];
   }
 
+  public static cleanCandidateTitle(rawTitle: string): string {
+    return rawTitle
+      .replace(/\[[^\]]*\]|\([^\)]*\)/g, " ")
+      .replace(
+        /\b(DODI-Repacks|DODI|FitGirl|SKIDROW|TENOKE|RUNE|FLT|Razor1911|CODEX|RELOADED|GOG|Repack)\b/gi,
+        " "
+      )
+      .replace(/\bv?\d+(\.\d+)+\b/gi, " ")
+      .replace(/\bBuild\s*\d+\b/gi, " ")
+      .replace(/\bUpdate\s*\d+\b/gi, " ")
+      .replace(/Digital Sound and Art Gallery/gi, " ")
+      .replace(/[_.-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  public static async matchCandidateToSteam(
+    candidate: BottleGameCandidate
+  ): Promise<{
+    appId: string;
+    title: string;
+    iconUrl: string | null;
+  } | null> {
+    const fileName = path.basename(candidate.executablePath).toLowerCase();
+
+    // 1. Check loaded executables catalogue
+    for (const objectId of GameExecutables.getAllObjectIds()) {
+      const executables = GameExecutables.getExecutablesForGame(objectId);
+      if (executables?.some((e) => e.exe.toLowerCase() === fileName)) {
+        return { appId: objectId, title: candidate.title, iconUrl: null };
+      }
+    }
+
+    // 2. Query catalogue suggestions by title
+    const cleanTitle = this.cleanCandidateTitle(candidate.title);
+    if (!cleanTitle) return null;
+
+    try {
+      const suggestions = await HydraApi.get<
+        {
+          title: string;
+          objectId: string;
+          shop: GameShop;
+          iconUrl: string | null;
+        }[]
+      >(
+        "/catalogue/search/suggestions",
+        {
+          query: cleanTitle,
+          limit: 3,
+          shop: "steam",
+        },
+        {
+          needsAuth: false,
+        }
+      );
+
+      if (suggestions && suggestions.length > 0) {
+        const top = suggestions[0];
+        if (top.objectId && top.shop === "steam") {
+          return {
+            appId: top.objectId,
+            title: top.title,
+            iconUrl: top.iconUrl,
+          };
+        }
+      }
+    } catch (error) {
+      logger.warn(
+        `[CrossOverDiscovery] Search suggestion failed for '${cleanTitle}'`,
+        error
+      );
+    }
+
+    return null;
+  }
+
   public static async autoImportBottleGames(): Promise<number> {
     if (process.platform !== "darwin") return 0;
 
@@ -232,13 +310,6 @@ export class CrossOverDiscovery {
       if (candidates.length === 0) return 0;
 
       const existingEntries = await gamesSublevel.iterator().all();
-      const existingPaths = new Set(
-        existingEntries.flatMap(([_key, game]) =>
-          game.executablePath && !game.isDeleted
-            ? [path.resolve(game.executablePath).toLowerCase()]
-            : []
-        )
-      );
 
       await GameExecutables.ensureLoaded(true).catch(() => {});
 
@@ -246,60 +317,128 @@ export class CrossOverDiscovery {
 
       for (const candidate of candidates) {
         const normalized = path.resolve(candidate.executablePath).toLowerCase();
-        if (existingPaths.has(normalized)) continue;
+        const existingEntry = existingEntries.find(
+          ([_key, g]) =>
+            g.executablePath &&
+            !g.isDeleted &&
+            path.resolve(g.executablePath).toLowerCase() === normalized
+        );
 
-        // 1. Check if it matches a Steam game in the catalogue
-        const fileName = path.basename(candidate.executablePath).toLowerCase();
-        let matchedAppId: string | null = null;
+        // If it's already a Steam game with assets, ensure bottleName is configured
+        if (existingEntry && existingEntry[1].shop === "steam") {
+          const [existingKey, existingGame] = existingEntry;
+          const assetsKey = levelKeys.game("steam", existingGame.objectId);
+          const hasAssets = await gamesShopAssetsSublevel
+            .get(assetsKey)
+            .then((a) => Boolean(a?.libraryImageUrl || a?.coverImageUrl))
+            .catch(() => false);
 
-        for (const objectId of GameExecutables.getAllObjectIds()) {
-          const executables = GameExecutables.getExecutablesForGame(objectId);
-          if (executables?.some((e) => e.exe.toLowerCase() === fileName)) {
-            matchedAppId = objectId;
-            break;
+          if (!hasAssets) {
+            await getGameAssets(existingGame.objectId, "steam", {
+              forceFresh: true,
+            }).catch(() => null);
           }
-        }
 
-        if (matchedAppId) {
-          const assets = await getGameAssets(matchedAppId, "steam").catch(
-            () => null
-          );
-          if (assets?.title) {
-            const gameKey = levelKeys.game("steam", matchedAppId);
-            const existingGame = await gamesSublevel
-              .get(gameKey)
-              .catch(() => null);
-
-            const steamGame: Game = {
+          if (
+            existingGame.macOSCompatibility?.bottleName !== candidate.bottleName
+          ) {
+            await gamesSublevel.put(existingKey, {
               ...existingGame,
-              title: existingGame?.title ?? assets.title,
-              iconUrl: assets.iconUrl,
-              libraryHeroImageUrl: assets.libraryHeroImageUrl,
-              logoImageUrl: assets.logoImageUrl,
-              objectId: matchedAppId,
-              shop: "steam",
-              remoteId: existingGame?.remoteId ?? null,
-              isDeleted: false,
-              playTimeInMilliseconds: existingGame?.playTimeInMilliseconds ?? 0,
-              lastTimePlayed: existingGame?.lastTimePlayed ?? null,
-              addedToLibraryAt: existingGame?.addedToLibraryAt ?? new Date(),
-              platform: existingGame?.platform ?? null,
-              executablePath: candidate.executablePath,
-              executablePathUpdatedAt: new Date(),
-            };
-
-            await gamesSublevel.put(gameKey, steamGame);
-            await createGame(steamGame).catch(() => {});
-            existingPaths.add(normalized);
-            addedCount++;
-            logger.info(
-              `[CrossOverDiscovery] Auto-imported Steam game: ${steamGame.title} (${candidate.executablePath})`
-            );
-            continue;
+              macOSCompatibility: {
+                bottleName: candidate.bottleName,
+                graphicsBackend: "d3dmetal",
+                syncMode: "msync",
+                ...existingGame.macOSCompatibility,
+              },
+            });
           }
+          continue;
         }
 
-        // 2. Otherwise, add as a Custom Game
+        // Try to match with Steam catalogue
+        const match = await this.matchCandidateToSteam(candidate);
+
+        if (match) {
+          const assets = await getGameAssets(match.appId, "steam", {
+            forceFresh: true,
+          }).catch(() => null);
+
+          const gameKey = levelKeys.game("steam", match.appId);
+          const existingGame = await gamesSublevel
+            .get(gameKey)
+            .catch(() => null);
+
+          // If there was an old custom entry for this executable, remove it to avoid duplicates
+          if (existingEntry && existingEntry[1].shop === "custom") {
+            await gamesSublevel.del(existingEntry[0]).catch(() => {});
+            await gamesShopAssetsSublevel.del(existingEntry[0]).catch(() => {});
+            logger.info(
+              `[CrossOverDiscovery] Replaced custom entry '${existingEntry[1].title}' with official Steam match '${match.title}'`
+            );
+          }
+
+          const steamGame: Game = {
+            ...existingGame,
+            title: assets?.title ?? match.title,
+            iconUrl: assets?.iconUrl ?? match.iconUrl ?? null,
+            libraryHeroImageUrl: assets?.libraryHeroImageUrl ?? null,
+            logoImageUrl: assets?.logoImageUrl ?? null,
+            objectId: match.appId,
+            shop: "steam",
+            remoteId: existingGame?.remoteId ?? null,
+            isDeleted: false,
+            playTimeInMilliseconds:
+              existingEntry?.[1]?.playTimeInMilliseconds ??
+              existingGame?.playTimeInMilliseconds ??
+              0,
+            lastTimePlayed:
+              existingEntry?.[1]?.lastTimePlayed ??
+              existingGame?.lastTimePlayed ??
+              null,
+            addedToLibraryAt:
+              existingEntry?.[1]?.addedToLibraryAt ??
+              existingGame?.addedToLibraryAt ??
+              new Date(),
+            platform: existingGame?.platform ?? null,
+            executablePath: candidate.executablePath,
+            executablePathUpdatedAt: new Date(),
+            macOSCompatibility: {
+              bottleName: candidate.bottleName,
+              graphicsBackend: "d3dmetal",
+              syncMode: "msync",
+              ...existingGame?.macOSCompatibility,
+            },
+          };
+
+          await gamesSublevel.put(gameKey, steamGame);
+          await createGame(steamGame).catch(() => {});
+          addedCount++;
+          logger.info(
+            `[CrossOverDiscovery] Auto-imported Steam game: ${steamGame.title} (AppID: ${match.appId}, Path: ${candidate.executablePath})`
+          );
+          continue;
+        }
+
+        // If already in library as custom, ensure bottleName is saved
+        if (existingEntry && existingEntry[1].shop === "custom") {
+          const [existingKey, existingGame] = existingEntry;
+          if (
+            existingGame.macOSCompatibility?.bottleName !== candidate.bottleName
+          ) {
+            await gamesSublevel.put(existingKey, {
+              ...existingGame,
+              macOSCompatibility: {
+                bottleName: candidate.bottleName,
+                graphicsBackend: "d3dmetal",
+                syncMode: "msync",
+                ...existingGame.macOSCompatibility,
+              },
+            });
+          }
+          continue;
+        }
+
+        // Otherwise, add as a new Custom Game
         const objectId = crypto.randomUUID();
         const shop: GameShop = "custom";
         const gameKey = levelKeys.game(shop, objectId);
@@ -337,10 +476,14 @@ export class CrossOverDiscovery {
           favorite: false,
           automaticCloudSync: false,
           hasManuallyUpdatedPlaytime: false,
+          macOSCompatibility: {
+            bottleName: candidate.bottleName,
+            graphicsBackend: "d3dmetal",
+            syncMode: "msync",
+          },
         };
 
         await gamesSublevel.put(gameKey, customGame);
-        existingPaths.add(normalized);
         addedCount++;
         logger.info(
           `[CrossOverDiscovery] Auto-imported Custom Game: ${candidate.title} (${candidate.executablePath})`
