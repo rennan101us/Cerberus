@@ -1,7 +1,13 @@
 import { registerEvent } from "../register-event";
 import { gamesSublevel, gamesShopAssetsSublevel, levelKeys } from "@main/level";
 import { randomUUID } from "node:crypto";
-import type { GameShop } from "@types";
+import type { GameShop, Game, MacOSCompatibilityOptions } from "@types";
+import {
+  CrossOverDiscovery,
+  CrossOverDetector,
+  DEFAULT_BOTTLE_NAME,
+  WindowManager,
+} from "@main/services";
 
 const addCustomGameToLibrary = async (
   _event: Electron.IpcMainInvokeEvent,
@@ -26,26 +32,74 @@ const addCustomGameToLibrary = async (
     );
   }
 
+  // Detect bottle if on macOS
+  let macOSCompatibility: MacOSCompatibilityOptions | undefined;
+  if (process.platform === "darwin") {
+    const detectedBottle =
+      CrossOverDetector.detectBottleFromPath(executablePath) ||
+      DEFAULT_BOTTLE_NAME;
+    macOSCompatibility = {
+      bottleName: detectedBottle,
+      graphicsBackend: "d3dmetal",
+      syncMode: "msync",
+    };
+  }
+
+  // Attempt Steam matching to fetch official 600x900 covers, banners, logos
+  const match = await CrossOverDiscovery.matchCandidateToSteam({
+    title,
+    executablePath,
+    bottleName: macOSCompatibility?.bottleName ?? "",
+  }).catch(() => null);
+
+  let finalTitle = title;
+  let finalIconUrl = iconUrl || null;
+  let finalLogoImageUrl = logoImageUrl || null;
+  let finalLibraryHeroImageUrl = libraryHeroImageUrl || null;
+  let finalCoverImageUrl = iconUrl || "";
+  let finalLibraryImageUrl = iconUrl || "";
+  let catalogueGame: { shop: GameShop; objectId: string } | undefined;
+
+  if (match) {
+    const steamAssets = await CrossOverDiscovery.fetchOrConstructSteamAssets(
+      match.appId,
+      match.title
+    ).catch(() => null);
+
+    if (steamAssets) {
+      catalogueGame = { shop: "steam", objectId: match.appId };
+      finalTitle = title || steamAssets.title;
+      finalIconUrl = steamAssets.iconUrl || finalIconUrl;
+      finalLogoImageUrl = steamAssets.logoImageUrl || finalLogoImageUrl;
+      finalLibraryHeroImageUrl =
+        steamAssets.libraryHeroImageUrl || finalLibraryHeroImageUrl;
+      finalCoverImageUrl =
+        steamAssets.coverImageUrl || steamAssets.libraryImageUrl || "";
+      finalLibraryImageUrl =
+        steamAssets.libraryImageUrl || steamAssets.coverImageUrl || "";
+    }
+  }
+
   const assets = {
     updatedAt: Date.now(),
     objectId,
     shop,
-    title,
-    iconUrl: iconUrl || null,
-    libraryHeroImageUrl: libraryHeroImageUrl || "",
-    libraryImageUrl: iconUrl || "",
-    logoImageUrl: logoImageUrl || "",
+    title: finalTitle,
+    iconUrl: finalIconUrl,
+    libraryHeroImageUrl: finalLibraryHeroImageUrl || "",
+    libraryImageUrl: finalLibraryImageUrl,
+    logoImageUrl: finalLogoImageUrl || "",
     logoPosition: null,
-    coverImageUrl: iconUrl || "",
+    coverImageUrl: finalCoverImageUrl,
     downloadSources: [],
   };
   await gamesShopAssetsSublevel.put(gameKey, assets);
 
-  const game = {
-    title,
-    iconUrl: iconUrl || null,
-    logoImageUrl: logoImageUrl || null,
-    libraryHeroImageUrl: libraryHeroImageUrl || null,
+  const game: Game = {
+    title: finalTitle,
+    iconUrl: finalIconUrl,
+    logoImageUrl: finalLogoImageUrl,
+    libraryHeroImageUrl: finalLibraryHeroImageUrl,
     objectId,
     shop,
     remoteId: null,
@@ -59,9 +113,12 @@ const addCustomGameToLibrary = async (
     favorite: false,
     automaticCloudSync: false,
     hasManuallyUpdatedPlaytime: false,
+    catalogueGame,
+    macOSCompatibility,
   };
 
   await gamesSublevel.put(gameKey, game);
+  WindowManager.sendToAppWindows("on-library-batch-complete");
 
   return game;
 };

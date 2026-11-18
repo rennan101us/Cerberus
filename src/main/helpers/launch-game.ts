@@ -629,24 +629,48 @@ const launchResolvedGame = async (
   useGamemode: boolean,
   shortcut: ExecutableShortcut | null = null
 ) => {
-  if (process.platform !== "linux") {
-    if (process.platform === "darwin" && isWindowsExecutable(parsedPath)) {
-      const game = await gamesSublevel.get(gameKey).catch(() => null);
-      if (game) {
-        const pid = await CrossOverRunner.launchGame(
-          { ...game, executablePath: parsedPath },
-          launchOptions
-        );
-        if (pid !== null) {
-          launchedGamePids.set(gameKey, pid);
-          setImmediate(() => {
-            void watchProcesses();
-          });
-        }
-        return pid;
-      }
-    }
+  if (process.platform === "darwin") {
+    const isDarwinApp =
+      parsedPath.toLowerCase().endsWith(".app") ||
+      parsedPath.toLowerCase().includes(".app/contents/macos/");
 
+    if (!isDarwinApp) {
+      const game = await gamesSublevel.get(gameKey).catch(() => null);
+      const launchPayload: Game = game ?? {
+        title: path.basename(parsedPath),
+        executablePath: parsedPath,
+        shop,
+        objectId,
+        iconUrl: null,
+        libraryHeroImageUrl: null,
+        logoImageUrl: null,
+        remoteId: null,
+        isDeleted: false,
+        playTimeInMilliseconds: 0,
+        lastTimePlayed: null,
+        addedToLibraryAt: new Date(),
+        executablePathUpdatedAt: new Date(),
+        launchOptions: null,
+        favorite: false,
+        automaticCloudSync: false,
+        hasManuallyUpdatedPlaytime: false,
+      };
+
+      const pid = await CrossOverRunner.launchGame(
+        { ...launchPayload, executablePath: parsedPath },
+        launchOptions
+      );
+      if (pid !== null) {
+        launchedGamePids.set(gameKey, pid);
+        setImmediate(() => {
+          void watchProcesses();
+        });
+      }
+      return pid;
+    }
+  }
+
+  if (process.platform !== "linux") {
     return launchNatively(
       parsedPath,
       launchOptions,

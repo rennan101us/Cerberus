@@ -13,7 +13,10 @@ import {
   Wine,
   WindowManager,
   CrossOverRunner,
+  CrossOverDiscovery,
 } from "@main/services";
+import { updateGameRecord } from "@main/services/game-record-updater";
+import { updateGameExecutablePath } from "@main/helpers/update-executable-path";
 import { UmuEarlyExitError } from "@main/services/umu-launch-monitor";
 import {
   findDownloadInstaller,
@@ -318,9 +321,13 @@ const executeDarwinInstaller = async (
   filePath: string,
   options: InstallerLaunchOptions
 ): Promise<InstallerLaunchResult> => {
-  const isExe = path.extname(filePath).toLowerCase() === ".exe";
-  if (!isExe) {
-    return await openUntracked(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const isWindowsInstaller = [".exe", ".msi", ".bat", ".cmd"].includes(ext);
+
+  if (!isWindowsInstaller) {
+    if ([".pkg", ".dmg", ".app"].includes(ext)) {
+      return await openUntracked(filePath);
+    }
   }
 
   try {
@@ -329,13 +336,13 @@ const executeDarwinInstaller = async (
       onExit: options.onExit,
     });
     if (result.spawned) {
-      return trackedLaunch(filePath, "with CrossOver");
+      return trackedLaunch(filePath, "with Fine Wine");
     }
   } catch (error) {
-    logger.error("Failed to execute game installer with CrossOver", error);
+    logger.error("Failed to execute game installer with Fine Wine", error);
   }
 
-  return await openUntracked(filePath);
+  return { launched: false, tracked: false };
 };
 
 const executeGameInstaller = async (
@@ -489,6 +496,52 @@ const openGameInstaller = async (
   const installerPath = await findDownloadInstaller(download).catch(() => null);
 
   if (!installerPath) {
+    // 1. Check if the game is already portable / pre-extracted
+    const bound = await new GameFilesManager(shop, objectId)
+      .searchAndBindExecutable()
+      .catch(() => false);
+
+    if (bound) {
+      logger.info(
+        `[GameInstaller] Game ${objectId} is portable; automatically bound executable`
+      );
+      releaseRunningInstaller(gameKey, installerStartedAt);
+      await updateInstallerState(gameKey, {
+        installerLaunched: false,
+        installerRunning: false,
+      });
+      WindowManager.sendToAppWindows("on-library-batch-complete");
+      return true;
+    }
+
+    // 2. On macOS, scan gamePath for any executable candidates
+    if (process.platform === "darwin") {
+      const candidates = await CrossOverDiscovery.findExecutablesInDir(
+        gamePath,
+        0,
+        3
+      ).catch(() => [] as string[]);
+      if (candidates.length > 0) {
+        const primary = CrossOverDiscovery.pickPrimaryExecutable(
+          path.basename(gamePath),
+          candidates
+        );
+        await updateGameRecord(gameKey, (current) =>
+          updateGameExecutablePath(current, primary)
+        );
+        logger.info(
+          `[GameInstaller] Bound detected primary executable: ${primary}`
+        );
+        releaseRunningInstaller(gameKey, installerStartedAt);
+        await updateInstallerState(gameKey, {
+          installerLaunched: false,
+          installerRunning: false,
+        });
+        WindowManager.sendToAppWindows("on-library-batch-complete");
+        return true;
+      }
+    }
+
     releaseRunningInstaller(gameKey, installerStartedAt);
     shell.openPath(gamePath);
     return true;

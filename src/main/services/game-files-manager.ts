@@ -32,6 +32,7 @@ import fs from "node:fs";
 import path from "node:path";
 import pngToIco from "png-to-ico";
 import sharp from "sharp";
+import { CrossOverDiscovery } from "./crossover/crossover-discovery";
 import { ExtractionProgress, SevenZip } from "./7zip";
 import { type ArchiveExtractors, extractArchive } from "./archive-extraction";
 import { NativeAddon } from "./native-addon";
@@ -947,15 +948,31 @@ export class GameFilesManager {
 
       const executables = GameExecutables.getExecutablesForGame(this.objectId);
 
-      if (!executables || executables.length === 0) {
-        return false;
-      }
-
       const changedFolders = await listFoldersChangedSince(
         getInstallerTargetDirectories(download.downloadPath, winePrefixPath),
         installerStartedAt,
         [download.downloadPath]
       );
+
+      if (!executables || executables.length === 0) {
+        if (process.platform === "darwin" && changedFolders.length > 0) {
+          for (const folderPath of changedFolders) {
+            const found = await CrossOverDiscovery.findExecutablesInDir(
+              folderPath,
+              0,
+              3
+            );
+            if (found.length > 0) {
+              const primary = CrossOverDiscovery.pickPrimaryExecutable(
+                path.basename(folderPath),
+                found
+              );
+              return await this.bindExecutable(primary);
+            }
+          }
+        }
+        return false;
+      }
 
       const matches = await Promise.all(
         changedFolders.map((folderPath) =>

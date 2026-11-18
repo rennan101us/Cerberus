@@ -82,6 +82,33 @@ export class CrossOverDetector {
     }
   }
 
+  public static detectBottleFromPath(
+    filePath: string,
+    bottlesDir?: string
+  ): string | null {
+    if (!filePath) return null;
+    const normalized = path.resolve(filePath);
+
+    // 1. Direct regex match on path: .../Bottles/<BottleName>/...
+    const match = normalized.match(
+      /[/\\](?:CrossOver[/\\])?Bottles[/\\]([^/\\]+)/i
+    );
+    if (match && match[1]) {
+      return match[1];
+    }
+
+    // 2. Relative check if bottlesDir is provided
+    if (bottlesDir) {
+      const rel = path.relative(bottlesDir, normalized);
+      if (!rel.startsWith("..") && !path.isAbsolute(rel)) {
+        const seg = rel.split(path.sep)[0];
+        if (seg) return seg;
+      }
+    }
+
+    return null;
+  }
+
   public static async getBottlesDirectory(): Promise<string> {
     const homeDir = os.homedir();
     const defaultDir = path.join(

@@ -301,13 +301,38 @@ export class CrossOverRunner {
       bottleDir
     );
 
-    const args: string[] = [
-      "--bottle",
-      bottleName,
-      "--wait-children",
-      "--cx-app",
-      windowsPath,
-    ];
+    const ext = path.extname(options.installerPath).toLowerCase();
+    let args: string[];
+
+    if (ext === ".msi") {
+      args = [
+        "--bottle",
+        bottleName,
+        "--wait-children",
+        "--cx-app",
+        "msiexec",
+        "/i",
+        windowsPath,
+      ];
+    } else if (ext === ".bat" || ext === ".cmd") {
+      args = [
+        "--bottle",
+        bottleName,
+        "--wait-children",
+        "--cx-app",
+        "cmd",
+        "/c",
+        windowsPath,
+      ];
+    } else {
+      args = [
+        "--bottle",
+        bottleName,
+        "--wait-children",
+        "--cx-app",
+        windowsPath,
+      ];
+    }
 
     logger.info(
       `[CrossOver] Executing installer in bottle '${bottleName}': ${options.installerPath} -> ${windowsPath}`
@@ -320,12 +345,14 @@ export class CrossOverRunner {
     });
 
     if (options.onExit) {
-      proc.on("close", (code) => {
+      let exitFired = false;
+      const safeExit = (code: number | null) => {
+        if (exitFired) return;
+        exitFired = true;
         options.onExit?.(code);
-      });
-      proc.on("exit", (code) => {
-        options.onExit?.(code);
-      });
+      };
+      proc.once("close", safeExit);
+      proc.once("exit", safeExit);
     }
 
     return {

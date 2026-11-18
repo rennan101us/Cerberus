@@ -11,7 +11,14 @@ import {
 
 const MAX_INSTALLER_DEPTH = 2;
 
-const INSTALLER_NAME_PATTERNS = [/^setup\.exe$/, /^(setup|install).*\.exe$/];
+const INSTALLER_NAME_PATTERNS = [
+  /^setup\.exe$/,
+  /^(setup|install|installer).*\.exe$/,
+  /.*(setup|install|installer).*\.exe$/,
+  /^autorun\.exe$/,
+  /.*\.msi$/,
+  /^(setup|install|installer).*\.(bat|cmd)$/,
+];
 
 interface InstallerCandidate {
   filePath: string;

@@ -224,6 +224,13 @@ const initializeApp = async () => {
         error
       );
     });
+
+    CrossOverDiscovery.enrichLibraryArtwork().catch((error) => {
+      logger.warn(
+        "[CrossOverDiscovery] Startup artwork enrichment encountered an issue:",
+        error
+      );
+    });
   }
 
   // Suspend can outlive the 60s stall watchdog; reconnect right away instead
