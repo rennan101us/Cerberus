@@ -110,13 +110,13 @@ export class CrossOverRunner {
     const appPath = CrossOverDetector.findCrossOverApp();
     if (!appPath) {
       throw new Error(
-        "CrossOver is not installed. Please install it in Compatibility options."
+        "Fine Wine is not installed. Please set it up in Compatibility options."
       );
     }
 
-    // 1. Run automatic trial reset before launching
+    // 1. Run automatic Fine Reset before launching
     await CrossOverProvisioner.resetTrial().catch((err) => {
-      logger.warn("[CrossOver] Pre-launch trial reset warning", err);
+      logger.warn("[FineWine] Pre-launch Fine Reset notice", err);
     });
 
     // 2. Determine bottle
@@ -183,11 +183,11 @@ export class CrossOverRunner {
   }): Promise<{ spawned: boolean; pid?: number }> {
     const appPath = CrossOverDetector.findCrossOverApp();
     if (!appPath) {
-      throw new Error("CrossOver is not installed");
+      throw new Error("Fine Wine is not installed");
     }
 
     await CrossOverProvisioner.resetTrial().catch((err) => {
-      logger.warn("[CrossOver] Pre-installer trial reset warning", err);
+      logger.warn("[FineWine] Pre-installer Fine Reset notice", err);
     });
 
     const bottlesDir = await CrossOverDetector.getBottlesDirectory();

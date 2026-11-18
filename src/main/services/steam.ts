@@ -9,10 +9,81 @@ import type { SteamShortcut } from "@types";
 
 import { logger } from "./logger";
 import { SystemPath } from "./system-path";
+import { CrossOverDetector } from "./crossover/crossover-detector";
 import {
   parseSteamAppDetailsResponse,
   type SteamAppDetailsResponse,
 } from "./steam-app-details";
+
+const getDarwinWineSteamInstallations = async (): Promise<
+  { bottleDir: string; steamLocation: string }[]
+> => {
+  if (process.platform !== "darwin") return [];
+
+  const installations: { bottleDir: string; steamLocation: string }[] = [];
+  try {
+    const bottlesDir = await CrossOverDetector.getBottlesDirectory();
+    const bottles = await CrossOverDetector.listBottles(bottlesDir);
+
+    const relativeSteamPaths = [
+      path.join("drive_c", "Program Files (x86)", "Steam"),
+      path.join("drive_c", "Program Files", "Steam"),
+    ];
+
+    for (const bottle of bottles) {
+      const bottleDir = path.join(bottlesDir, bottle);
+      for (const relPath of relativeSteamPaths) {
+        const candidate = path.join(bottleDir, relPath);
+        if (
+          fs.existsSync(candidate) &&
+          fs.existsSync(path.join(candidate, "steamapps"))
+        ) {
+          installations.push({ bottleDir, steamLocation: candidate });
+        }
+      }
+    }
+  } catch (error) {
+    logger.warn(
+      "[getSteamLocation] Error checking Fine Wine Steam installations",
+      error
+    );
+  }
+
+  return installations;
+};
+
+const resolveBottleWindowsPath = (
+  bottleDir: string,
+  rawPath: string
+): string | null => {
+  const normalized = rawPath.replaceAll("/", "\\");
+  const match = normalized.match(/^([a-zA-Z]):\\(.*)$/);
+  if (!match) {
+    if (path.isAbsolute(rawPath) && fs.existsSync(rawPath)) return rawPath;
+    return null;
+  }
+
+  const driveLetter = match[1].toLowerCase();
+  const restParts = match[2].split("\\").filter(Boolean);
+
+  if (driveLetter === "c") {
+    const candidate = path.join(bottleDir, "drive_c", ...restParts);
+    return fs.existsSync(candidate) ? candidate : null;
+  }
+
+  const dosdevice = path.join(bottleDir, "dosdevices", `${driveLetter}:`);
+  if (fs.existsSync(dosdevice)) {
+    try {
+      const realTarget = fs.realpathSync(dosdevice);
+      const candidate = path.join(realTarget, ...restParts);
+      return fs.existsSync(candidate) ? candidate : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};
 
 export const getSteamLocation = async () => {
   if (process.platform === "linux") {
@@ -36,12 +107,22 @@ export const getSteamLocation = async () => {
   }
 
   if (process.platform === "darwin") {
-    return path.join(
+    const nativePath = path.join(
       SystemPath.getPath("home"),
       "Library",
       "Application Support",
       "Steam"
     );
+    if (fs.existsSync(path.join(nativePath, "steamapps"))) {
+      return nativePath;
+    }
+
+    const wineSteamInstalls = await getDarwinWineSteamInstallations();
+    if (wineSteamInstalls.length > 0) {
+      return wineSteamInstalls[0].steamLocation;
+    }
+
+    return nativePath;
   }
 
   const regKey = new WinReg({
@@ -79,29 +160,54 @@ const parseLibraryFolderPaths = (content: string) => {
 };
 
 export const getSteamLibraryFolders = async (): Promise<string[]> => {
+  const libraryFolders: string[] = [];
+
   const steamLocation = await getSteamLocation().catch(() => null);
+  if (steamLocation && fs.existsSync(steamLocation)) {
+    libraryFolders.push(steamLocation);
 
-  if (!steamLocation) return [];
+    for (const manifest of LIBRARY_FOLDER_MANIFESTS) {
+      const content = await fs.promises
+        .readFile(path.join(steamLocation, ...manifest), "utf8")
+        .catch(() => null);
 
-  for (const manifest of LIBRARY_FOLDER_MANIFESTS) {
-    const content = await fs.promises
-      .readFile(path.join(steamLocation, ...manifest), "utf8")
-      .catch(() => null);
+      if (!content) continue;
 
-    if (!content) continue;
-
-    const libraryFolders = parseLibraryFolderPaths(content);
-
-    if (libraryFolders.length > 0) {
-      return [...new Set([steamLocation, ...libraryFolders])];
+      const parsed = parseLibraryFolderPaths(content);
+      if (parsed.length > 0) {
+        libraryFolders.push(...parsed);
+      }
     }
-
-    logger.info(
-      `[getSteamLibraryFolders] No library folders found in ${manifest.join("/")}`
-    );
   }
 
-  return [steamLocation];
+  if (process.platform === "darwin") {
+    const wineSteamInstalls = await getDarwinWineSteamInstallations();
+    for (const { bottleDir, steamLocation: wineLoc } of wineSteamInstalls) {
+      libraryFolders.push(wineLoc);
+
+      for (const manifest of LIBRARY_FOLDER_MANIFESTS) {
+        const content = await fs.promises
+          .readFile(path.join(wineLoc, ...manifest), "utf8")
+          .catch(() => null);
+
+        if (!content) continue;
+
+        const rawPaths = [
+          ...content.matchAll(/"path"\s*"([^"]+)"/g),
+          ...content.matchAll(/"\d+"\s*"([^"]+)"/g),
+        ].map((m) => m[1]);
+
+        for (const raw of rawPaths) {
+          const resolved = resolveBottleWindowsPath(bottleDir, raw);
+          if (resolved) {
+            libraryFolders.push(resolved);
+          }
+        }
+      }
+    }
+  }
+
+  return [...new Set(libraryFolders.filter((f) => fs.existsSync(f)))];
 };
 
 const steamLanguageByLocale: Record<string, string> = {

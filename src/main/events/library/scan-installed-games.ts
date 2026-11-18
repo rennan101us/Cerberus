@@ -30,6 +30,7 @@ import {
   getInstalledSteamApps,
   loadSteamAppInfo,
 } from "@main/services/steam-integration/steam-launch-executables";
+import { CrossOverDetector } from "@main/services/crossover/crossover-detector";
 import type { Game, GameShop } from "@types";
 
 const DISCOVERED_GAMES_SHOP: GameShop = "steam";
@@ -170,6 +171,111 @@ const isWithin = (child: string, parent: string) => {
   );
 };
 
+const getDarwinWineScanDirectories = async (): Promise<string[]> => {
+  if (process.platform !== "darwin") return [];
+
+  const scanDirs: string[] = [];
+  try {
+    const bottlesDir = await CrossOverDetector.getBottlesDirectory();
+    const bottles = await CrossOverDetector.listBottles(bottlesDir);
+
+    const relativeGameDirs = [
+      path.join("drive_c", "Games"),
+      path.join("drive_c", "GOG Games"),
+      path.join("drive_c", "Program Files (x86)", "DODI-Repacks"),
+      path.join("drive_c", "Program Files", "DODI-Repacks"),
+      path.join(
+        "drive_c",
+        "Program Files (x86)",
+        "Steam",
+        "steamapps",
+        "common"
+      ),
+      path.join("drive_c", "Program Files", "Steam", "steamapps", "common"),
+    ];
+
+    const systemSkip = new Set([
+      "windows",
+      "common files",
+      "internet explorer",
+      "windows media player",
+      "windows nt",
+      "windowspowershell",
+      "microsoft.net",
+      "microsoft",
+      "powershell",
+      "nvidia corporation",
+      "intel",
+    ]);
+
+    for (const bottle of bottles) {
+      const bottlePath = path.join(bottlesDir, bottle);
+
+      // Known standard folders
+      for (const relDir of relativeGameDirs) {
+        const fullDir = path.join(bottlePath, relDir);
+        if (fs.existsSync(fullDir)) {
+          scanDirs.push(fullDir);
+        }
+      }
+
+      // Check top-level subfolders of Program Files and Program Files (x86)
+      for (const pf of ["Program Files", "Program Files (x86)"]) {
+        const pfDir = path.join(bottlePath, "drive_c", pf);
+        if (fs.existsSync(pfDir)) {
+          const entries = await fs.promises
+            .readdir(pfDir, { withFileTypes: true })
+            .catch(() => [] as fs.Dirent[]);
+          for (const entry of entries) {
+            if (
+              entry.isDirectory() &&
+              !systemSkip.has(entry.name.toLowerCase())
+            ) {
+              const gameFolder = path.join(pfDir, entry.name);
+              scanDirs.push(gameFolder);
+            }
+          }
+        }
+      }
+
+      // External drives in dosdevices (e.g. dosdevices/d: -> /Volumes/Nintendo)
+      const dosdevicesDir = path.join(bottlePath, "dosdevices");
+      if (fs.existsSync(dosdevicesDir)) {
+        const devEntries = await fs.promises
+          .readdir(dosdevicesDir)
+          .catch(() => [] as string[]);
+        for (const dev of devEntries) {
+          if (dev.startsWith("c") || dev.startsWith("z") || dev.includes("::"))
+            continue;
+          const devPath = path.join(dosdevicesDir, dev);
+          try {
+            const real = await fs.promises.realpath(devPath);
+            for (const sub of [
+              "Games",
+              "GOG Games",
+              "Steam/steamapps/common",
+            ]) {
+              const extTarget = path.join(real, sub);
+              if (fs.existsSync(extTarget)) {
+                scanDirs.push(extTarget);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+    }
+  } catch (error) {
+    logger.warn(
+      "[ScanInstalledGames] Error finding Fine Wine scan directories",
+      error
+    );
+  }
+
+  return [...new Set(scanDirs)];
+};
+
 const getDefaultScanDirectories = async (
   steamFallbackDirectories: string[]
 ) => {
@@ -181,8 +287,12 @@ const getDefaultScanDirectories = async (
     return null;
   });
 
+  const darwinScanDirs =
+    process.platform === "darwin" ? await getDarwinWineScanDirectories() : [];
+
   return [
-    ...WINDOWS_GAME_DIRECTORIES,
+    ...(process.platform === "win32" ? WINDOWS_GAME_DIRECTORIES : []),
+    ...darwinScanDirs,
     ...steamFallbackDirectories,
     ...(downloadsPath ? [downloadsPath] : []),
   ];

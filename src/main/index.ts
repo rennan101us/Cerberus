@@ -22,6 +22,7 @@ import {
   SSEClient,
   emulators,
   ScreenshotInputService,
+  CrossOverProvisioner,
 } from "@main/services";
 import resources from "@locales";
 import { TorrentService } from "./services/torrent-service";
@@ -210,6 +211,12 @@ const initializeApp = async () => {
   await initializeEpicIntegration().catch((error) => {
     logger.warn("Epic integration initialization unavailable", error);
   });
+
+  if (process.platform === "darwin") {
+    CrossOverProvisioner.resetTrial().catch((error) => {
+      logger.warn("[FineReset] Startup auto-reset notice", error);
+    });
+  }
 
   // Suspend can outlive the 60s stall watchdog; reconnect right away instead
   powerMonitor.on("suspend", suspendEpicPlaytime);

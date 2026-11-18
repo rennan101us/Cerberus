@@ -207,12 +207,12 @@ export function MacOsCrossOverSection({
 
   return (
     <div className="macos-crossover-section">
-      {/* 1. CrossOver Status & Provisioning */}
+      {/* 1. Fine Wine Status & Provisioning */}
       <div className="macos-crossover-section__card">
         <div className="macos-crossover-section__card-header">
           <div>
             <h4 className="macos-crossover-section__card-title">
-              CrossOver macOS Engine
+              Fine Wine Engine
             </h4>
             <p className="macos-crossover-section__card-desc">
               Executes Windows (.exe) games and repacks natively on Apple
@@ -226,11 +226,11 @@ export function MacOsCrossOverSection({
               </span>
             ) : status?.installed ? (
               <span className="macos-crossover-section__status-badge macos-crossover-section__status-badge--installed">
-                Installed {status.version ? `v${status.version}` : ""}
+                Fine Wine {status.version ? `v${status.version}` : "(Ready)"}
               </span>
             ) : (
               <span className="macos-crossover-section__status-badge macos-crossover-section__status-badge--missing">
-                Not Installed
+                Not Setup
               </span>
             )}
 
@@ -251,7 +251,7 @@ export function MacOsCrossOverSection({
             <ProgressBar
               now={provisionProgress.progress}
               max={100}
-              label="CrossOver setup progress"
+              label="Fine Wine setup progress"
               completed={provisionProgress.progress === 100}
             />
           </div>
@@ -267,7 +267,7 @@ export function MacOsCrossOverSection({
               <span style={{ marginRight: "6px", display: "inline-flex" }}>
                 <DownloadIcon size={14} />
               </span>
-              Download & Install CrossOver Demo
+              Download & Setup Fine Wine
             </Button>
           ) : status.updateAvailable ? (
             <Button
@@ -278,7 +278,7 @@ export function MacOsCrossOverSection({
               <span style={{ marginRight: "6px", display: "inline-flex" }}>
                 <SyncIcon size={14} />
               </span>
-              Update to CrossOver v{status.latestVersion}
+              Update Fine Wine Engine (v{status.latestVersion})
             </Button>
           ) : null}
 
@@ -290,7 +290,7 @@ export function MacOsCrossOverSection({
             <span style={{ marginRight: "6px", display: "inline-flex" }}>
               <CheckCircleIcon size={14} />
             </span>
-            Reset Trial Now (Crossover Zero)
+            Fine Reset
           </Button>
 
           {trialMessage && (
@@ -303,7 +303,9 @@ export function MacOsCrossOverSection({
 
       {/* 2. Bottle Selection */}
       <div className="macos-crossover-section__card">
-        <h4 className="macos-crossover-section__card-title">Wine Bottle</h4>
+        <h4 className="macos-crossover-section__card-title">
+          Fine Wine Environment (Bottle)
+        </h4>
         <p className="macos-crossover-section__card-desc">
           Windows virtual environment containing your game files and libraries
         </p>
@@ -311,7 +313,7 @@ export function MacOsCrossOverSection({
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <div style={{ flex: 1 }}>
             <SelectField
-              label="Selected Bottle"
+              label="Selected Environment"
               value={bottleName}
               options={bottleOptions}
               onChange={(e) => {
@@ -325,7 +327,7 @@ export function MacOsCrossOverSection({
             style={{ marginTop: "22px" }}
             onClick={() => setShowNewBottle(!showNewBottle)}
           >
-            {showNewBottle ? "Cancel" : "+ New Bottle"}
+            {showNewBottle ? "Cancel" : "+ New Environment"}
           </Button>
         </div>
 
@@ -333,7 +335,7 @@ export function MacOsCrossOverSection({
           <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
             <div style={{ flex: 1 }}>
               <TextField
-                placeholder="New bottle name (e.g. RPGs, Steam)"
+                placeholder="New environment name (e.g. RPGs, Steam)"
                 value={newBottleInput}
                 onChange={(e) => setNewBottleInput(e.target.value)}
               />
@@ -346,7 +348,7 @@ export function MacOsCrossOverSection({
 
         {status?.bottlesDir && (
           <span style={{ fontSize: "11px", color: "#777777" }}>
-            Bottles directory: {status.bottlesDir}/{bottleName}
+            Environment path: {status.bottlesDir}/{bottleName}
           </span>
         )}
       </div>

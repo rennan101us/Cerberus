@@ -23,6 +23,9 @@ export const normalizeGameExecutableCatalog = (
           if (platform === "linux") {
             return executable.os === "linux" || executable.os === "win32";
           }
+          if (platform === "darwin") {
+            return executable.os === "darwin" || executable.os === "win32";
+          }
 
           return false;
         })

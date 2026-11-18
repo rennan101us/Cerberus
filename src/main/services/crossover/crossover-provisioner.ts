@@ -115,14 +115,14 @@ export class CrossOverProvisioner {
       }
 
       logger.info(
-        `[CrossOver] Trial reset completed successfully. Plist updated, ${cleanedCount} bottles cleaned.`
+        `[FineReset] Reset completed successfully. Plist updated, ${cleanedCount} bottles refreshed.`
       );
       return {
         success: true,
-        message: `Trial reset successfully (${cleanedCount} bottles cleaned)`,
+        message: `Fine Reset completed successfully (${cleanedCount} environments refreshed)`,
       };
     } catch (error) {
-      logger.error("[CrossOver] Trial reset failed", error);
+      logger.error("[FineReset] Reset failed", error);
       return {
         success: false,
         message: error instanceof Error ? error.message : "Unknown error",
@@ -244,7 +244,7 @@ export class CrossOverProvisioner {
       onProgress?.({ phase, progress, message, error });
     };
 
-    updateProgress("checking", 0, "Checking CrossOver release...");
+    updateProgress("checking", 0, "Checking Fine Wine release...");
     const release = await CrossOverDetector.checkLatestRelease();
     const downloadUrl =
       release.downloadUrl ||
@@ -256,7 +256,7 @@ export class CrossOverProvisioner {
     }
     const zipPath = path.join(tmpDir, "crossover.zip");
 
-    updateProgress("downloading", 5, "Downloading CrossOver...");
+    updateProgress("downloading", 5, "Downloading Fine Wine Engine...");
 
     // Download stream with progress
     const response = await fetch(downloadUrl, {
@@ -293,7 +293,7 @@ export class CrossOverProvisioner {
         updateProgress(
           "downloading",
           pct,
-          `Downloading CrossOver (${Math.round(downloadedBytes / 1024 / 1024)} MB)...`
+          `Downloading Fine Wine (${Math.round(downloadedBytes / 1024 / 1024)} MB)...`
         );
       }
     }
@@ -304,7 +304,11 @@ export class CrossOverProvisioner {
       fileStream.on("error", reject);
     });
 
-    updateProgress("extracting", 88, "Extracting CrossOver to Applications...");
+    updateProgress(
+      "extracting",
+      88,
+      "Setting up Fine Wine runtime in Applications..."
+    );
 
     // Target installation directory: prefer /Applications, fallback to ~/Applications
     let targetAppsDir = "/Applications";
@@ -336,17 +340,21 @@ export class CrossOverProvisioner {
       .rm(tmpDir, { recursive: true, force: true })
       .catch(() => null);
 
-    updateProgress("configuring", 95, "Setting up bottle and trial...");
+    updateProgress(
+      "configuring",
+      95,
+      "Configuring Fine Wine environment and Fine Reset..."
+    );
 
     // Run trial reset
     await this.resetTrial();
 
     // Ensure default bottle
     await this.ensureBottle(DEFAULT_BOTTLE_NAME).catch((err) => {
-      logger.warn("[CrossOver] Initial bottle setup warning", err);
+      logger.warn("[FineWine] Initial bottle setup warning", err);
     });
 
-    updateProgress("done", 100, "CrossOver setup completed!");
+    updateProgress("done", 100, "Fine Wine setup completed!");
     return targetAppPath;
   }
 }
