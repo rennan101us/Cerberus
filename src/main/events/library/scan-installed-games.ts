@@ -30,7 +30,10 @@ import {
   getInstalledSteamApps,
   loadSteamAppInfo,
 } from "@main/services/steam-integration/steam-launch-executables";
-import { CrossOverDetector } from "@main/services/crossover/crossover-detector";
+import {
+  CrossOverDetector,
+  CrossOverDiscovery,
+} from "@main/services/crossover";
 import type { Game, GameShop } from "@types";
 
 const DISCOVERED_GAMES_SHOP: GameShop = "steam";
@@ -1286,6 +1289,16 @@ const runScan = async (
     : await addGamesOutsideLibrary(
         new Map([...steamPathByObjectId, ...outsideLibrary.pathByObjectId])
       );
+
+  if (process.platform === "darwin" && addGamesToLibrary && !signal.cancelled) {
+    const importedBottleGames =
+      await CrossOverDiscovery.autoImportBottleGames().catch(() => 0);
+    if (importedBottleGames > 0) {
+      logger.info(
+        `[ScanInstalledGames] Auto-imported ${importedBottleGames} Fine Wine bottle games`
+      );
+    }
+  }
 
   logger.info(
     `[ScanInstalledGames] Linked ${linkedGames.length} of ${gamesToScan.length} games in the library, added ${addedGames.length} new ones, ${outsideLibrary.ambiguousMatches.length} need a choice`

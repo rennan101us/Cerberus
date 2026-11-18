@@ -23,6 +23,7 @@ import {
   emulators,
   ScreenshotInputService,
   CrossOverProvisioner,
+  CrossOverDiscovery,
 } from "@main/services";
 import resources from "@locales";
 import { TorrentService } from "./services/torrent-service";
@@ -215,6 +216,13 @@ const initializeApp = async () => {
   if (process.platform === "darwin") {
     CrossOverProvisioner.resetTrial().catch((error) => {
       logger.warn("[FineReset] Startup auto-reset notice", error);
+    });
+
+    CrossOverDiscovery.autoImportBottleGames().catch((error) => {
+      logger.warn(
+        "[CrossOverDiscovery] Startup discovery encountered an issue:",
+        error
+      );
     });
   }
 

@@ -76,11 +76,13 @@ export function ScanGamesModal({
 }: Readonly<ScanGamesModalProps>) {
   const { t } = useTranslation("header");
 
-  const isWindows = window.electron.platform === "win32";
+  const hasAutomaticScan =
+    window.electron.platform === "win32" ||
+    window.electron.platform === "darwin";
 
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
   const [scanMode, setScanMode] = useState<ScanMode>(
-    isWindows ? "automatic" : "manual"
+    hasAutomaticScan ? "automatic" : "manual"
   );
   const [addGamesToLibrary, setAddGamesToLibrary] = useState(true);
   const [pending, setPending] = useState<AmbiguousMatch[]>([]);
@@ -88,7 +90,7 @@ export function ScanGamesModal({
   const [isResolving, setIsResolving] = useState(false);
   const [resolvedGames, setResolvedGames] = useState<FoundGame[]>([]);
 
-  const isManualMode = !isWindows || scanMode === "manual";
+  const isManualMode = !hasAutomaticScan || scanMode === "manual";
   const requiresFolderSelection = isManualMode && selectedFolders.length === 0;
 
   const addedGames = [...(scanResult?.addedGames ?? []), ...resolvedGames];
@@ -149,7 +151,7 @@ export function ScanGamesModal({
 
   const handleClose = () => {
     setSelectedFolders([]);
-    setScanMode(isWindows ? "automatic" : "manual");
+    setScanMode(hasAutomaticScan ? "automatic" : "manual");
     onClose();
   };
 
@@ -218,7 +220,7 @@ export function ScanGamesModal({
       <div className="scan-games-modal">
         {!scanResult && !isScanning && (
           <>
-            {isWindows && (
+            {hasAutomaticScan && (
               <div className="scan-games-modal__mode-toggle">
                 <button
                   type="button"

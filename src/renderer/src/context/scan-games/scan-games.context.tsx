@@ -29,7 +29,9 @@ const ScanGamesContext = createContext<ScanGamesContextValue>({
 export const useScanGames = () => useContext(ScanGamesContext);
 
 const isScanSupported =
-  window.electron.platform === "win32" || window.electron.platform === "linux";
+  window.electron.platform === "win32" ||
+  window.electron.platform === "linux" ||
+  window.electron.platform === "darwin";
 
 /**
  * Owns the scan for installed games above the pages, so a scan and its
