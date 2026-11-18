@@ -115,6 +115,9 @@ import type {
   LocalScreenshotDraft,
   LocalScreenshotUploadOptions,
   ScreenshotUploadProgress,
+  CrossOverStatus,
+  MacOSCompatibilityOptions,
+  CrossOverProvisionProgress,
 } from "@types";
 import type { AuthPage, Downloader } from "@shared";
 import { NATIVE_WINDOW_DECORATIONS_ARGUMENT } from "../shared/window-layout";
@@ -1260,6 +1263,44 @@ contextBridge.exposeInMainWorld("electron", {
     objectId: string,
     protonPath: string | null
   ) => ipcRenderer.invoke("selectGameProtonPath", shop, objectId, protonPath),
+  getCrossOverStatus: (forceRefresh = false) =>
+    ipcRenderer.invoke(
+      "getCrossOverStatus",
+      forceRefresh
+    ) as Promise<CrossOverStatus>,
+  updateCrossOverSettings: (
+    shop: GameShop,
+    objectId: string,
+    options: MacOSCompatibilityOptions
+  ) => ipcRenderer.invoke("updateCrossOverSettings", shop, objectId, options),
+  resetCrossOverTrial: () =>
+    ipcRenderer.invoke("resetCrossOverTrial") as Promise<{
+      success: boolean;
+      message: string;
+    }>,
+  createCrossOverBottle: (bottleName: string) =>
+    ipcRenderer.invoke("createCrossOverBottle", bottleName) as Promise<{
+      bottleDir: string;
+    }>,
+  installCrossOverDemo: () =>
+    ipcRenderer.invoke("installCrossOverDemo") as Promise<{
+      success: boolean;
+      error?: string;
+      appPath?: string;
+      status?: CrossOverStatus;
+    }>,
+  onCrossOverProvisionProgress: (
+    cb: (progress: CrossOverProvisionProgress) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      progress: CrossOverProvisionProgress
+    ) => cb(progress);
+    ipcRenderer.on("on-crossover-provision-progress", listener);
+    return () => {
+      ipcRenderer.removeListener("on-crossover-provision-progress", listener);
+    };
+  },
   getInstalledProtonVersions: () =>
     ipcRenderer.invoke("getInstalledProtonVersions") as Promise<
       ProtonVersion[]

@@ -12,6 +12,7 @@ import {
   Umu,
   Wine,
   WindowManager,
+  CrossOverRunner,
 } from "@main/services";
 import { UmuEarlyExitError } from "@main/services/umu-launch-monitor";
 import {
@@ -313,6 +314,30 @@ const executeLinuxInstaller = async (
   return await openUntracked(filePath);
 };
 
+const executeDarwinInstaller = async (
+  filePath: string,
+  options: InstallerLaunchOptions
+): Promise<InstallerLaunchResult> => {
+  const isExe = path.extname(filePath).toLowerCase() === ".exe";
+  if (!isExe) {
+    return await openUntracked(filePath);
+  }
+
+  try {
+    const result = await CrossOverRunner.executeInstaller({
+      installerPath: filePath,
+      onExit: options.onExit,
+    });
+    if (result.spawned) {
+      return trackedLaunch(filePath, "with CrossOver");
+    }
+  } catch (error) {
+    logger.error("Failed to execute game installer with CrossOver", error);
+  }
+
+  return await openUntracked(filePath);
+};
+
 const executeGameInstaller = async (
   filePath: string,
   options: InstallerLaunchOptions
@@ -323,6 +348,10 @@ const executeGameInstaller = async (
 
   if (process.platform === "linux") {
     return await executeLinuxInstaller(filePath, options);
+  }
+
+  if (process.platform === "darwin") {
+    return await executeDarwinInstaller(filePath, options);
   }
 
   return await openUntracked(filePath);

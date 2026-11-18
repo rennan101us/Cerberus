@@ -70,6 +70,7 @@ import { logger } from "@renderer/logger";
 import { GameOptionsSidebar } from "./game-options-modal/sidebar";
 import { GeneralSettingsSection } from "./game-options-modal/general-section";
 import { CompatibilitySettingsSection } from "./game-options-modal/compatibility-section";
+import { MacOsCrossOverSection } from "./game-options-modal/macos-crossover-section";
 import { DownloadsSettingsSection } from "./game-options-modal/downloads-section";
 import { DangerZoneSection } from "./game-options-modal/danger-zone-section";
 import { HydraCloudLegacySettingsSection } from "./game-options-modal/hydra-cloud-section";
@@ -974,8 +975,9 @@ export function GameOptionsModal({
     game.discs?.some((disc) => disc.isExecutable)
   );
   const showDownloadSettings = game.shop !== "custom";
-  const shouldShowWinePrefixConfiguration =
-    globalThis.window.electron.platform === "linux";
+  const isLinux = globalThis.window.electron.platform === "linux";
+  const isDarwin = globalThis.window.electron.platform === "darwin";
+  const shouldShowWinePrefixConfiguration = isLinux || isDarwin;
   const defaultHydraWinePrefixPath =
     game.shop !== "epic" && defaultWinePrefixPath
       ? `${defaultWinePrefixPath}/${game.objectId}`
@@ -1453,36 +1455,38 @@ export function GameOptionsModal({
                   onDownload={handleLegacySaveDownload}
                 />
               )}
-            {selectedCategory === "compatibility" &&
-              shouldShowWinePrefixConfiguration && (
-                <CompatibilitySettingsSection
-                  game={game}
-                  displayedWinePrefixPath={displayedWinePrefixPath}
-                  winePrefixPlaceholder={
-                    game.shop === "epic"
-                      ? t("epic_compatibility_automatic")
-                      : undefined
-                  }
-                  effectiveProtonName={linuxCompatibility?.protonName}
-                  protonVersions={protonVersions}
-                  selectedProtonPath={selectedProtonPath}
-                  autoRunGamemode={autoRunGamemode}
-                  autoRunMangohud={autoRunMangohud}
-                  globalAutoRunGamemode={globalAutoRunGamemode}
-                  globalAutoRunMangohud={globalAutoRunMangohud}
-                  gamemodeAvailable={gamemodeAvailable}
-                  mangohudAvailable={mangohudAvailable}
-                  winetricksAvailable={winetricksAvailable}
-                  gamemodeSiteUrl={GAMEMODE_SITE_URL}
-                  mangohudSiteUrl={MANGOHUD_SITE_URL}
-                  onChangeWinePrefixPath={handleChangeWinePrefixPath}
-                  onClearWinePrefixPath={handleClearWinePrefixPath}
-                  onOpenWinetricks={handleOpenWinetricks}
-                  onChangeGamemodeState={handleChangeGamemodeState}
-                  onChangeMangohudState={handleChangeMangohudState}
-                  onChangeProtonVersion={handleChangeProtonVersion}
-                />
-              )}
+            {selectedCategory === "compatibility" && isLinux && (
+              <CompatibilitySettingsSection
+                game={game}
+                displayedWinePrefixPath={displayedWinePrefixPath}
+                winePrefixPlaceholder={
+                  game.shop === "epic"
+                    ? t("epic_compatibility_automatic")
+                    : undefined
+                }
+                effectiveProtonName={linuxCompatibility?.protonName}
+                protonVersions={protonVersions}
+                selectedProtonPath={selectedProtonPath}
+                autoRunGamemode={autoRunGamemode}
+                autoRunMangohud={autoRunMangohud}
+                globalAutoRunGamemode={globalAutoRunGamemode}
+                globalAutoRunMangohud={globalAutoRunMangohud}
+                gamemodeAvailable={gamemodeAvailable}
+                mangohudAvailable={mangohudAvailable}
+                winetricksAvailable={winetricksAvailable}
+                gamemodeSiteUrl={GAMEMODE_SITE_URL}
+                mangohudSiteUrl={MANGOHUD_SITE_URL}
+                onChangeWinePrefixPath={handleChangeWinePrefixPath}
+                onClearWinePrefixPath={handleClearWinePrefixPath}
+                onOpenWinetricks={handleOpenWinetricks}
+                onChangeGamemodeState={handleChangeGamemodeState}
+                onChangeMangohudState={handleChangeMangohudState}
+                onChangeProtonVersion={handleChangeProtonVersion}
+              />
+            )}
+            {selectedCategory === "compatibility" && isDarwin && (
+              <MacOsCrossOverSection game={game} onUpdateGame={updateGame} />
+            )}
             {selectedCategory === "downloads" && showDownloadSettings && (
               <DownloadsSettingsSection
                 game={downloadGame}

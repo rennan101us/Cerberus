@@ -26,6 +26,7 @@ import {
   Wine,
   NativeAddon,
   launchedGamePids,
+  CrossOverRunner,
   type UmuStatus,
 } from "@main/services";
 import {
@@ -628,6 +629,20 @@ const launchResolvedGame = async (
   shortcut: ExecutableShortcut | null = null
 ) => {
   if (process.platform !== "linux") {
+    if (process.platform === "darwin" && isWindowsExecutable(parsedPath)) {
+      const game = await gamesSublevel.get(gameKey).catch(() => null);
+      if (game) {
+        const pid = await CrossOverRunner.launchGame(
+          { ...game, executablePath: parsedPath },
+          launchOptions
+        );
+        if (pid !== null) {
+          launchedGamePids.set(gameKey, pid);
+        }
+        return pid;
+      }
+    }
+
     return launchNatively(
       parsedPath,
       launchOptions,

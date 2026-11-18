@@ -2,6 +2,7 @@
 node_modules/
 __pycache__
 dist
+Hydra.app
 out
 .DS_Store
 *.log*

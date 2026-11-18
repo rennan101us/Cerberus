@@ -148,6 +148,9 @@ import type {
   ResolveEpicCloudSaveConflictPayload,
   EpicLaunchOptions,
   EpicLinuxCompatibility,
+  CrossOverStatus,
+  MacOSCompatibilityOptions,
+  CrossOverProvisionProgress,
 } from "@types";
 import type { AxiosProgressEvent } from "axios";
 
@@ -546,6 +549,25 @@ declare global {
       objectId: string,
       protonPath: string | null
     ) => Promise<void>;
+    getCrossOverStatus: (forceRefresh?: boolean) => Promise<CrossOverStatus>;
+    updateCrossOverSettings: (
+      shop: GameShop,
+      objectId: string,
+      options: MacOSCompatibilityOptions
+    ) => Promise<void>;
+    resetCrossOverTrial: () => Promise<{ success: boolean; message: string }>;
+    createCrossOverBottle: (
+      bottleName: string
+    ) => Promise<{ bottleDir: string }>;
+    installCrossOverDemo: () => Promise<{
+      success: boolean;
+      error?: string;
+      appPath?: string;
+      status?: CrossOverStatus;
+    }>;
+    onCrossOverProvisionProgress: (
+      cb: (progress: CrossOverProvisionProgress) => void
+    ) => () => void;
     getInstalledProtonVersions: () => Promise<ProtonVersion[]>;
     getGameLaunchProtonVersion: (
       shop: GameShop,

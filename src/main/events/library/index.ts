@@ -72,3 +72,6 @@ import "./check-steam-shortcut";
 
 import "./transfer-game-files";
 import "./get-available-drives";
+import "./get-crossover-status";
+import "./update-crossover-settings";
+import "./manage-crossover";

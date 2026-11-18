@@ -11,6 +11,7 @@ import type {
   EpicDownloadMetadata,
   EpicInstallation,
 } from "./epic-managed.types";
+import type { MacOSCompatibilityOptions } from "./crossover.types";
 
 export type SubscriptionStatus = "active" | "pending" | "cancelled";
 
@@ -87,6 +88,7 @@ export interface Game extends LibraryCatalogueMetadata {
   collectionPositions?: Record<string, number>;
   isDeleted: boolean;
   winePrefixPath?: string | null;
+  macOSCompatibility?: MacOSCompatibilityOptions;
   protonPath?: string | null;
   executablePath?: string | null;
   executablePathUpdatedAt?: Date | null;

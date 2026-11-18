@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 
 import { SystemPath } from "@main/services/system-path";
 
@@ -136,6 +137,56 @@ const getWinePrefixTargetDirectories = (winePrefixPath: string | null) => {
   );
 };
 
+const getCrossOverTargetDirectories = (winePrefixPath: string | null) => {
+  if (winePrefixPath) {
+    return WINE_DRIVE_C_GAME_FOLDERS.map((folder) =>
+      path.join(winePrefixPath, "drive_c", folder)
+    );
+  }
+
+  const homeDir = SystemPath.getPath("home");
+  const potentialBottleDirs: string[] = [
+    path.join(
+      homeDir,
+      "Library",
+      "Application Support",
+      "CrossOver",
+      "Bottles"
+    ),
+  ];
+
+  try {
+    const bottleDir = execFileSync(
+      "/usr/bin/defaults",
+      ["read", "com.codeweavers.CrossOver", "BottleDir"],
+      { encoding: "utf-8", timeout: 1000 }
+    ).trim();
+    if (bottleDir && fs.existsSync(bottleDir)) {
+      potentialBottleDirs.unshift(bottleDir);
+    }
+  } catch {
+    // ignore
+  }
+
+  const targetDirs: string[] = [];
+  for (const bDir of potentialBottleDirs) {
+    if (fs.existsSync(bDir)) {
+      try {
+        const bottles = fs.readdirSync(bDir);
+        for (const bottle of bottles) {
+          for (const folder of WINE_DRIVE_C_GAME_FOLDERS) {
+            targetDirs.push(path.join(bDir, bottle, "drive_c", folder));
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  return targetDirs;
+};
+
 export const getInstallerTargetDirectories = (
   downloadPath: string,
   winePrefixPath: string | null
@@ -146,6 +197,10 @@ export const getInstallerTargetDirectories = (
 
   if (process.platform === "linux") {
     return getWinePrefixTargetDirectories(winePrefixPath);
+  }
+
+  if (process.platform === "darwin") {
+    return getCrossOverTargetDirectories(winePrefixPath);
   }
 
   return [];
