@@ -13,13 +13,13 @@ import { MyScreenshotsDangerZone } from "./my-screenshots-danger-zone";
 interface DangerZoneSectionProps {
   game: LibraryGame;
   deleting: boolean;
-  isDeletingAchievements: boolean;
-  hasAchievements: boolean;
+  isDeletingAchievements?: boolean;
+  hasAchievements?: boolean;
   isGameDownloading: boolean;
   removeFilesTarget: RemoveFilesTarget | null;
   userDetails: UserDetails | null;
   onOpenRemoveFromLibrary: () => void;
-  onOpenResetAchievements: () => void;
+  onOpenResetAchievements?: () => void;
   onOpenChangePlaytime: () => void;
   onOpenResetPlaytime: () => void;
   onOpenRemoveFiles: (target: RemoveFilesTarget) => void;
@@ -57,13 +57,10 @@ function DangerRow({
 export function DangerZoneSection({
   game,
   deleting,
-  isDeletingAchievements,
-  hasAchievements,
   isGameDownloading,
   removeFilesTarget,
-  userDetails,
+  userDetails: _userDetails,
   onOpenRemoveFromLibrary,
-  onOpenResetAchievements,
   onOpenChangePlaytime,
   onOpenResetPlaytime,
   onOpenRemoveFiles,
@@ -77,14 +74,6 @@ export function DangerZoneSection({
     minutes < MAX_MINUTES_TO_SHOW_IN_PLAYTIME
       ? t("amount_minutes", { amount: minutes.toFixed(0) })
       : t("amount_hours", { amount: numberFormatter.format(minutes / 60) });
-
-  const getAchievementsDescription = () => {
-    if (!userDetails) return t("danger_achievements_sign_in");
-    if (!hasAchievements) return t("danger_achievements_none");
-    return t("danger_achievements_description");
-  };
-  const canResetAchievements =
-    !deleting && !isDeletingAchievements && hasAchievements && !!userDetails;
 
   const getFilesDescription = () => {
     if (isGameDownloading) return t("danger_files_downloading");
@@ -124,22 +113,6 @@ export function DangerZoneSection({
             {t("danger_reset")}
           </Button>
         </DangerRow>
-
-        {game.shop !== "custom" && (
-          <DangerRow
-            label={t("danger_achievements_label")}
-            description={getAchievementsDescription()}
-            disabled={!canResetAchievements}
-          >
-            <Button
-              onClick={onOpenResetAchievements}
-              theme="danger"
-              disabled={!canResetAchievements}
-            >
-              {t("danger_reset")}
-            </Button>
-          </DangerRow>
-        )}
 
         {game.shop !== "custom" && (
           <DangerRow

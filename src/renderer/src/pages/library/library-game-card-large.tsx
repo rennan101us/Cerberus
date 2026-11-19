@@ -20,7 +20,7 @@ import {
   isGameReadyToPlay,
   resolveClassicsBadge,
 } from "@renderer/helpers";
-import { AchievementProgress, SteamLibraryBadge } from "@renderer/components";
+import { SteamLibraryBadge } from "@renderer/components";
 import { GameVisibilityBadge } from "@renderer/components/game-visibility-badge/game-visibility-badge";
 import { formatBytes, getDisplayedPlayTimeInMilliseconds } from "@shared";
 import {
@@ -30,7 +30,7 @@ import {
   FileZipIcon,
   CheckCircleFillIcon,
 } from "@primer/octicons-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   EMULATOR_ICONS,
@@ -38,8 +38,6 @@ import {
 } from "@renderer/pages/settings/emulation/emulator-icons";
 import "./library-game-card-large.scss";
 
-// Cards scrolled past or remounted within this window never load, keeping scroll bursts off the API.
-const ACHIEVEMENT_PROGRESS_SETTLE_MS = 250;
 const LOGO_DISPLAY_WIDTH = 400;
 
 interface LibraryGameCardLargeProps {
@@ -109,8 +107,6 @@ export const LibraryGameCardLarge = memo(function LibraryGameCardLarge({
     importSources.epic && !userPreferences?.hideEpicLibraryBadges;
   const showSteamLibraryBadge =
     importSources.steam && !userPreferences?.hideSteamLibraryBadges;
-  const hideAchievementProgress =
-    userPreferences?.hideLibraryAchievementProgress ?? false;
   const autoplayAnimatedArtwork =
     userPreferences?.autoplayAnimatedArtwork ?? false;
 
@@ -198,32 +194,6 @@ export const LibraryGameCardLarge = memo(function LibraryGameCardLarge({
 
   const [heroIndex, setHeroIndex] = useState(0);
 
-  const [unlockedAchievementsCount, setUnlockedAchievementsCount] = useState(
-    game.unlockedAchievementCount ?? 0
-  );
-  const [totalAchievementsCount, setTotalAchievementsCount] = useState(
-    game.achievementCount ?? 0
-  );
-  const hasStoreUnion =
-    "availableShops" in game &&
-    Array.isArray(game.availableShops) &&
-    game.availableShops.includes("steam") &&
-    game.availableShops.includes("epic");
-
-  const achievementMembersKey =
-    "members" in game && Array.isArray(game.members)
-      ? JSON.stringify(
-          (game.members as LibraryGame[])
-            .map((member) => [
-              member.shop,
-              member.objectId,
-              member.achievementCount,
-              member.unlockedAchievementCount,
-            ])
-            .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-        )
-      : "";
-
   useEffect(() => {
     setHeroIndex(0);
   }, [
@@ -234,76 +204,6 @@ export const LibraryGameCardLarge = memo(function LibraryGameCardLarge({
     game.coverImageUrl,
     game.libraryImageUrl,
     game.iconUrl,
-  ]);
-
-  const achievementGameKey = `${game.shop}:${game.objectId}`;
-  const previousAchievementGameKey = useRef(achievementGameKey);
-
-  useEffect(() => {
-    const gameChanged =
-      previousAchievementGameKey.current !== achievementGameKey;
-    previousAchievementGameKey.current = achievementGameKey;
-    const needsCatalogueTotal =
-      game.shop === "epic" &&
-      (game.achievementCount ?? 0) <= 0 &&
-      game.catalogueGame?.shop === "steam";
-    if (gameChanged || (!hasStoreUnion && !needsCatalogueTotal)) {
-      setTotalAchievementsCount(game.achievementCount ?? 0);
-      setUnlockedAchievementsCount(game.unlockedAchievementCount ?? 0);
-    }
-    if (
-      game.unlockedAchievementCount != null &&
-      !hasStoreUnion &&
-      !needsCatalogueTotal
-    ) {
-      setUnlockedAchievementsCount(game.unlockedAchievementCount);
-      return;
-    }
-
-    if (
-      (game.achievementCount ?? 0) <= 0 &&
-      !hasStoreUnion &&
-      !needsCatalogueTotal
-    )
-      return;
-
-    let isStale = false;
-
-    const timer = setTimeout(() => {
-      window.electron
-        .getUnlockedAchievements(game.objectId, game.shop)
-        .then((achievements) => {
-          if (isStale) return;
-          // An empty legacy fallback cannot distinguish unavailable definitions
-          // from an authoritative empty catalogue. Preserve known grouped totals.
-          if (
-            (hasStoreUnion || needsCatalogueTotal) &&
-            achievements.length === 0
-          )
-            return;
-          setUnlockedAchievementsCount(
-            achievements.filter((a) => a.unlocked).length
-          );
-          // Both counts must describe the returned list, including a one-store fallback.
-          setTotalAchievementsCount(achievements.length);
-        })
-        .catch(() => void 0);
-    }, ACHIEVEMENT_PROGRESS_SETTLE_MS);
-
-    return () => {
-      isStale = true;
-      clearTimeout(timer);
-    };
-  }, [
-    game.achievementCount,
-    game.catalogueGame?.shop,
-    game.catalogueGame?.objectId,
-    game.objectId,
-    game.shop,
-    game.unlockedAchievementCount,
-    hasStoreUnion,
-    achievementMembersKey,
-    achievementGameKey,
   ]);
 
   const rawHeroSource = heroSources[heroIndex];
@@ -431,10 +331,6 @@ export const LibraryGameCardLarge = memo(function LibraryGameCardLarge({
           loading="lazy"
         />
       )}
-      {!hideAchievementProgress &&
-        (totalAchievementsCount > 0 || unlockedAchievementsCount > 0) && (
-          <div className="library-game-card-large__gradient" />
-        )}
 
       <div className="library-game-card-large__overlay">
         <div className="library-game-card-large__top-section">
@@ -533,22 +429,6 @@ export const LibraryGameCardLarge = memo(function LibraryGameCardLarge({
           ) : (
             <h3 className="library-game-card-large__title">{game.title}</h3>
           )}
-        </div>
-
-        <div className="library-game-card-large__info-bar">
-          {!hideAchievementProgress &&
-            (totalAchievementsCount > 0 || unlockedAchievementsCount > 0) && (
-              <AchievementProgress
-                achievementCount={Math.max(
-                  totalAchievementsCount,
-                  unlockedAchievementsCount
-                )}
-                unlockedAchievementCount={unlockedAchievementsCount}
-                classNamePrefix="library-game-card-large"
-                label={`${game.title} achievements`}
-                trophyIconSize={14}
-              />
-            )}
         </div>
       </div>
     </button>

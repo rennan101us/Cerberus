@@ -44,14 +44,10 @@ import { useSubscription } from "./hooks/use-subscription";
 import { ArchiveDeletionModal } from "./pages/downloads/archive-deletion-error-modal";
 import { CloudSubscriptionModal } from "./pages/shared-modals/hydra-cloud/cloud-subscription-modal";
 import { AddFriendModal } from "./pages/profile/profile-content/add-friend-modal";
-import { ClassicsScanModal } from "./pages/settings/emulation/classics-scan-modal";
-import { Ps4PkgJobHost } from "./components/ps4-pkg-job/ps4-pkg-job-host";
-import { RetroArchScanModal } from "./pages/settings/emulation/retroarch-scan-modal";
 import { CloudGiftNotificationModal } from "./pages/shared-modals/cloud-gift-notification-modal";
 import { LevelUpModal } from "./components/gamification";
 import { useMissingScreenshotsToast } from "./hooks/use-missing-screenshots-toast";
 import { useScreenshotUploadFailureToast } from "./hooks/use-screenshot-upload-failure-toast";
-import { LeaderboardNotificationLayer } from "./components/leaderboard-notification/leaderboard-notification-layer";
 import { playMessageSound } from "./pages/chat-window/chat-sounds";
 
 import type { UserPreferences } from "@types";
@@ -803,8 +799,6 @@ export function App() {
 
       <CloudGiftNotificationModal />
 
-      <LeaderboardNotificationLayer />
-
       <ArchiveDeletionModal
         visible={showArchiveDeletionModal}
         archivePaths={archivePaths}
@@ -815,10 +809,6 @@ export function App() {
         visible={showAddFriendModal}
         onClose={() => setShowAddFriendModal(false)}
       />
-
-      <ClassicsScanModal />
-      <Ps4PkgJobHost />
-      <RetroArchScanModal />
 
       <ScanGamesProvider>
         <main>

@@ -19,7 +19,7 @@ import {
   isGameReadyToPlay,
   resolveClassicsBadge,
 } from "@renderer/helpers";
-import { AchievementProgress, SteamLibraryBadge } from "@renderer/components";
+import { SteamLibraryBadge } from "@renderer/components";
 import { GameVisibilityBadge } from "@renderer/components/game-visibility-badge/game-visibility-badge";
 import { memo, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -346,20 +346,6 @@ export const LibraryGameCard = memo(function LibraryGameCard({
             </div>
           )}
         </div>
-
-        {!hideAchievementProgress &&
-          ((game.achievementCount ?? 0) > 0 ||
-            (game.unlockedAchievementCount ?? 0) > 0) && (
-            <AchievementProgress
-              achievementCount={Math.max(
-                game.achievementCount ?? 0,
-                game.unlockedAchievementCount ?? 0
-              )}
-              unlockedAchievementCount={game.unlockedAchievementCount ?? 0}
-              classNamePrefix="library-game-card"
-              label={`${game.title} achievements`}
-            />
-          )}
       </div>
 
       {renderCoverMedia()}

@@ -9,7 +9,6 @@ import { Fragment, useMemo } from "react";
 import "./settings.scss";
 import {
   BellIcon,
-  CloudIcon,
   DownloadIcon,
   GearIcon,
   LinkIcon,
@@ -17,17 +16,14 @@ import {
   VideoIcon,
   ShieldCheckIcon,
 } from "@primer/octicons-react";
-import { Camera, Gamepad2, Wrench } from "lucide-react";
+import { Camera } from "lucide-react";
 import { SettingsContextGeneral } from "./settings-context-general";
 import { SettingsContextDownloads } from "./settings-context-downloads";
 import { SettingsContextDownloadSources } from "./settings-context-download-sources";
 import { SettingsContextNotifications } from "./settings-context-notifications";
 import { SettingsContextContentGameplay } from "./settings-context-content-gameplay";
 import { SettingsContextScreenshots } from "./settings-context-screenshots";
-import { SettingsContextIntegrations } from "./settings-context-integrations";
-import { SettingsContextCompatibility } from "./settings-context-compatibility";
 import { SettingsContextBigPicture } from "./settings-context-big-picture";
-import { SettingsContextEmulation } from "./emulation/settings-context-emulation";
 
 export default function Settings() {
   const { t } = useTranslation("settings");
@@ -72,16 +68,6 @@ export default function Settings() {
             },
           ]
         : []),
-      {
-        id: "integrations" as const,
-        label: t("integrations"),
-        icon: <CloudIcon size={16} />,
-      },
-      {
-        id: "compatibility" as const,
-        label: t("compatibility"),
-        icon: <Wrench size={16} />,
-      },
       ...(userDetails
         ? [
             {
@@ -95,12 +81,6 @@ export default function Settings() {
         id: "big_picture" as const,
         label: t("big_picture"),
         icon: <VideoIcon size={16} />,
-      },
-      {
-        id: "emulation" as const,
-        label: t("emulation"),
-        icon: <Gamepad2 size={16} />,
-        group: "classics" as const,
       },
     ],
     [t, userDetails, isScreenshotsEnabled]
@@ -140,20 +120,8 @@ export default function Settings() {
               return <SettingsContextScreenshots />;
             }
 
-            if (selectedCategoryId === "integrations") {
-              return <SettingsContextIntegrations />;
-            }
-
-            if (selectedCategoryId === "compatibility") {
-              return <SettingsContextCompatibility />;
-            }
-
             if (selectedCategoryId === "big_picture") {
               return <SettingsContextBigPicture />;
-            }
-
-            if (selectedCategoryId === "emulation") {
-              return <SettingsContextEmulation />;
             }
 
             return <SettingsAccount />;
@@ -206,9 +174,7 @@ export default function Settings() {
                 </aside>
 
                 <div className="settings__panel">
-                  {selectedCategoryId !== "emulation" && (
-                    <h2>{currentCategory.label}</h2>
-                  )}
+                  <h2>{currentCategory.label}</h2>
                   {renderCategory()}
                 </div>
               </div>

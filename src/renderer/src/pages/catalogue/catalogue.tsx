@@ -7,13 +7,9 @@ import type {
 import {
   useAppDispatch,
   useAppSelector,
-  useFeature,
   useFormat,
 } from "@renderer/hooks";
 import {
-  lazy,
-  Suspense,
-  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -25,48 +21,19 @@ import "./catalogue.scss";
 
 import { Button } from "@renderer/components/button/button";
 import { SelectField } from "@renderer/components/select-field/select-field";
-import { setFilters, setMode, setPage } from "@renderer/features";
+import { setFilters, setPage } from "@renderer/features";
 import { useCatalogue } from "@renderer/hooks/use-catalogue";
-import { useLaunchboxFilters } from "@renderer/hooks/use-launchbox-filters";
 import { debounce } from "lodash-es";
 import { useTranslation } from "react-i18next";
 import Skeleton, { SkeletonTheme } from "react-loading-skeleton";
 import cn from "classnames";
-import { CatalogueModeToggle } from "./catalogue-mode-toggle";
-// Imported directly: as a lazy chunk it popped in above the other filters.
 import { ReleaseYearSection } from "./release-year-section";
-import {
-  RECOMPILATION_FILTER_COLOR,
-  RecompilationFilterToggle,
-} from "./recompilation-filter-toggle";
-import { getClassicsPlatformGroup } from "./classics-platform-group";
 import { FilterItem } from "./filter-item";
 import { FilterSection } from "./filter-section";
 import { GameItem } from "./game-item";
-import { GameItemClassics } from "./game-item-classics";
 import { Pagination } from "./pagination";
-import {
-  ClassicsOnboardingModal,
-  hasDismissedClassicsOnboarding,
-} from "@renderer/components/classics-onboarding-modal/classics-onboarding-modal";
-import {
-  RecompilationOnboardingModal,
-  hasDismissedRecompilationOnboarding,
-} from "@renderer/components/recompilation-onboarding-modal";
-
-const ProtonCompatibilitySection = lazy(async () => {
-  const mod = await import("./proton-compatibility-section");
-  return { default: mod.ProtonCompatibilitySection };
-});
 
 const MIN_RELEASE_YEAR = 1970;
-
-type CompatibilityThreshold<Value extends string> = {
-  value: string;
-  labelKey: string;
-  values: Value[];
-  color?: string;
-};
 
 const filterCategoryColors = {
   genres: "hsl(262deg 50% 47%)",
@@ -74,17 +41,8 @@ const filterCategoryColors = {
   downloadSourceFingerprints: "hsl(27deg 50% 40%)",
   developers: "hsl(340deg 50% 46%)",
   publishers: "hsl(200deg 50% 30%)",
-  protondbSupportBadges: "#F50057",
-  deckCompatibility: "#F50057",
   releaseYear: "hsl(38deg 50% 40%)",
-  platforms: "hsl(170deg 50% 36%)",
 };
-
-const classicsPlatformGroups = [
-  { label: "Sony", value: "sony" },
-  { label: "Nintendo", value: "nintendo" },
-  { label: "Other", value: "other" },
-] as const;
 
 const PAGE_SIZE = 30;
 
@@ -94,11 +52,7 @@ const clearAllCategoryFilters = {
   downloadSourceFingerprints: [],
   developers: [],
   publishers: [],
-  protondbSupportBadges: [],
-  deckCompatibility: [],
   releaseYear: undefined,
-  platforms: [],
-  recompilation: undefined,
 };
 
 const sortValues = [
@@ -113,33 +67,6 @@ const sortValues = [
 
 type CatalogueSortValue = (typeof sortValues)[number];
 
-const protonCompatibilityThresholds: CompatibilityThreshold<
-  CatalogueSearchPayload["protondbSupportBadges"][number]
->[] = [
-  {
-    value: "silver_plus",
-    labelKey: "protondb_silver_plus",
-    values: ["silver", "gold", "platinum"],
-    color: "rgb(166, 166, 166)",
-  },
-  {
-    value: "gold_plus",
-    labelKey: "protondb_gold_plus",
-    values: ["gold", "platinum"],
-    color: "rgb(207, 181, 59)",
-  },
-  {
-    value: "platinum_only",
-    labelKey: "protondb_platinum_only",
-    values: ["platinum"],
-    color: "rgb(180, 199, 220)",
-  },
-];
-
-const areSameValues = (first: string[], second: string[]) =>
-  first.length === second.length &&
-  first.every((item) => second.includes(item));
-
 export default function Catalogue() {
   const requestSequenceRef = useRef(0);
   const hasResultsRef = useRef(false);
@@ -151,7 +78,6 @@ export default function Catalogue() {
   const { steamGenres, steamUserTags, filters, page, mode } = useAppSelector(
     (state) => state.catalogueSearch
   );
-  const launchboxFilters = useLaunchboxFilters(mode === "classics");
   const deferredTitleFilter = useDeferredValue(filters.title);
 
   const effectiveFilters = useMemo(() => {
@@ -168,55 +94,11 @@ export default function Catalogue() {
 
   const [itemsCount, setItemsCount] = useState(0);
 
-  const { isFeatureEnabled, isFeaturesLoaded, Feature } = useFeature();
-  const isRecompilationsEnabled = isFeatureEnabled(Feature.Recompilations);
-
-  const [onboarding, setOnboarding] = useState<
-    "classics" | "recompilations" | null
-  >(null);
-  const classicsOnboardingClosedRef = useRef(false);
-  const recompilationOnboardingClosedRef = useRef(false);
-
-  const getDueOnboarding = useCallback(
-    (catalogueMode: typeof mode) => {
-      if (
-        catalogueMode === "classics" &&
-        !classicsOnboardingClosedRef.current &&
-        !hasDismissedClassicsOnboarding()
-      ) {
-        return "classics";
-      }
-      if (
-        isFeaturesLoaded &&
-        isRecompilationsEnabled &&
-        !recompilationOnboardingClosedRef.current &&
-        !hasDismissedRecompilationOnboarding()
-      ) {
-        return "recompilations";
-      }
-      return null;
-    },
-    [isFeaturesLoaded, isRecompilationsEnabled]
-  );
-
-  useEffect(() => {
-    if (onboarding) return;
-    const due = getDueOnboarding(mode);
-    if (due) setOnboarding(due);
-  }, [mode, onboarding, getDueOnboarding]);
-
   const { formatNumber } = useFormat();
 
   const dispatch = useAppDispatch();
 
-  const showRecompilationsSkippingClassicsOnboarding = () => {
-    classicsOnboardingClosedRef.current = true;
-    if (mode !== "classics") dispatch(setMode("classics"));
-    dispatch(setFilters({ recompilation: "has" }));
-  };
-
   const { t, i18n } = useTranslation("catalogue");
-  const shouldShowProtonFeatures = window.electron.platform === "linux";
 
   const debouncedSearch = useRef(
     debounce(
@@ -330,149 +212,7 @@ export default function Catalogue() {
       }));
   }, [steamUserTags, filters.tags, language]);
 
-  const classicsPlatforms = useMemo(
-    () => filters.platforms ?? [],
-    [filters.platforms]
-  );
-
-  const classicsFilterSections = useMemo(() => {
-    return [
-      {
-        title: t("platforms"),
-        key: "platforms" as const,
-        items: launchboxFilters.platforms.map((platform) => ({
-          label: platform.name,
-          value: platform.key,
-          checked: classicsPlatforms.includes(platform.key),
-          group: getClassicsPlatformGroup(platform.name),
-        })),
-      },
-      {
-        title: t("genres"),
-        key: "genres" as const,
-        items: launchboxFilters.genres.map((genre) => ({
-          label: genre,
-          value: genre,
-          checked: filters.genres.includes(genre),
-        })),
-      },
-      {
-        title: t("developers"),
-        key: "developers" as const,
-        items: launchboxFilters.developers.map((developer) => ({
-          label: developer,
-          value: developer,
-          checked: filters.developers.includes(developer),
-        })),
-      },
-      {
-        title: t("publishers"),
-        key: "publishers" as const,
-        items: launchboxFilters.publishers.map((publisher) => ({
-          label: decodeHTML(publisher),
-          value: publisher,
-          checked: filters.publishers.includes(publisher),
-        })),
-      },
-      {
-        title: t("download_sources"),
-        key: "downloadSourceFingerprints" as const,
-        items: downloadSources
-          .filter((source) => source.fingerprint)
-          .map((source) => ({
-            label: source.name,
-            value: source.fingerprint!,
-            checked: filters.downloadSourceFingerprints.includes(
-              source.fingerprint!
-            ),
-          })),
-      },
-    ];
-  }, [
-    launchboxFilters,
-    filters.genres,
-    filters.developers,
-    filters.publishers,
-    filters.downloadSourceFingerprints,
-    downloadSources,
-    classicsPlatforms,
-    t,
-  ]);
-
-  const classicsGroupedFilters = useMemo(() => {
-    return [
-      ...(filters.recompilation
-        ? [
-            {
-              label: t("recompilations_filter"),
-              filterType: t("recompilations_filter"),
-              orbColor: RECOMPILATION_FILTER_COLOR,
-              key: "recompilation",
-              value: "toggle",
-            },
-          ]
-        : []),
-      ...classicsPlatforms.map((platform) => ({
-        label:
-          launchboxFilters.platforms.find((p) => p.key === platform)?.name ??
-          platform,
-        filterType: t("platforms"),
-        orbColor: filterCategoryColors.platforms,
-        key: "platforms",
-        value: platform,
-      })),
-      ...filters.genres.map((genre) => ({
-        label: genre,
-        filterType: t("genres"),
-        orbColor: filterCategoryColors.genres,
-        key: "genres",
-        value: genre,
-      })),
-      ...filters.developers.map((developer) => ({
-        label: developer,
-        filterType: t("developers"),
-        orbColor: filterCategoryColors.developers,
-        key: "developers",
-        value: developer,
-      })),
-      ...filters.publishers.map((publisher) => ({
-        label: decodeHTML(publisher),
-        filterType: t("publishers"),
-        orbColor: filterCategoryColors.publishers,
-        key: "publishers",
-        value: publisher,
-      })),
-      ...filters.downloadSourceFingerprints.map((fingerprint) => ({
-        label: downloadSources.find(
-          (source) => source.fingerprint === fingerprint
-        )?.name as string,
-        filterType: t("download_sources"),
-        orbColor: filterCategoryColors.downloadSourceFingerprints,
-        key: "downloadSourceFingerprints",
-        value: fingerprint,
-      })),
-    ];
-  }, [
-    filters.recompilation,
-    classicsPlatforms,
-    filters.genres,
-    filters.developers,
-    filters.publishers,
-    filters.downloadSourceFingerprints,
-    downloadSources,
-    launchboxFilters.platforms,
-    t,
-  ]);
-
   const groupedFilters = useMemo(() => {
-    const protonThreshold = protonCompatibilityThresholds.find((threshold) =>
-      areSameValues(threshold.values, filters.protondbSupportBadges)
-    );
-    const deckCompatible = areSameValues(filters.deckCompatibility, [
-      "playable",
-      "verified",
-    ]);
-
     return [
       ...filters.genres.map((genre) => ({
         label: Object.keys(steamGenresMapping).find(
@@ -523,32 +263,6 @@ export default function Catalogue() {
         value: publisher,
       })),
 
-      ...(shouldShowProtonFeatures &&
-      protonThreshold &&
-      protonThreshold.values.length
-        ? [
-            {
-              label: t(protonThreshold.labelKey),
-              filterType: t("protondb"),
-              orbColor: filterCategoryColors.protondbSupportBadges,
-              key: "protondbSupportBadges",
-              value: "threshold",
-            },
-          ]
-        : []),
-
-      ...(shouldShowProtonFeatures && deckCompatible
-        ? [
-            {
-              label: t("steam_deck_compatible"),
-              filterType: t("steam_deck_minimum"),
-              orbColor: filterCategoryColors.deckCompatibility,
-              key: "deckCompatibility",
-              value: "threshold",
-            },
-          ]
-        : []),
-
       ...(filters.releaseYear
         ? [
             {
@@ -567,7 +281,6 @@ export default function Catalogue() {
     downloadSources,
     steamGenresMapping,
     language,
-    shouldShowProtonFeatures,
     t,
   ]);
 
@@ -638,8 +351,7 @@ export default function Catalogue() {
     t,
   ]);
 
-  const activeGroupedFilters =
-    mode === "classics" ? classicsGroupedFilters : groupedFilters;
+  const activeGroupedFilters = groupedFilters;
   const selectedFiltersCount = activeGroupedFilters.length;
 
   const sortOptions = useMemo(
@@ -685,32 +397,8 @@ export default function Catalogue() {
 
   const selectedSortValue = `${filters.sortBy}:${filters.sortOrder}`;
 
-  const protonThresholdValue =
-    protonCompatibilityThresholds.find((threshold) =>
-      areSameValues(threshold.values, filters.protondbSupportBadges)
-    )?.value ?? "";
-  const isDeckCompatible = areSameValues(filters.deckCompatibility, [
-    "playable",
-    "verified",
-  ]);
-
   return (
     <div className="catalogue" ref={cataloguePageRef}>
-      <ClassicsOnboardingModal
-        visible={onboarding === "classics"}
-        onClose={() => {
-          classicsOnboardingClosedRef.current = true;
-          setOnboarding(null);
-        }}
-      />
-      <RecompilationOnboardingModal
-        visible={onboarding === "recompilations"}
-        onClose={() => {
-          recompilationOnboardingClosedRef.current = true;
-          setOnboarding(null);
-        }}
-        onShowRecompilations={showRecompilationsSkippingClassicsOnboarding}
-      />
       <div className="catalogue__header">
         <div className="catalogue__header-row">
           <div className="catalogue__header-summary">
@@ -823,20 +511,10 @@ export default function Catalogue() {
               {Array.from({ length: PAGE_SIZE }).map((_, i) => (
                 <Skeleton
                   key={i}
-                  className={cn("catalogue__skeleton", {
-                    "catalogue__skeleton--classics": mode === "classics",
-                  })}
+                  className="catalogue__skeleton"
                 />
               ))}
             </SkeletonTheme>
-          ) : mode === "classics" ? (
-            results.map((game) => (
-              <GameItemClassics
-                key={game.id}
-                game={game}
-                showRecompilationBadge={isRecompilationsEnabled}
-              />
-            ))
           ) : (
             results.map((game) => <GameItem key={game.id} game={game} />)
           )}
@@ -857,139 +535,49 @@ export default function Catalogue() {
 
         <div className="catalogue__filters-container">
           <div className="catalogue__filters-sections">
-            <CatalogueModeToggle />
+            <ReleaseYearSection
+              title={t("release_year")}
+              color={filterCategoryColors.releaseYear}
+              value={filters.releaseYear}
+              onChange={(value) =>
+                dispatch(setFilters({ releaseYear: value }))
+              }
+            />
 
-            {mode === "classics" && isRecompilationsEnabled && (
-              <RecompilationFilterToggle
-                checked={filters.recompilation === "has"}
-                onChange={(checked) =>
-                  dispatch(
-                    setFilters({ recompilation: checked ? "has" : undefined })
-                  )
-                }
-              />
-            )}
-
-            {mode === "modern" && shouldShowProtonFeatures && (
-              <Suspense fallback={null}>
-                <ProtonCompatibilitySection
-                  title={t("protondb")}
-                  protonSliderLabel={t("protondb_minimum")}
-                  deckSliderLabel={t("steam_deck_minimum")}
-                  protonOptions={protonCompatibilityThresholds.map(
-                    (threshold) => ({
-                      value: threshold.value,
-                      label: t(threshold.labelKey),
-                      color: threshold.color,
-                    })
-                  )}
-                  protonValue={protonThresholdValue}
-                  deckChecked={isDeckCompatible}
-                  deckLabel={t("steam_deck_compatible")}
-                  color={filterCategoryColors.protondbSupportBadges}
-                  onProtonChange={(value) => {
-                    const nextThreshold = protonCompatibilityThresholds.find(
-                      (threshold) => threshold.value === value
-                    );
-
+            {filterSections.map((section) => (
+              <FilterSection
+                key={section.key}
+                title={section.title}
+                onClear={() => dispatch(setFilters({ [section.key]: [] }))}
+                color={filterCategoryColors[section.key]}
+                onSelect={(value) => {
+                  if (filters[section.key].includes(value)) {
                     dispatch(
                       setFilters({
-                        protondbSupportBadges: nextThreshold
-                          ? [...nextThreshold.values]
-                          : [],
+                        [section.key]: filters[
+                          section.key as
+                            | "genres"
+                            | "tags"
+                            | "downloadSourceFingerprints"
+                            | "developers"
+                            | "publishers"
+                            | "protondbSupportBadges"
+                            | "deckCompatibility"
+                        ].filter((item) => item !== value),
                       })
                     );
-                  }}
-                  onDeckChange={(checked) => {
+                  } else {
                     dispatch(
                       setFilters({
-                        deckCompatibility: checked
-                          ? ["playable", "verified"]
-                          : [],
+                        [section.key]: [...filters[section.key], value],
                       })
                     );
-                  }}
-                />
-              </Suspense>
-            )}
-
-            {mode === "modern" && (
-              <ReleaseYearSection
-                title={t("release_year")}
-                color={filterCategoryColors.releaseYear}
-                value={filters.releaseYear}
-                onChange={(value) =>
-                  dispatch(setFilters({ releaseYear: value }))
-                }
+                  }
+                }}
+                items={section.items}
+                isLoading={section.isLoading}
               />
-            )}
-
-            {mode === "modern" &&
-              filterSections.map((section) => (
-                <FilterSection
-                  key={section.key}
-                  title={section.title}
-                  onClear={() => dispatch(setFilters({ [section.key]: [] }))}
-                  color={filterCategoryColors[section.key]}
-                  onSelect={(value) => {
-                    if (filters[section.key].includes(value)) {
-                      dispatch(
-                        setFilters({
-                          [section.key]: filters[
-                            section.key as
-                              | "genres"
-                              | "tags"
-                              | "downloadSourceFingerprints"
-                              | "developers"
-                              | "publishers"
-                              | "protondbSupportBadges"
-                              | "deckCompatibility"
-                          ].filter((item) => item !== value),
-                        })
-                      );
-                    } else {
-                      dispatch(
-                        setFilters({
-                          [section.key]: [...filters[section.key], value],
-                        })
-                      );
-                    }
-                  }}
-                  items={section.items}
-                  isLoading={section.isLoading}
-                />
-              ))}
-
-            {mode === "classics" &&
-              classicsFilterSections.map((section) => {
-                const currentValues =
-                  section.key === "platforms"
-                    ? classicsPlatforms
-                    : (filters[section.key] as string[]);
-
-                return (
-                  <FilterSection
-                    key={section.key}
-                    title={section.title}
-                    onClear={() => dispatch(setFilters({ [section.key]: [] }))}
-                    color={filterCategoryColors[section.key]}
-                    onSelect={(value) => {
-                      const stringValue = String(value);
-                      const next = currentValues.includes(stringValue)
-                        ? currentValues.filter((item) => item !== stringValue)
-                        : [...currentValues, stringValue];
-
-                      dispatch(setFilters({ [section.key]: next }));
-                    }}
-                    items={section.items}
-                    groups={
-                      section.key === "platforms"
-                        ? classicsPlatformGroups
-                        : undefined
-                    }
-                  />
-                );
-              })}
+            ))}
           </div>
         </div>
       </div>

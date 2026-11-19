@@ -1,133 +1,35 @@
-import { lazy, Suspense, useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import type {
   HowLongToBeatCategory,
-  ProtonDBData,
   SteamAppDetails,
-  UserAchievement,
 } from "@types";
 import { useTranslation } from "react-i18next";
 import { Button } from "@renderer/components/button/button";
-import { Link } from "@renderer/components/link/link";
 import { StarRating } from "@renderer/components/star-rating/star-rating";
 
 import { gameDetailsContext } from "@renderer/context";
 import {
-  useAppSelector,
-  useDate,
-  useFeature,
   useFormat,
-  useGlobalLeaderboardsFeature,
-  useUserDetails,
 } from "@renderer/hooks";
 import {
-  AlertIcon,
   DownloadIcon,
-  EyeClosedIcon,
-  LockIcon,
   PeopleIcon,
   StarIcon,
 } from "@primer/octicons-react";
 import { HowLongToBeatSection } from "./how-long-to-beat-section";
 import { LaunchboxDetailsSection } from "./launchbox-details-section";
-import { RecompilationsSection } from "./recompilations-section";
 import { SidebarSection } from "../sidebar-section/sidebar-section";
-import { buildGameAchievementPath } from "@renderer/helpers";
-import { useSubscription } from "@renderer/hooks/use-subscription";
-import { RetroAchievementsConnectBanner } from "@renderer/components/retro-achievements-connect-banner/retro-achievements-connect-banner";
 import "./sidebar.scss";
 import { GameLanguageSection } from "./game-language-section";
-import { isAchievementConcealed } from "@shared";
 import { ControllerSupportSection } from "./controller-support-section";
 import { GameScreenshots } from "../game-screenshots/game-screenshots";
-import { LeaderboardSection } from "../leaderboard/leaderboard-section";
-import { AchievementsSkeletonList } from "./achievements-skeleton-list";
-
-const ProtonDBSection = lazy(async () => {
-  const mod = await import("./protondb-section");
-  return { default: mod.ProtonDBSection };
-});
-
-const protonDBResponseCache = new Map<string, ProtonDBData | null>();
-const protonDBInFlightRequests = new Map<
-  string,
-  Promise<ProtonDBData | null>
->();
-
-const getProtonDBData = (shop: string, objectId: string) => {
-  const cacheKey = `${shop}:${objectId}`;
-
-  if (protonDBResponseCache.has(cacheKey)) {
-    return Promise.resolve(protonDBResponseCache.get(cacheKey) ?? null);
-  }
-
-  const inFlightRequest = protonDBInFlightRequests.get(cacheKey);
-  if (inFlightRequest) {
-    return inFlightRequest;
-  }
-
-  const request = window.electron.hydraApi
-    .get<ProtonDBData | null>(`/games/${shop}/${objectId}/protondb`, {
-      needsAuth: false,
-    })
-    .then((protonData) => {
-      protonDBResponseCache.set(cacheKey, protonData);
-      return protonData;
-    })
-    .catch(() => null)
-    .finally(() => {
-      protonDBInFlightRequests.delete(cacheKey);
-    });
-
-  protonDBInFlightRequests.set(cacheKey, request);
-  return request;
-};
-
-const achievementsPlaceholder: UserAchievement[] = [
-  {
-    displayName: "Timber!!",
-    name: "1",
-    hidden: false,
-    description: "Chop down your first tree.",
-    icon: "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/105600/0fbb33098c9da39d1d4771d8209afface9c46e81.jpg",
-    icongray:
-      "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/105600/0fbb33098c9da39d1d4771d8209afface9c46e81.jpg",
-    unlocked: true,
-    unlockTime: Date.now(),
-  },
-  {
-    displayName: "Supreme Helper Minion!",
-    name: "2",
-    hidden: false,
-    icon: "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/105600/0a6ff6a36670c96ceb4d30cf6fd69d2fdf55f38e.jpg",
-    icongray:
-      "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/105600/0a6ff6a36670c96ceb4d30cf6fd69d2fdf55f38e.jpg",
-    unlocked: false,
-    unlockTime: null,
-  },
-  {
-    displayName: "Feast of Midas",
-    name: "3",
-    hidden: false,
-    icon: "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/105600/2d10311274fe7c92ab25cc29afdca86b019ad472.jpg",
-    icongray:
-      "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/105600/2d10311274fe7c92ab25cc29afdca86b019ad472.jpg",
-    unlocked: false,
-    unlockTime: null,
-  },
-];
 
 export function Sidebar() {
-  const shouldShowProtonFeatures = window.electron.platform === "linux";
   const [howLongToBeat, setHowLongToBeat] = useState<{
     isLoading: boolean;
     data: HowLongToBeatCategory[] | null;
   }>({ isLoading: true, data: null });
-  const [protonDB, setProtonDB] = useState<{
-    isLoading: boolean;
-    data: ProtonDBData | null;
-  }>({ isLoading: shouldShowProtonFeatures, data: null });
 
-  const { userDetails, hasActiveSubscription } = useUserDetails();
   const [activeRequirement, setActiveRequirement] =
     useState<keyof SteamAppDetails["pc_requirements"]>("minimum");
 
@@ -139,43 +41,14 @@ export function Sidebar() {
     shop,
     catalogueGame,
     stats,
-    achievements,
   } = useContext(gameDetailsContext);
   const myScreenshotsGame = game ?? catalogueGame;
   const communityScreenshotsGame = catalogueGame.objectId
     ? catalogueGame
     : myScreenshotsGame;
-  const userPreferences = useAppSelector(
-    (state) => state.userPreferences.value
-  );
 
-  const { showHydraCloudModal } = useSubscription();
-  const { isFeatureEnabled, Feature } = useFeature();
   const { t } = useTranslation("game_details");
-  const { formatDateTime } = useDate();
   const { numberFormatter } = useFormat();
-  const { isEnabled: isGlobalLeaderboardsEnabled } =
-    useGlobalLeaderboardsFeature();
-  const achievementsCount = achievements?.length ?? 0;
-  const shouldRenderAchievementsSection =
-    (!!userDetails && achievementsCount > 0) ||
-    (shop === "launchbox" &&
-      !!shopDetails?.retroAchievementsGameId &&
-      !userPreferences?.retroAchievementsWebApiKey);
-
-  // Steam's store data says up front whether the game has achievements
-  // (category 22). While the list loads, keep its section in place so the
-  // rail doesn't drop by a whole section when it arrives.
-  const STEAM_ACHIEVEMENTS_CATEGORY_ID = 22;
-  const isAchievementsSectionPending =
-    !shouldRenderAchievementsSection &&
-    !!userDetails &&
-    achievements === null &&
-    ((shop === "steam" &&
-      !!shopDetails?.categories?.some(
-        (category) => category.id === STEAM_ACHIEVEMENTS_CATEGORY_ID
-      )) ||
-      (shop === "launchbox" && !!shopDetails?.retroAchievementsGameId));
 
   useEffect(() => {
     if (objectId) {
@@ -201,172 +74,8 @@ export function Sidebar() {
     }
   }, [objectId, catalogueGame.shop, catalogueGame.objectId]);
 
-  useEffect(() => {
-    if (!shouldShowProtonFeatures || !objectId) {
-      setProtonDB({ isLoading: false, data: null });
-      return;
-    }
-
-    setProtonDB({ isLoading: true, data: null });
-
-    getProtonDBData(catalogueGame.shop, catalogueGame.objectId)
-      .then((protonData) => {
-        setProtonDB({ isLoading: false, data: protonData });
-      })
-      .catch(() => {
-        setProtonDB({ isLoading: false, data: null });
-      });
-  }, [
-    shouldShowProtonFeatures,
-    objectId,
-    catalogueGame.shop,
-    catalogueGame.objectId,
-  ]);
-
   return (
     <aside className="content-sidebar">
-      {shop === "launchbox" &&
-        catalogueGame.objectId &&
-        isFeatureEnabled(Feature.Recompilations) && (
-          <RecompilationsSection objectId={catalogueGame.objectId} />
-        )}
-
-      {shouldShowProtonFeatures && (
-        <Suspense fallback={null}>
-          <ProtonDBSection
-            protonDBData={protonDB.data}
-            isLoading={protonDB.isLoading}
-            objectId={catalogueGame.objectId}
-          />
-        </Suspense>
-      )}
-
-      {userDetails === null && !shouldRenderAchievementsSection && (
-        <SidebarSection title={t("achievements")}>
-          <div className="achievements-placeholder">
-            <LockIcon size={36} />
-            <h3>{t("sign_in_to_see_achievements")}</h3>
-          </div>
-          <ul className="list achievements-placeholder__blur">
-            {achievementsPlaceholder.map((achievement) => (
-              <li key={achievement.name}>
-                <div className="list__item">
-                  <img
-                    className={`list__item-image achievements-placeholder__blur ${
-                      achievement.unlocked ? "" : "list__item-image--locked"
-                    }`}
-                    src={achievement.icon}
-                    alt={achievement.displayName}
-                  />
-                  <div>
-                    <p>{achievement.displayName}</p>
-                    <small>
-                      {achievement.unlockTime != null &&
-                        formatDateTime(achievement.unlockTime)}
-                    </small>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </SidebarSection>
-      )}
-
-      {isAchievementsSectionPending && (
-        <SidebarSection title={t("achievements")}>
-          <AchievementsSkeletonList />
-        </SidebarSection>
-      )}
-
-      {shouldRenderAchievementsSection && (
-        <SidebarSection
-          title={
-            achievementsCount > 0
-              ? t("achievements_count", {
-                  unlockedCount:
-                    achievements?.filter((a) => a.unlocked).length ?? 0,
-                  achievementsCount,
-                })
-              : t("achievements")
-          }
-        >
-          <ul className="list">
-            <RetroAchievementsConnectBanner />
-
-            {!hasActiveSubscription && achievementsCount > 0 && (
-              <button
-                type="button"
-                className="subscription-required-button"
-                onClick={() => showHydraCloudModal("achievements")}
-              >
-                <AlertIcon size={14} />
-                <span>{t("achievements_not_sync")}</span>
-              </button>
-            )}
-
-            {(achievements ?? []).slice(0, 4).map((achievement) => {
-              const concealed = isAchievementConcealed(
-                achievement,
-                userPreferences?.showHiddenAchievementsDescription ?? false
-              );
-
-              return (
-                <li key={achievement.name}>
-                  <Link
-                    to={buildGameAchievementPath({
-                      shop: shop,
-                      objectId: objectId!,
-                      title: gameTitle,
-                    })}
-                    className="list__item"
-                    title={concealed ? undefined : achievement.description}
-                  >
-                    {concealed ? (
-                      <span className="list__item-image list__item-image--concealed">
-                        <EyeClosedIcon size={20} />
-                      </span>
-                    ) : (
-                      <img
-                        className={`list__item-image ${
-                          achievement.unlocked ? "" : "list__item-image--locked"
-                        }`}
-                        src={achievement.icon}
-                        alt={achievement.displayName}
-                      />
-                    )}
-                    <div>
-                      <p>
-                        {concealed
-                          ? t("hidden_achievement", { ns: "achievement" })
-                          : achievement.displayName}
-                      </p>
-                      <small>
-                        {achievement.unlockTime != null &&
-                          formatDateTime(achievement.unlockTime)}
-                      </small>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-
-            {achievementsCount > 0 && (
-              <Link
-                to={buildGameAchievementPath({
-                  shop: shop,
-                  objectId: objectId!,
-                  title: gameTitle,
-                })}
-              >
-                {t("see_all_achievements")}
-              </Link>
-            )}
-          </ul>
-        </SidebarSection>
-      )}
-
-      {isGlobalLeaderboardsEnabled && <LeaderboardSection />}
-
       {stats && (
         <SidebarSection title={t("stats")}>
           <div className="stats__section">
