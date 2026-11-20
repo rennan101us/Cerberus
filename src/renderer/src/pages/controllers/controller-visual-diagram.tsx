@@ -506,7 +506,6 @@ export function ControllerVisualDiagram({
           role="img"
           aria-label={`Diagrama interativo do controle ${currentModel.label}`}
         >
-
           {/* Controller Silhouette */}
           {renderControllerBodySvg(currentModel.id)}
 

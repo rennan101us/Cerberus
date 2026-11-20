@@ -7,7 +7,5 @@ export interface HydraCloudBadgeProps {
 }
 
 export function HydraCloudBadge({ className }: Readonly<HydraCloudBadgeProps>) {
-  return (
-    <span className={cn("hydra-cloud-badge", className)}>Cerberus</span>
-  );
+  return <span className={cn("hydra-cloud-badge", className)}>Cerberus</span>;
 }

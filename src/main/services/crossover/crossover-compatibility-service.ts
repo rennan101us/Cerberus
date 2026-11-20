@@ -31,8 +31,7 @@ const normalizeTitle = (value: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
-const toWikiSlug = (title: string): string =>
-  title.trim().replace(/\s+/g, "_");
+const toWikiSlug = (title: string): string => title.trim().replace(/\s+/g, "_");
 
 const fetchTextWithTimeout = async (
   url: string,
@@ -160,7 +159,10 @@ const resolveRscTextValue = (
 export class CrossOverCompatibilityService {
   private static syncInFlight = false;
 
-  private static getCacheKey(title: string, steamAppId?: string | null): string {
+  private static getCacheKey(
+    title: string,
+    steamAppId?: string | null
+  ): string {
     if (steamAppId) return `steam:${steamAppId}`;
     return `title:${normalizeTitle(title)}`;
   }
@@ -211,7 +213,8 @@ export class CrossOverCompatibilityService {
       const matched =
         (steamAppId
           ? items.find(
-              (item) => item.source === "steam" && item.ref === String(steamAppId)
+              (item) =>
+                item.source === "steam" && item.ref === String(steamAppId)
             )
           : undefined) ??
         items.find((item) => normalizeTitle(item.name) === normalizedTarget) ??
@@ -298,7 +301,8 @@ export class CrossOverCompatibilityService {
         }
 
         // Extract FPS from card badges or text
-        const fpsMatch = lineVal.match(/"children":\["?(\d+)\s*FPS"?\]/i) ??
+        const fpsMatch =
+          lineVal.match(/"children":\["?(\d+)\s*FPS"?\]/i) ??
           lineVal.match(/(\d+)\s*FPS/i);
         const fpsNum = fpsMatch ? Number(fpsMatch[1]) : null;
 
@@ -347,7 +351,8 @@ export class CrossOverCompatibilityService {
 
         // Only add meaningful comments or structured CrossOver reports
         if (noteText || chipset || crossoverVersion) {
-          const idMatch = lineVal.match(/"reviewId":"([^"]+)"/) ??
+          const idMatch =
+            lineVal.match(/"reviewId":"([^"]+)"/) ??
             lineVal.match(/^\["\$","div","([^",]+)/);
           const commentId =
             idMatch?.[1] ??
@@ -561,9 +566,7 @@ export class CrossOverCompatibilityService {
       }
 
       const wikitext = firstPage.revisions?.[0]?.slots?.main?.["*"] ?? "";
-      const cxMatch = wikitext.match(
-        /\|\s*crossover\s*=\s*([a-zA-Z0-9\s]+)/i
-      );
+      const cxMatch = wikitext.match(/\|\s*crossover\s*=\s*([a-zA-Z0-9\s]+)/i);
       const cxNotesMatch = wikitext.match(
         /\|\s*crossover\s+notes\s*=\s*([^\n|}]+)/i
       );
@@ -604,7 +607,10 @@ export class CrossOverCompatibilityService {
   private static inferRecommendedSettings(
     comments: MacCompatibilityComment[]
   ): MacCompatibilityReport["recommendedSettings"] {
-    const joinedText = comments.map((c) => c.text).join(" ").toLowerCase();
+    const joinedText = comments
+      .map((c) => c.text)
+      .join(" ")
+      .toLowerCase();
 
     let graphicsBackend: CrossOverGraphicsBackend = "d3dmetal";
     const syncMode: CrossOverSyncMode = "msync";
@@ -612,8 +618,8 @@ export class CrossOverCompatibilityService {
     const notes: string[] = [];
 
     const dxmtMentions = (joinedText.match(/\bdxmt\b/g) ?? []).length;
-    const d3dMentions =
-      (joinedText.match(/\bd3dmetal\b|\bgptk\b/g) ?? []).length;
+    const d3dMentions = (joinedText.match(/\bd3dmetal\b|\bgptk\b/g) ?? [])
+      .length;
     const dxvkMentions = (joinedText.match(/\bdxvk\b/g) ?? []).length;
 
     if (dxmtMentions > d3dMentions && dxmtMentions > 0) {

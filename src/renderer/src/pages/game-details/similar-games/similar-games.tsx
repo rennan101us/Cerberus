@@ -53,7 +53,8 @@ export function SimilarGames({
   const { games, isLoading, isEligible } = useSimilarGames({ objectId, shop });
   const fallbackIgdb = igdbSimilarGames ?? [];
   const useIgdbFallback =
-    fallbackIgdb.length > 0 && (!isEligible || (!isLoading && games.length === 0));
+    fallbackIgdb.length > 0 &&
+    (!isEligible || (!isLoading && games.length === 0));
   const sectionState = useIgdbFallback
     ? "ready"
     : getSimilarGamesSectionState(isEligible, isLoading, games.length);

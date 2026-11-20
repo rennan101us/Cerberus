@@ -186,8 +186,8 @@ export const LibraryGameCardLarge = memo(function LibraryGameCardLarge({
     const steamAppId =
       game.shop === "steam" || importSources.steam
         ? game.objectId
-        : (extractSteamAppId(game.coverImageUrl) ||
-           extractSteamAppId(game.libraryImageUrl));
+        : extractSteamAppId(game.coverImageUrl) ||
+          extractSteamAppId(game.libraryImageUrl);
     if (steamAppId) {
       for (const fallback of getSteamCoverFallbacks(steamAppId)) {
         candidates.push({ url: fallback, isChosen: false });

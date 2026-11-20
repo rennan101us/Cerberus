@@ -14,8 +14,7 @@ export interface DepotDownloaderLineEvent {
 
 const PROGRESS_RE = /^\s*(\d{1,3}(?:\.\d+)?)%\s+(.+)?$/;
 const QR_URL_RE = /(https:\/\/s\.team\/q\/\S+)/i;
-const DOWNLOAD_COMPLETE_TOTAL_RE =
-  /Total downloaded:\s*([\d,]+)\s+bytes/i;
+const DOWNLOAD_COMPLETE_TOTAL_RE = /Total downloaded:\s*([\d,]+)\s+bytes/i;
 
 export function parseDepotDownloaderLine(
   rawLine: string
@@ -45,7 +44,7 @@ export function parseDepotDownloaderLine(
 
   if (
     lower.includes("auth code") ||
-    lower.includes("email") && lower.includes("code")
+    (lower.includes("email") && lower.includes("code"))
   ) {
     event.prompt = "email-code";
     return event;
@@ -56,10 +55,7 @@ export function parseDepotDownloaderLine(
     return event;
   }
 
-  if (
-    lower.includes("enter account username") ||
-    lower.includes("username:")
-  ) {
+  if (lower.includes("enter account username") || lower.includes("username:")) {
     event.prompt = "username";
     return event;
   }

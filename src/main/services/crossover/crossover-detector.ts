@@ -282,7 +282,10 @@ export class CrossOverDetector {
     const bottles = [DEFAULT_BOTTLE_NAME];
 
     // Refresh latest release asynchronously so UI modals never block on network calls
-    if (!this.isCheckingRelease && (forceRefresh || !this.cachedLatestRelease.version)) {
+    if (
+      !this.isCheckingRelease &&
+      (forceRefresh || !this.cachedLatestRelease.version)
+    ) {
       this.isCheckingRelease = true;
       void this.checkLatestRelease()
         .then((latest) => {
@@ -388,10 +391,7 @@ export class CrossOverDetector {
     }
 
     const cpuCoresTotal = Math.max(1, os.cpus().length || 8);
-    const ramGB = Math.max(
-      1,
-      Math.round(os.totalmem() / (1024 * 1024 * 1024))
-    );
+    const ramGB = Math.max(1, Math.round(os.totalmem() / (1024 * 1024 * 1024)));
 
     let cpuPerformanceCores: number | null = null;
     let cpuEfficiencyCores: number | null = null;

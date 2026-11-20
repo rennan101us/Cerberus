@@ -25,6 +25,7 @@ Retornar ao Hub: [[00_Cerberus_MOC]]
 ## 🏛️ 1. O Ponto de Partida: O Hydra Original
 
 O Hydra Launcher nasceu com o objetivo louvável de unificar o gerenciamento de bibliotecas de jogos. No entanto, sua arquitetura original trazia acoplamentos que limitavam a soberania do usuário:
+
 - **Dependência de Autenticação Web**: Necessidade de login permanente em servidores proprietários na nuvem para acessar abas essenciais.
 - **Rankings Globais & Social Obrigatório**: Processamento constante de telemetria para tabelas de classificação globais (leaderboards), chat em tempo real e feeds sociais.
 - **Falta de Suporte Oficial ao macOS**: Foco quase exclusivo em Windows e Linux, deixando usuários de computadores Apple Silicon sem uma solução nativa de launcher com Wine integrado.
@@ -55,6 +56,7 @@ Na branch `feature/macos-crossover-integration` (culminando no commit `209203671
 ```
 
 ### Principais Modificações Realizadas:
+
 1. **Desacoplamento de Telas de Autenticação (`src/renderer/src/routes.tsx`)**:
    - Remoção de barreiras de sign-in/sign-up. A aplicação inicializa diretamente na biblioteca de jogos do usuário.
 2. **Purificação do Catálogo (`catalogue.tsx`)**:
@@ -80,6 +82,7 @@ A evolução para o Cerberus é guiada por quatro princípios inegociáveis:
 ---
 
 ## 🔮 4. Próximos Passos e Visão Futura
+
 - Expandir a integração com novas versões do Game Porting Toolkit e bibliotecas DXMT.
 - Aprimorar o suporte a controles modernos com vibração avançada no modo Big Picture.
 - Disponibilizar instaladores nativos `.dmg` pré-configurados para a comunidade Apple Silicon.
@@ -87,6 +90,7 @@ A evolução para o Cerberus é guiada por quatro princípios inegociáveis:
 ---
 
 ## 🔗 Relações no Grafo
+
 - **Hub Central**: [[00_Cerberus_MOC]]
 - **Arquitetura Base**: [[Cerberus_Architecture_and_Runtime]]
 - **Execução no Mac**: [[Cerberus_macOS_and_FineWine]]

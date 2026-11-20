@@ -114,7 +114,9 @@ export class StoreAccountStorage {
     if (this.cryptoBackend?.isEncryptionAvailable()) {
       envelope = {
         encrypted: true,
-        payload: this.cryptoBackend.encryptString(serialized).toString("base64"),
+        payload: this.cryptoBackend
+          .encryptString(serialized)
+          .toString("base64"),
       };
     } else {
       envelope = {

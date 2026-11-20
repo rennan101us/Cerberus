@@ -63,8 +63,7 @@ export function SettingsGog() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const { syncedGamesCount } =
-        await window.electron.storesSyncGogLibrary();
+      const { syncedGamesCount } = await window.electron.storesSyncGogLibrary();
       showSuccessToast(
         `Biblioteca GOG sincronizada (${syncedGamesCount} jogos).`
       );
@@ -118,11 +117,7 @@ export function SettingsGog() {
             </Button>
           </div>
         ) : (
-          <Button
-            theme="primary"
-            onClick={handleConnect}
-            disabled={connecting}
-          >
+          <Button theme="primary" onClick={handleConnect} disabled={connecting}>
             <LinkExternalIcon size={14} />
             {connecting ? "Aguardando login..." : "Conectar GOG Galaxy"}
           </Button>
@@ -143,14 +138,17 @@ export function SettingsGog() {
                   ? ` · ${account.syncedGamesCount} jogos na biblioteca`
                   : ""}
               </span>
-              <SettingsIntegrationLastSynced lastSyncedAt={account.lastSyncAt} />
+              <SettingsIntegrationLastSynced
+                lastSyncedAt={account.lastSyncAt}
+              />
             </div>
           </div>
         </div>
       ) : (
         <p className="settings-integration-card__description">
-          Conecte sua conta GOG diretamente para importar sua biblioteca e baixar
-          seus jogos oficiais (macOS native ou Windows via Red Wine) no Cerberus.
+          Conecte sua conta GOG diretamente para importar sua biblioteca e
+          baixar seus jogos oficiais (macOS native ou Windows via Red Wine) no
+          Cerberus.
         </p>
       )}
     </SettingsIntegrationCard>

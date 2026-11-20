@@ -152,7 +152,11 @@ const collectBottleTargetDirs = (bottlePath: string): string[] => {
     try {
       for (const dev of fs.readdirSync(dosdevicesDir)) {
         const lower = dev.toLowerCase();
-        if (lower.startsWith("c") || lower.startsWith("z") || lower.includes("::")) {
+        if (
+          lower.startsWith("c") ||
+          lower.startsWith("z") ||
+          lower.includes("::")
+        ) {
           continue;
         }
         try {

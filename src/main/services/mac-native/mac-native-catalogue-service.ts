@@ -89,9 +89,11 @@ function mergeParsedCards(
       if (!alreadyHasDetail) {
         existing.sources.push(sourceEntry);
       }
-      if (!existing.coverUrl && card.coverUrl) existing.coverUrl = card.coverUrl;
+      if (!existing.coverUrl && card.coverUrl)
+        existing.coverUrl = card.coverUrl;
       if (!existing.iconUrl && card.iconUrl) existing.iconUrl = card.iconUrl;
-      if (!existing.fileSize && card.fileSize) existing.fileSize = card.fileSize;
+      if (!existing.fileSize && card.fileSize)
+        existing.fileSize = card.fileSize;
       if (!existing.version && card.version) existing.version = card.version;
       if (!existing.summary && card.summary) existing.summary = card.summary;
       if (!existing.publishedAt && card.publishedAt) {
@@ -107,7 +109,11 @@ export class MacNativeCatalogueService {
   private static memoryCache: CachedCatalogue | null = null;
   private static optionsCache = new Map<
     string,
-    { cachedAt: number; options: MacNativeDownloadOption[]; summary: string | null }
+    {
+      cachedAt: number;
+      options: MacNativeDownloadOption[];
+      summary: string | null;
+    }
   >();
   private static inflightFetch: Promise<CachedCatalogue> | null = null;
 
@@ -215,8 +221,7 @@ export class MacNativeCatalogueService {
     const q = trimmed.toLowerCase();
     const localMatches = cached.filter(
       (item) =>
-        item.title.toLowerCase().includes(q) ||
-        item.normalizedTitle.includes(q)
+        item.title.toLowerCase().includes(q) || item.normalizedTitle.includes(q)
     );
 
     // Also perform live search on both sites to discover games beyond page 3/4
@@ -289,7 +294,8 @@ export class MacNativeCatalogueService {
     let item = await this.getItemByObjectId(objectId);
     if (!item && fallbackTitle) {
       const searched = await this.searchLive(fallbackTitle);
-      item = searched.find((i) => i.objectId === objectId) ?? searched[0] ?? null;
+      item =
+        searched.find((i) => i.objectId === objectId) ?? searched[0] ?? null;
     }
 
     if (!item) {
@@ -353,7 +359,12 @@ export class MacNativeCatalogueService {
     title: string;
     option: MacNativeDownloadOption;
     downloadPath?: string;
-  }): Promise<{ ok: boolean; error?: string; fallbackBrowser?: boolean; url?: string }> {
+  }): Promise<{
+    ok: boolean;
+    error?: string;
+    fallbackBrowser?: boolean;
+    url?: string;
+  }> {
     const { objectId, title, option } = params;
     const lowerUrl = option.url.toLowerCase();
 
@@ -448,7 +459,9 @@ export class MacNativeCatalogueService {
     }
 
     const gameKey = levelKeys.game("mac_native", objectId);
-    const existingGame = await gamesSublevel.get(gameKey).catch(() => undefined);
+    const existingGame = await gamesSublevel
+      .get(gameKey)
+      .catch(() => undefined);
     const catalogItem = await this.getItemByObjectId(objectId);
 
     if (!existingGame) {

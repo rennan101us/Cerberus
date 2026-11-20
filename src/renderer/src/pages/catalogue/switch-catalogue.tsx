@@ -541,14 +541,10 @@ export function SwitchCatalogue({
                     })}
                     onClick={() => void handleAddToLibrary(game)}
                     title={
-                      added
-                        ? "Já está na biblioteca"
-                        : "Adicionar à biblioteca"
+                      added ? "Já está na biblioteca" : "Adicionar à biblioteca"
                     }
                     aria-label={
-                      added
-                        ? "Já está na biblioteca"
-                        : "Adicionar à biblioteca"
+                      added ? "Já está na biblioteca" : "Adicionar à biblioteca"
                     }
                     disabled={added || isAdding}
                   >

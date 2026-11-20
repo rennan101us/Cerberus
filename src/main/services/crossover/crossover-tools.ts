@@ -227,7 +227,9 @@ export class CrossOverToolsService {
 
       await downloadToFile(tool.downloadUrl, installerPath, (loaded, total) => {
         const pct =
-          total && total > 0 ? Math.min(99, Math.round((loaded / total) * 100)) : 50;
+          total && total > 0
+            ? Math.min(99, Math.round((loaded / total) * 100))
+            : 50;
         onProgress?.({
           toolId,
           phase: "downloading",

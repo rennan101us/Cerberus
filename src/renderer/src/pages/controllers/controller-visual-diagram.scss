@@ -179,7 +179,9 @@
     stroke: rgba(186, 204, 224, 0.62);
     stroke-width: 1.6;
     stroke-dasharray: 4 3;
-    transition: stroke 0.12s ease, stroke-width 0.12s ease;
+    transition:
+      stroke 0.12s ease,
+      stroke-width 0.12s ease;
 
     &--active {
       stroke: var(--color-accent, globals.$brand-teal);

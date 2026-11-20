@@ -77,9 +77,15 @@ export function AppTitleBar({
       }
     };
     void loadSocial();
-    const unsubFriends = window.electron.onFriendsUpdated(() => void loadSocial());
-    const unsubPresence = window.electron.onFriendPresence(() => void loadSocial());
-    const unsubAccounts = window.electron.onStoreAccountsUpdated(() => void loadSocial());
+    const unsubFriends = window.electron.onFriendsUpdated(
+      () => void loadSocial()
+    );
+    const unsubPresence = window.electron.onFriendPresence(
+      () => void loadSocial()
+    );
+    const unsubAccounts = window.electron.onStoreAccountsUpdated(
+      () => void loadSocial()
+    );
     const unsubUnread = window.electron.onChatUnreadUpdated((u) => {
       if (!cancelled) setUnreadChatCount(u.totalUnread);
     });
@@ -132,10 +138,12 @@ export function AppTitleBar({
     const unsubCreated = window.electron.onLocalNotificationCreated(() => {
       void fetchLocalNotificationCount();
     });
-    const unsubSync = window.electron.onSyncNotificationCount((notification) => {
-      apiNotificationCountRef.current = notification.notificationCount;
-      void fetchLocalNotificationCount();
-    });
+    const unsubSync = window.electron.onSyncNotificationCount(
+      (notification) => {
+        apiNotificationCountRef.current = notification.notificationCount;
+        void fetchLocalNotificationCount();
+      }
+    );
     const handleNotificationsChange = (event: Event) => {
       const detail = (event as CustomEvent<NotificationsChangedDetail>).detail;
       if (detail?.resetApiUnread) {
@@ -206,126 +214,126 @@ export function AppTitleBar({
           )}
         </div>
 
-      <NavigationArrows className="title-bar__navigation" />
+        <NavigationArrows className="title-bar__navigation" />
 
-      <div className="title-bar__search">
-        <TitleBarSearch />
-      </div>
+        <div className="title-bar__search">
+          <TitleBarSearch />
+        </div>
 
-      <button
-        type="button"
-        className="title-bar__friends"
-        onClick={() => void window.electron.openFriendsWindow()}
-        title="Amigos & Chat (Steam / Epic)"
-      >
-        <PeopleIcon size={14} />
-        <span>Amigos</span>
-        {onlineFriendsCount > 0 && (
-          <span className="title-bar__friends-online">
-            {onlineFriendsCount}
-          </span>
-        )}
-        {unreadChatCount > 0 && (
-          <span className="title-bar__notifications-badge">
-            {unreadChatCount > 99 ? "99+" : unreadChatCount}
-          </span>
-        )}
-      </button>
-
-      <div
-        className="title-bar__notifications-anchor"
-        ref={notificationsAnchorRef}
-      >
         <button
           type="button"
-          className={cn("title-bar__notifications", {
-            "title-bar__notifications--active": showNotificationsModal,
-          })}
-          onClick={() => setShowNotificationsModal((prev) => !prev)}
-          title={t("notifications", { ns: "sidebar" })}
-          aria-label={t("notifications", { ns: "sidebar" })}
-          aria-expanded={showNotificationsModal}
+          className="title-bar__friends"
+          onClick={() => void window.electron.openFriendsWindow()}
+          title="Amigos & Chat (Steam / Epic)"
         >
-          <BellIcon size={14} />
-          {notificationCount > 0 && (
+          <PeopleIcon size={14} />
+          <span>Amigos</span>
+          {onlineFriendsCount > 0 && (
+            <span className="title-bar__friends-online">
+              {onlineFriendsCount}
+            </span>
+          )}
+          {unreadChatCount > 0 && (
             <span className="title-bar__notifications-badge">
-              {notificationCount > 99 ? "99+" : notificationCount}
+              {unreadChatCount > 99 ? "99+" : unreadChatCount}
             </span>
           )}
         </button>
 
-        {showNotificationsModal && (
-          <div
-            className="title-bar__notifications-popover"
-            role="dialog"
+        <div
+          className="title-bar__notifications-anchor"
+          ref={notificationsAnchorRef}
+        >
+          <button
+            type="button"
+            className={cn("title-bar__notifications", {
+              "title-bar__notifications--active": showNotificationsModal,
+            })}
+            onClick={() => setShowNotificationsModal((prev) => !prev)}
+            title={t("notifications", { ns: "sidebar" })}
             aria-label={t("notifications", { ns: "sidebar" })}
+            aria-expanded={showNotificationsModal}
           >
-            <div className="title-bar__notifications-popover-head">
-              <strong>{t("notifications", { ns: "sidebar" })}</strong>
-              <button
-                type="button"
-                className="title-bar__notifications-popover-close"
-                onClick={() => setShowNotificationsModal(false)}
-                aria-label="Fechar notificações"
-              >
-                <XIcon size={14} />
-              </button>
-            </div>
-            <Notifications inModal />
-          </div>
-        )}
-      </div>
-
-      <button
-        type="button"
-        className="title-bar__big-picture"
-        onClick={() => window.electron.openBigPictureWindow()}
-      >
-        <VideoIcon size={14} />
-        {t("big_picture", { ns: "sidebar" })}
-      </button>
-
-      {hasCustomWindowControls && (
-        <div className="title-bar__window-controls">
-          <button
-            type="button"
-            className="title-bar__window-control"
-            onClick={() => window.electron.minimizeMainWindow()}
-            title={t("minimize")}
-            aria-label={t("minimize")}
-          >
-            <DashIcon size={16} />
-          </button>
-          <button
-            type="button"
-            className="title-bar__window-control"
-            onClick={() => window.electron.toggleMaximizeMainWindow()}
-            title={isWindowMaximized ? t("restore") : t("maximize")}
-            aria-label={isWindowMaximized ? t("restore") : t("maximize")}
-          >
-            {isWindowMaximized ? (
-              <ScreenNormalIcon size={16} />
-            ) : (
-              <ScreenFullIcon size={16} />
+            <BellIcon size={14} />
+            {notificationCount > 0 && (
+              <span className="title-bar__notifications-badge">
+                {notificationCount > 99 ? "99+" : notificationCount}
+              </span>
             )}
           </button>
-          <button
-            type="button"
-            className="title-bar__window-control title-bar__window-control--close"
-            onClick={() => window.electron.closeMainWindow()}
-            title={t("close")}
-            aria-label={t("close")}
-          >
-            <XIcon size={16} />
-          </button>
-        </div>
-      )}
-    </header>
 
-    <ChangelogModal
-      visible={showChangelogModal}
-      onClose={() => setShowChangelogModal(false)}
-    />
-  </>
+          {showNotificationsModal && (
+            <div
+              className="title-bar__notifications-popover"
+              role="dialog"
+              aria-label={t("notifications", { ns: "sidebar" })}
+            >
+              <div className="title-bar__notifications-popover-head">
+                <strong>{t("notifications", { ns: "sidebar" })}</strong>
+                <button
+                  type="button"
+                  className="title-bar__notifications-popover-close"
+                  onClick={() => setShowNotificationsModal(false)}
+                  aria-label="Fechar notificações"
+                >
+                  <XIcon size={14} />
+                </button>
+              </div>
+              <Notifications inModal />
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          className="title-bar__big-picture"
+          onClick={() => window.electron.openBigPictureWindow()}
+        >
+          <VideoIcon size={14} />
+          {t("big_picture", { ns: "sidebar" })}
+        </button>
+
+        {hasCustomWindowControls && (
+          <div className="title-bar__window-controls">
+            <button
+              type="button"
+              className="title-bar__window-control"
+              onClick={() => window.electron.minimizeMainWindow()}
+              title={t("minimize")}
+              aria-label={t("minimize")}
+            >
+              <DashIcon size={16} />
+            </button>
+            <button
+              type="button"
+              className="title-bar__window-control"
+              onClick={() => window.electron.toggleMaximizeMainWindow()}
+              title={isWindowMaximized ? t("restore") : t("maximize")}
+              aria-label={isWindowMaximized ? t("restore") : t("maximize")}
+            >
+              {isWindowMaximized ? (
+                <ScreenNormalIcon size={16} />
+              ) : (
+                <ScreenFullIcon size={16} />
+              )}
+            </button>
+            <button
+              type="button"
+              className="title-bar__window-control title-bar__window-control--close"
+              onClick={() => window.electron.closeMainWindow()}
+              title={t("close")}
+              aria-label={t("close")}
+            >
+              <XIcon size={16} />
+            </button>
+          </div>
+        )}
+      </header>
+
+      <ChangelogModal
+        visible={showChangelogModal}
+        onClose={() => setShowChangelogModal(false)}
+      />
+    </>
   );
 }

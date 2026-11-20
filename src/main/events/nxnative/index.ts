@@ -79,7 +79,8 @@ registerEvent("nxGetResolvedPaths", async () => {
     nx2androidPath: nx2android.path,
     nx2androidValid: nx2android.isValid,
     outputDir,
-    defaultOutputDir: NxPathsService.getDefaultOutputDirectory(cerberusCacheRoot),
+    defaultOutputDir:
+      NxPathsService.getDefaultOutputDirectory(cerberusCacheRoot),
     appSupportDir,
     defaultAppSupportDir:
       NxPathsService.getDefaultAppSupportDirectory(cerberusCacheRoot),
@@ -170,8 +171,7 @@ registerEvent(
       nx2androidPath: nx2android.path,
       nx2androidValid: nx2android.isValid,
       outputDir,
-      defaultOutputDir:
-        NxPathsService.getDefaultOutputDirectory(resolvedRoot),
+      defaultOutputDir: NxPathsService.getDefaultOutputDirectory(resolvedRoot),
       appSupportDir,
       defaultAppSupportDir:
         NxPathsService.getDefaultAppSupportDirectory(resolvedRoot),
@@ -442,7 +442,8 @@ registerEvent(
   "nxSelectRomForGameDialog",
   async (_e, shop: "switch1" | "switch2", objectId: string) => {
     const res = await dialog.showOpenDialog({
-      title: "Selecionar ROM ou Pasta de Origem (.nsp, .nsz, .xci, .nup, .ipa ou Pasta)",
+      title:
+        "Selecionar ROM ou Pasta de Origem (.nsp, .nsz, .xci, .nup, .ipa ou Pasta)",
       properties: ["openFile", "openDirectory"],
       filters: [
         {
@@ -561,7 +562,7 @@ registerEvent(
       titleId: tid,
       baseFilePath: isFile
         ? picked
-        : (files.find((f) => f.type === "base")?.path || picked),
+        : files.find((f) => f.type === "base")?.path || picked,
       folderPath: sourceFolder,
       files,
       updateCount,
@@ -621,10 +622,8 @@ registerEvent("nxGetMetalToolchainInfo", async () =>
   NxBuildService.detectMetalToolchain()
 );
 
-registerEvent(
-  "nxListIosDevicesAndTeams",
-  async (_e, force = false) =>
-    NxBuildService.listIosDevicesAndTeams(Boolean(force))
+registerEvent("nxListIosDevicesAndTeams", async (_e, force = false) =>
+  NxBuildService.listIosDevicesAndTeams(Boolean(force))
 );
 
 registerEvent("nxStartPortBuild", async (_e, options: NxPortBuildOptions) =>

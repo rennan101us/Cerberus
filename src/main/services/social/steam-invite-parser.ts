@@ -44,8 +44,7 @@ export function getSteamFriendCode(steamId64: string): string {
 
 const LOBBY_BBCODE_RE =
   /\[lobbyinvite\b[^\]]*appid=["']?(\d+)["']?[^\]]*lobbyid=["']?(\d+)["']?[^\]]*\](?:\[\/lobbyinvite\])?/i;
-const JOIN_LOBBY_URL_RE =
-  /steam:\/\/joinlobby\/(\d+)\/(\d+)(?:\/(\d+))?/i;
+const JOIN_LOBBY_URL_RE = /steam:\/\/joinlobby\/(\d+)\/(\d+)(?:\/(\d+))?/i;
 const CERBERUS_INVITE_RE =
   /^\[Convite de jogo:\s*(.+?)\]\s*(?:\(AppID:\s*(\d+)\))?/i;
 
@@ -124,7 +123,9 @@ export function parseSteamGameInviteFromMessage(params: {
     const parsedCerb = parseCerberusInviteUrl(cerbUrlMatch[0]);
     if (parsedCerb) {
       return {
-        body: rawMessage.replace(cerbUrlMatch[0], "").trim() || `Convite para jogar ${parsedCerb.title}`,
+        body:
+          rawMessage.replace(cerbUrlMatch[0], "").trim() ||
+          `Convite para jogar ${parsedCerb.title}`,
         invite: {
           id: messageId,
           provider: "steam",

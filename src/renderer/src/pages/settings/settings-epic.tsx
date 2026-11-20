@@ -118,11 +118,7 @@ export function SettingsEpic() {
             </Button>
           </div>
         ) : (
-          <Button
-            theme="primary"
-            onClick={handleConnect}
-            disabled={connecting}
-          >
+          <Button theme="primary" onClick={handleConnect} disabled={connecting}>
             <LinkExternalIcon size={14} />
             {connecting ? "Aguardando login..." : "Conectar Epic Games"}
           </Button>
@@ -143,7 +139,9 @@ export function SettingsEpic() {
                   ? ` · ${account.syncedGamesCount} jogos na biblioteca`
                   : ""}
               </span>
-              <SettingsIntegrationLastSynced lastSyncedAt={account.lastSyncAt} />
+              <SettingsIntegrationLastSynced
+                lastSyncedAt={account.lastSyncAt}
+              />
             </div>
           </div>
         </div>

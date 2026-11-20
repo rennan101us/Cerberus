@@ -178,7 +178,11 @@ class EpicSocialServiceImpl {
       })),
     ];
 
-    this.pendingRequests.splice(0, this.pendingRequests.length, ...nextRequests);
+    this.pendingRequests.splice(
+      0,
+      this.pendingRequests.length,
+      ...nextRequests
+    );
     this.listeners?.onFriendsChanged();
     return this.getFriends();
   }
@@ -246,12 +250,17 @@ class EpicSocialServiceImpl {
 
   private scheduleReconnect() {
     if (this.reconnectTimer || this.disposed) return;
-    const delay = Math.min(60_000, 2_000 * 2 ** Math.min(this.reconnectAttempts, 5));
+    const delay = Math.min(
+      60_000,
+      2_000 * 2 ** Math.min(this.reconnectAttempts, 5)
+    );
     this.reconnectAttempts++;
     this.reconnectTimer = setTimeout(async () => {
       this.reconnectTimer = null;
       if (this.disposed) return;
-      const token = await EpicStoreService.getValidAccessToken().catch(() => null);
+      const token = await EpicStoreService.getValidAccessToken().catch(
+        () => null
+      );
       if (token) {
         this.connectXmpp(token.accountId, token.accessToken);
       }
@@ -269,9 +278,10 @@ class EpicSocialServiceImpl {
     if (this.xmppStep === "init" && buf.includes("<stream:features")) {
       this.streamBuffer = "";
       this.xmppStep = "sasl";
-      const sasl = Buffer.from(`\0${accountId}\0${accessToken}`, "utf8").toString(
-        "base64"
-      );
+      const sasl = Buffer.from(
+        `\0${accountId}\0${accessToken}`,
+        "utf8"
+      ).toString("base64");
       this.ws?.send(
         `<auth xmlns="urn:ietf:params:xml:ns:xmpp-sasl" mechanism="PLAIN">${sasl}</auth>`
       );
@@ -297,7 +307,11 @@ class EpicSocialServiceImpl {
       return;
     }
 
-    if (this.xmppStep === "session" && buf.includes('id="_bind_auth_2"') && buf.includes('type="result"')) {
+    if (
+      this.xmppStep === "session" &&
+      buf.includes('id="_bind_auth_2"') &&
+      buf.includes('type="result"')
+    ) {
       this.streamBuffer = "";
       this.ws?.send(
         `<iq type="set" id="_session_auth_2" xmlns="jabber:client"><session xmlns="urn:ietf:params:xml:ns:xmpp-session"/></iq>`
@@ -305,7 +319,11 @@ class EpicSocialServiceImpl {
       return;
     }
 
-    if (this.xmppStep === "session" && buf.includes('id="_session_auth_2"') && buf.includes('type="result"')) {
+    if (
+      this.xmppStep === "session" &&
+      buf.includes('id="_session_auth_2"') &&
+      buf.includes('type="result"')
+    ) {
       this.streamBuffer = "";
       this.xmppStep = "ready";
       this.xmppReady = true;

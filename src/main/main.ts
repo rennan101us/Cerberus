@@ -1,6 +1,4 @@
-import {
-  initializeEpicIntegration,
-} from "./services/epic";
+import { initializeEpicIntegration } from "./services/epic";
 import { downloadsSublevel } from "./level/sublevels/downloads";
 import { recoverInterruptedInstallers } from "./helpers/recover-interrupted-installers";
 import { orderBy } from "lodash-es";
@@ -89,9 +87,7 @@ export const loadState = async () => {
   if (process.platform === "darwin") {
     import("./services/nxnative/nx-scanner-service")
       .then(({ NxScannerService }) => NxScannerService.scanAndSyncToLibrary())
-      .catch((err) =>
-        logger.warn("Initial NxNative library scan failed", err)
-      );
+      .catch((err) => logger.warn("Initial NxNative library scan failed", err));
   }
 
   if (userPreferences?.realDebridApiToken) {

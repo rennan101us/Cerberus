@@ -148,15 +148,11 @@ export function createDefaultRuntimeConfig(isOot = false): NxGameRuntimeConfig {
 }
 
 export class NxRuntimeConfigService {
-  public static getCanonicalMacNxNativeDataDir(
-    homeDir = os.homedir()
-  ): string {
+  public static getCanonicalMacNxNativeDataDir(homeDir = os.homedir()): string {
     return path.join(homeDir, "Library", "Application Support", "nxnative");
   }
 
-  public static getCanonicalMacNxNativeLogsDir(
-    homeDir = os.homedir()
-  ): string {
+  public static getCanonicalMacNxNativeLogsDir(homeDir = os.homedir()): string {
     return path.join(homeDir, "Library", "Logs", "nxnative");
   }
 
@@ -456,8 +452,7 @@ export class NxRuntimeConfigService {
         const isManaged =
           BASE_MANAGED_ENV_KEYS.has(key) ||
           (isOot && OOT_MANAGED_ENV_KEYS.has(key)) ||
-          (!isOot &&
-            (key === "DM_RES_PRESET" || key === "DM_UPSCALER")) ||
+          (!isOot && (key === "DM_RES_PRESET" || key === "DM_UPSCALER")) ||
           key in entries;
         if (isManaged) continue;
 
@@ -796,8 +791,7 @@ export class NxRuntimeConfigService {
     const prof = options.profile;
     const launchEnv: Record<string, string> = {
       ...envVars,
-      HOME:
-        options.hostEnv?.HOME || process.env.HOME || os.homedir(),
+      HOME: options.hostEnv?.HOME || process.env.HOME || os.homedir(),
       USER:
         options.hostEnv?.USER ||
         process.env.USER ||
@@ -1590,7 +1584,11 @@ export class NxRuntimeConfigService {
       new Set([
         path.join(this.getCanonicalMacNxNativeDataDir(), up, "env.txt"),
         path.join(appSupport, up, "env.txt"),
-        path.join(NxPathsService.getDefaultAppSupportDirectory(), up, "env.txt"),
+        path.join(
+          NxPathsService.getDefaultAppSupportDirectory(),
+          up,
+          "env.txt"
+        ),
       ])
     );
 
@@ -1658,7 +1656,11 @@ export class NxRuntimeConfigService {
       new Set([
         path.join(canonicalDir, up, "env.txt"),
         path.join(appSupport, up, "env.txt"),
-        path.join(NxPathsService.getDefaultAppSupportDirectory(), up, "env.txt"),
+        path.join(
+          NxPathsService.getDefaultAppSupportDirectory(),
+          up,
+          "env.txt"
+        ),
       ])
     );
 
@@ -1673,7 +1675,10 @@ export class NxRuntimeConfigService {
       try {
         fs.mkdirSync(localSave, { recursive: true });
         fs.mkdirSync(cloudSave, { recursive: true });
-        if (fs.existsSync(localSave) && !fs.lstatSync(localSave).isSymbolicLink()) {
+        if (
+          fs.existsSync(localSave) &&
+          !fs.lstatSync(localSave).isSymbolicLink()
+        ) {
           if (fs.readdirSync(localSave).length > 0) {
             fs.cpSync(localSave, cloudSave, { recursive: true, force: true });
           } else if (fs.existsSync(cloudSave)) {

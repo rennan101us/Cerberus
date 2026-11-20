@@ -195,4 +195,3 @@ export interface RedWineBottleConfig {
   sdlGamepadEnabled: boolean;
   tlsModernEnabled: boolean;
 }
-

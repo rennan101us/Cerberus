@@ -240,13 +240,11 @@ export function useGameDetails(
           shop: localGame.shop,
           title: localGame.title,
           iconUrl: localGame.iconUrl ?? null,
-          libraryImageUrl:
-            localGame.coverImageUrl ?? localGame.iconUrl ?? null,
+          libraryImageUrl: localGame.coverImageUrl ?? localGame.iconUrl ?? null,
           libraryHeroImageUrl: localGame.libraryHeroImageUrl ?? null,
           logoImageUrl: localGame.logoImageUrl ?? null,
           logoPosition: localGame.logoPosition ?? null,
-          coverImageUrl:
-            localGame.coverImageUrl ?? localGame.iconUrl ?? null,
+          coverImageUrl: localGame.coverImageUrl ?? localGame.iconUrl ?? null,
           downloadSources: [],
         })
       );

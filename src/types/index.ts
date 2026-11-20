@@ -280,13 +280,7 @@ export interface UserFriend {
   isOfficial?: boolean;
   provider?: StoreProvider;
   externalId?: string;
-  personaState?:
-    | "online"
-    | "in-game"
-    | "away"
-    | "busy"
-    | "snooze"
-    | "offline";
+  personaState?: "online" | "in-game" | "away" | "busy" | "snooze" | "offline";
   richPresence?: string | null;
   gameLobby?: {
     appId?: string;

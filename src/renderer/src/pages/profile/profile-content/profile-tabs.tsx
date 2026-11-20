@@ -2,11 +2,7 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import "./profile-content.scss";
 
-export type ProfileTabType =
-  | "library"
-  | "reviews"
-  | "souvenirs"
-  | "missions";
+export type ProfileTabType = "library" | "reviews" | "souvenirs" | "missions";
 
 const TAB_INDICATOR_SPRING = {
   type: "spring",

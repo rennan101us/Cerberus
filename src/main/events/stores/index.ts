@@ -1,8 +1,5 @@
 import { registerEvent } from "../register-event";
-import type {
-  SteamDepotLoginInput,
-  StoreProvider,
-} from "@types";
+import type { SteamDepotLoginInput, StoreProvider } from "@types";
 import { SteamStoreService } from "@main/services/stores/steam-store-service";
 import { EpicStoreService } from "@main/services/stores/epic-store-service";
 import { GogStoreService } from "@main/services/stores/gog-store-service";
@@ -40,9 +37,7 @@ registerEvent("storesCancelSteamLogin", () => {
 
 registerEvent("storesDisconnectSteam", () => SteamStoreService.disconnect());
 
-registerEvent("storesSyncSteamLibrary", () =>
-  SteamStoreService.syncLibrary()
-);
+registerEvent("storesSyncSteamLibrary", () => SteamStoreService.syncLibrary());
 
 registerEvent("storesStartEpicLogin", () => EpicStoreService.startLogin());
 
@@ -113,10 +108,7 @@ registerEvent(
 
 registerEvent(
   "storesCancelGameDownload",
-  async (
-    _event,
-    payload: { provider: StoreProvider; storeId: string }
-  ) => {
+  async (_event, payload: { provider: StoreProvider; storeId: string }) => {
     if (payload.provider === "steam") {
       await DepotDownloaderService.cancelDownload(payload.storeId);
       return;

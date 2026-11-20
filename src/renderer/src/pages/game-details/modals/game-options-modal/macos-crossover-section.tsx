@@ -336,8 +336,8 @@ export function MacOsCrossOverSection({
           Red Wine Environment (Bottle)
         </h4>
         <p className="macos-crossover-section__card-desc">
-          Ambiente unificado Head Bottle (Default) com Steam, Epic Games,
-          Visual C++ Redistributable e DirectX pré-configurados
+          Ambiente unificado Head Bottle (Default) com Steam, Epic Games, Visual
+          C++ Redistributable e DirectX pré-configurados
         </p>
 
         <SelectField

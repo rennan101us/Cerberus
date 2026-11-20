@@ -341,7 +341,9 @@ export function SettingsNxNativePanel() {
     }
   };
 
-  const handleInstallMissingForPlatform = async (platform: NxTargetPlatform) => {
+  const handleInstallMissingForPlatform = async (
+    platform: NxTargetPlatform
+  ) => {
     setBusyDepId(`__platform_${platform}`);
     try {
       const res = await window.electron.nxInstallMissingDependencies(platform);

@@ -2,7 +2,12 @@ export type SwitchGeneration = "switch1" | "switch2";
 
 export type NxTargetPlatform = "macApp" | "ios" | "android";
 
-export type NxCompatibilityPlatform = "all" | "macOS" | "iOS" | "iPadOS" | "android";
+export type NxCompatibilityPlatform =
+  | "all"
+  | "macOS"
+  | "iOS"
+  | "iPadOS"
+  | "android";
 
 export type NxDependencyCategory = "core" | "apple" | "ios" | "android";
 
@@ -247,7 +252,14 @@ export interface NxBuildJobEvent {
   shop: "switch1" | "switch2";
   gameTitle: string;
   platform: NxTargetPlatform;
-  phase: "start" | "stage" | "step" | "progress" | "done" | "error" | "cancelled";
+  phase:
+    | "start"
+    | "stage"
+    | "step"
+    | "progress"
+    | "done"
+    | "error"
+    | "cancelled";
   stageName?: string;
   stageIndex?: number;
   stageTotal?: number;

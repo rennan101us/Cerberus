@@ -41,14 +41,8 @@ test("sanitizeExtractedDirectoryTree cleans repack folders while preserving .doi
 
     await fs.promises.mkdir(protectedData, { recursive: true });
     await fs.promises.mkdir(protectedApp, { recursive: true });
-    await fs.promises.writeFile(
-      path.join(nestedWrapper, "data1.doi"),
-      "stub"
-    );
-    await fs.promises.writeFile(
-      path.join(nestedWrapper, "Setup.exe"),
-      "stub"
-    );
+    await fs.promises.writeFile(path.join(nestedWrapper, "data1.doi"), "stub");
+    await fs.promises.writeFile(path.join(nestedWrapper, "Setup.exe"), "stub");
 
     const result = await sanitizeExtractedDirectoryTree(dirtyRoot, {
       sanitizeRootName: true,

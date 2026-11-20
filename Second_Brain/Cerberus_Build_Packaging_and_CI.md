@@ -34,7 +34,9 @@ electron.vite.config.ts
 ```
 
 ### Resolução de Aliases de Path
+
 Para evitar caminhos relativos frágeis (`../../../../`), a configuração padroniza aliases estritos em todo o TypeScript:
+
 - `@main`: Aponta para `src/main`
 - `@renderer`: Aponta para `src/renderer/src`
 - `@types`: Aponta para `src/types`
@@ -65,20 +67,24 @@ npm run build:native && electron-builder install-app-deps && node ./scripts/post
 O Cerberus suporta geração de pacotes para os três principais sistemas operacionais desktop:
 
 ### 🍎 macOS (`npm run build:mac`)
+
 - **Formatos**: `.dmg` (com imagem de background e atalho estilizado para `/Applications`) e `.zip`.
 - **Arquiteturas**: Apple Silicon nativo (`arm64`) e Intel (`x64`), ou universal.
 - **Hardened Runtime & Entitlements**: Configurado para permitir carregamento de dylibs de terceiros (necessárias para o runtime Wine/CrossOver) sem bloqueio do Gatekeeper do macOS. Veja [[Cerberus_macOS_and_FineWine]].
 
 ### 🐧 Linux (`npm run build:linux`)
+
 - **Formatos**: `AppImage` (portável e universal), pacotes `.deb` (Debian/Ubuntu), `.pacman` (Arch Linux / SteamOS) e `.rpm` (Fedora).
 - **Integração Desktop**: Arquivo `.desktop` gerado com suporte a esquemas de protocolo `hydralauncher://` e categorias de jogos do XDG. Veja [[Cerberus_Linux_Proton_and_UMU]].
 
 ### 🪟 Windows (`npm run build:win`)
+
 - **Formatos**: Instalador assistido **NSIS** com desinstalador limpo e versão **portable** de execução direta sem privilégios de administrador.
 
 ---
 
 ## 🔗 Relações no Grafo
+
 - **Hub Central**: [[00_Cerberus_MOC]]
 - **Arquitetura Base**: [[Cerberus_Architecture_and_Runtime]]
 - **Engine Nativa**: [[Cerberus_Torrent_and_Native_Engine]]

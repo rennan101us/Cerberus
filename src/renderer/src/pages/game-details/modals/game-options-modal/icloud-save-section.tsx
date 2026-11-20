@@ -21,9 +21,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export function ICloudSaveSection({
-  game,
-}: Readonly<ICloudSaveSectionProps>) {
+export function ICloudSaveSection({ game }: Readonly<ICloudSaveSectionProps>) {
   const { showSuccessToast, showErrorToast } = useToast();
   const [info, setInfo] = useState<ICloudGameSaveInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,7 +126,9 @@ export function ICloudSaveSection({
         null
       );
       setInfo(updated);
-      showSuccessToast("Pasta personalizada removida (usando detecção automática).");
+      showSuccessToast(
+        "Pasta personalizada removida (usando detecção automática)."
+      );
     } finally {
       setBusyAction(null);
     }

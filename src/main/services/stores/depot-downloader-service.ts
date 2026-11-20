@@ -5,11 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import QRCode from "qrcode";
 import { Downloader } from "@shared";
-import type {
-  Download,
-  DownloadProgress,
-  StoreDownloadProgress,
-} from "@types";
+import type { Download, DownloadProgress, StoreDownloadProgress } from "@types";
 import { downloadsSublevel, gamesSublevel, levelKeys } from "@main/level";
 import {
   CrossOverDetector,
@@ -83,7 +79,10 @@ class DepotDownloaderServiceImpl {
     entry: ActiveDepotDownload,
     downloadRecord?: Download | null
   ): Promise<void> {
-    WindowManager.sendToAppWindows("on-store-download-progress", entry.progress);
+    WindowManager.sendToAppWindows(
+      "on-store-download-progress",
+      entry.progress
+    );
 
     if (!downloadRecord) return;
     const gameId = levelKeys.game("steam", entry.appId);
@@ -131,9 +130,11 @@ class DepotDownloaderServiceImpl {
     }
 
     await fs.promises.chmod(binPath, 0o755);
-    await execFileAsync("/usr/bin/xattr", ["-d", "com.apple.quarantine", binPath]).catch(
-      () => {}
-    );
+    await execFileAsync("/usr/bin/xattr", [
+      "-d",
+      "com.apple.quarantine",
+      binPath,
+    ]).catch(() => {});
 
     return binPath;
   }
@@ -154,13 +155,7 @@ class DepotDownloaderServiceImpl {
     const bottlesDir = await CrossOverDetector.getBottlesDirectory();
     const baseDir =
       params.installBaseDir?.trim() ||
-      path.join(
-        bottlesDir,
-        DEFAULT_BOTTLE_NAME,
-        "drive_c",
-        "Games",
-        "Steam"
-      );
+      path.join(bottlesDir, DEFAULT_BOTTLE_NAME, "drive_c", "Games", "Steam");
     const folderName = sanitizeFolderName(title, appId);
     const targetDir = path.join(baseDir, folderName);
     await fs.promises.mkdir(targetDir, { recursive: true });
@@ -254,7 +249,7 @@ class DepotDownloaderServiceImpl {
       });
       entry.child = child;
 
-      let lineBuffers = { stdout: "", stderr: "" };
+      const lineBuffers = { stdout: "", stderr: "" };
       let lastPersistTime = 0;
       let totalDownloadedBytes = 0;
 
@@ -312,7 +307,8 @@ class DepotDownloaderServiceImpl {
           downloadRecord = {
             ...downloadRecord,
             progress: nextProgress,
-            bytesDownloaded: totalDownloadedBytes || downloadRecord.bytesDownloaded,
+            bytesDownloaded:
+              totalDownloadedBytes || downloadRecord.bytesDownloaded,
             status: "active",
           };
           const now = Date.now();
@@ -368,11 +364,14 @@ class DepotDownloaderServiceImpl {
             downloadRecord = {
               ...downloadRecord,
               progress: 1,
-              bytesDownloaded: totalDownloadedBytes || downloadRecord.bytesDownloaded,
+              bytesDownloaded:
+                totalDownloadedBytes || downloadRecord.bytesDownloaded,
               fileSize: totalDownloadedBytes || downloadRecord.fileSize,
               status: "complete",
             };
-            await downloadsSublevel.put(gameKey, downloadRecord).catch(() => {});
+            await downloadsSublevel
+              .put(gameKey, downloadRecord)
+              .catch(() => {});
 
             const existingGame = await gamesSublevel
               .get(gameKey)
@@ -383,7 +382,7 @@ class DepotDownloaderServiceImpl {
                 executablePath: mainExe ?? existingGame.executablePath ?? null,
                 executablePathUpdatedAt: mainExe
                   ? new Date()
-                  : existingGame.executablePathUpdatedAt ?? null,
+                  : (existingGame.executablePathUpdatedAt ?? null),
                 installedSizeInBytes:
                   totalDownloadedBytes || existingGame.installedSizeInBytes,
                 macOSCompatibility: existingGame.macOSCompatibility ?? {
@@ -416,7 +415,9 @@ class DepotDownloaderServiceImpl {
               ...downloadRecord,
               status: "error",
             };
-            await downloadsSublevel.put(gameKey, downloadRecord).catch(() => {});
+            await downloadsSublevel
+              .put(gameKey, downloadRecord)
+              .catch(() => {});
             entry.progress = {
               ...entry.progress,
               status: "error",

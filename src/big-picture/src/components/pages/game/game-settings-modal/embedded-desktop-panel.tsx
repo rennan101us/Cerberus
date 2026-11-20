@@ -28,7 +28,9 @@ const FOCUSABLE_SELECTOR = [
 
 function getVisibleFocusableElements(root: HTMLElement | null): HTMLElement[] {
   if (!root) return [];
-  const all = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  const all = Array.from(
+    root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+  );
   return all.filter((el) => {
     const rect = el.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return false;
@@ -70,24 +72,19 @@ export function EmbeddedDesktopPanel({
     }
   }, []);
 
-  const stepFocus = useCallback(
-    (delta: 1 | -1) => {
-      const scope = getActivePortalModal() || bodyRef.current;
-      const focusables = getVisibleFocusableElements(scope);
-      if (focusables.length === 0) return;
+  const stepFocus = useCallback((delta: 1 | -1) => {
+    const scope = getActivePortalModal() || bodyRef.current;
+    const focusables = getVisibleFocusableElements(scope);
+    if (focusables.length === 0) return;
 
-      const active = document.activeElement as HTMLElement | null;
-      const idx = active ? focusables.indexOf(active) : -1;
-      const nextIdx =
-        idx === -1
-          ? 0
-          : (idx + delta + focusables.length) % focusables.length;
-      const nextEl = focusables[nextIdx];
-      nextEl.focus();
-      nextEl.scrollIntoView({ block: "nearest", inline: "nearest" });
-    },
-    []
-  );
+    const active = document.activeElement as HTMLElement | null;
+    const idx = active ? focusables.indexOf(active) : -1;
+    const nextIdx =
+      idx === -1 ? 0 : (idx + delta + focusables.length) % focusables.length;
+    const nextEl = focusables[nextIdx];
+    nextEl.focus();
+    nextEl.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, []);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const active = document.activeElement as HTMLElement | null;
@@ -120,14 +117,14 @@ export function EmbeddedDesktopPanel({
       const insideBody = Boolean(
         activeEl && bodyRef.current?.contains(activeEl)
       );
-      const activeInDesktopLayer = Boolean(portalModal) || insideBody || engaged;
+      const activeInDesktopLayer =
+        Boolean(portalModal) || insideBody || engaged;
 
       if (activeInDesktopLayer && document.hasFocus()) {
         const pads = navigator.getGamepads?.() ?? [];
         const pad = Array.from(pads).find((p) => p && p.connected);
         if (pad) {
-          const isPressed = (idx: number) =>
-            Boolean(pad.buttons[idx]?.pressed);
+          const isPressed = (idx: number) => Boolean(pad.buttons[idx]?.pressed);
           const risingEdge = (idx: number) => {
             const pressed = isPressed(idx);
             const was = prevButtons.has(idx);
@@ -150,7 +147,8 @@ export function EmbeddedDesktopPanel({
             if (tag === "select") {
               const sel = activeEl as HTMLSelectElement;
               if (sel.options.length > 0) {
-                sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+                sel.selectedIndex =
+                  (sel.selectedIndex + 1) % sel.options.length;
                 sel.dispatchEvent(new Event("change", { bubbles: true }));
               }
             } else {
@@ -182,10 +180,7 @@ export function EmbeddedDesktopPanel({
   }, [engaged, focusId, setFocus, stepFocus]);
 
   return (
-    <div
-      className="bp-embedded-desktop-panel"
-      onKeyDown={handleKeyDown}
-    >
+    <div className="bp-embedded-desktop-panel" onKeyDown={handleKeyDown}>
       <div className="bp-embedded-desktop-panel__entry-bar">
         <span>{helperText}</span>
         <Button

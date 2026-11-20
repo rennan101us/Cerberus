@@ -283,7 +283,9 @@ export function SettingsDownloadSources() {
               <div className="settings-download-sources__item-header">
                 <h2>{downloadSource.name}</h2>
 
-                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <div
+                  style={{ display: "flex", gap: "6px", alignItems: "center" }}
+                >
                   {downloadSource.sourceKind === "switch" && (
                     <Badge>Switch 1 &amp; 2</Badge>
                   )}

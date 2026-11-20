@@ -391,7 +391,8 @@ export class NxCompatibilityService {
         if (storageReq === "HD: ~6 GB") storageReq = "HD: ~8-12 GB";
         break;
       default:
-        macReq = "Mac: 16 GB+ RAM (Apple M1 Pro/Max ou M1–M4 16GB • macOS 26.6+ Tahoe)";
+        macReq =
+          "Mac: 16 GB+ RAM (Apple M1 Pro/Max ou M1–M4 16GB • macOS 26.6+ Tahoe)";
         iosReq = "iPhone A18 Pro / iPad M2+ (8 GB+ • iOS/iPadOS 26.0+)";
         minChipTier = "M1+ (16GB) / A18 Pro";
         if (storageReq === "HD: ~6 GB") storageReq = "HD: ~12-16 GB";

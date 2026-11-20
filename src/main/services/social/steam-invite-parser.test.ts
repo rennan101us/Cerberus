@@ -21,7 +21,8 @@ test("resolveSteamIdentifier converts SteamID64, Friend Code, and profile URLs",
 
 test("parseSteamGameInviteFromMessage parses [lobbyinvite] BBCode", () => {
   const parsed = parseSteamGameInviteFromMessage({
-    rawMessage: "[lobbyinvite appid=570 lobbyid=109775244556677889][/lobbyinvite]",
+    rawMessage:
+      "[lobbyinvite appid=570 lobbyid=109775244556677889][/lobbyinvite]",
     senderId: "steam:76561198000000001",
     messageId: "msg-1",
     createdAt: "2026-11-20T10:00:00.000Z",

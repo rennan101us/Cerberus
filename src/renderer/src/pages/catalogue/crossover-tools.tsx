@@ -120,7 +120,9 @@ export function CrossOverToolsCatalog() {
     if (activeDownloads[tool.id]?.phase === "downloading") return;
 
     const bottleLabel =
-      tool.bottleName === "Head Bottle" ? "Head Bottle (Default)" : tool.bottleName;
+      tool.bottleName === "Head Bottle"
+        ? "Head Bottle (Default)"
+        : tool.bottleName;
     const result = await window.electron.installCrossOverTool(tool.id);
     if (result.success) {
       showSuccessToast(
@@ -178,7 +180,8 @@ export function CrossOverToolsCatalog() {
           </h2>
           <p className="crossover-tools__subtitle">
             Baixe e instale lojas e launchers oficiais do Windows diretamente na
-            Head Bottle (Default) do Red Wine com D3DMetal e MSync pré-configurados.
+            Head Bottle (Default) do Red Wine com D3DMetal e MSync
+            pré-configurados.
           </p>
         </div>
 

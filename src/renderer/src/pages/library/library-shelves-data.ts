@@ -41,96 +41,98 @@ export interface LibraryShelfDefinition {
   matches: (game: LibraryShelfGame) => boolean;
 }
 
-export const SHELF_DEFINITIONS: Record<LibraryShelfId, LibraryShelfDefinition> = {
-  favorites: {
-    id: "favorites",
-    labelKey: "shelf_favorites",
-    defaultLabel: "Favoritos",
-    matches: (game) => Boolean(game.favorite),
-  },
-  mac_native: {
-    id: "mac_native",
-    labelKey: "shelf_mac_native",
-    defaultLabel: "Mac Native",
-    matches: (game) =>
-      game.shop === "mac_native" ||
-      Boolean(game.switchPortedAppPath) ||
-      Boolean(
-        game.executablePath && game.executablePath.toLowerCase().endsWith(".app")
-      ),
-  },
-  windows_red_wine: {
-    id: "windows_red_wine",
-    labelKey: "shelf_windows_red_wine",
-    defaultLabel: "Windows (Red Wine)",
-    matches: (game) => {
-      if (
+export const SHELF_DEFINITIONS: Record<LibraryShelfId, LibraryShelfDefinition> =
+  {
+    favorites: {
+      id: "favorites",
+      labelKey: "shelf_favorites",
+      defaultLabel: "Favoritos",
+      matches: (game) => Boolean(game.favorite),
+    },
+    mac_native: {
+      id: "mac_native",
+      labelKey: "shelf_mac_native",
+      defaultLabel: "Mac Native",
+      matches: (game) =>
         game.shop === "mac_native" ||
-        game.shop === "switch1" ||
-        game.shop === "switch2" ||
-        game.shop === "launchbox" ||
         Boolean(game.switchPortedAppPath) ||
-        (game.executablePath && game.executablePath.toLowerCase().endsWith(".app"))
-      ) {
-        return false;
-      }
-      return (
-        game.shop === "steam" ||
-        game.shop === "epic" ||
-        game.shop === "gog" ||
-        game.shop === "custom" ||
-        Boolean(game.macOSCompatibility) ||
         Boolean(
           game.executablePath &&
-            game.executablePath.toLowerCase().endsWith(".exe")
-        )
-      );
+            game.executablePath.toLowerCase().endsWith(".app")
+        ),
     },
-  },
-  switch1: {
-    id: "switch1",
-    labelKey: "shelf_switch1",
-    defaultLabel: "Nintendo Switch 1",
-    matches: (game) => game.shop === "switch1",
-  },
-  switch2: {
-    id: "switch2",
-    labelKey: "shelf_switch2",
-    defaultLabel: "Nintendo Switch 2",
-    matches: (game) => game.shop === "switch2",
-  },
-  steam: {
-    id: "steam",
-    labelKey: "shelf_steam",
-    defaultLabel: "Steam",
-    matches: (game) =>
-      game.shop === "steam" ||
-      Boolean(game.hasActiveSteamImport) ||
-      Boolean(game.source === "steam"),
-  },
-  epic: {
-    id: "epic",
-    labelKey: "shelf_epic",
-    defaultLabel: "Epic Games",
-    matches: (game) =>
-      game.shop === "epic" ||
-      Boolean(game.hasActiveEpicImport) ||
-      Boolean(game.source === "epic"),
-  },
-  gog: {
-    id: "gog",
-    labelKey: "shelf_gog",
-    defaultLabel: "GOG Galaxy",
-    matches: (game) =>
-      game.shop === "gog" || Boolean(game.source === "gog"),
-  },
-  classics: {
-    id: "classics",
-    labelKey: "shelf_classics",
-    defaultLabel: "Clássicos & Emuladores",
-    matches: (game) => game.shop === "launchbox",
-  },
-};
+    windows_red_wine: {
+      id: "windows_red_wine",
+      labelKey: "shelf_windows_red_wine",
+      defaultLabel: "Windows (Red Wine)",
+      matches: (game) => {
+        if (
+          game.shop === "mac_native" ||
+          game.shop === "switch1" ||
+          game.shop === "switch2" ||
+          game.shop === "launchbox" ||
+          Boolean(game.switchPortedAppPath) ||
+          (game.executablePath &&
+            game.executablePath.toLowerCase().endsWith(".app"))
+        ) {
+          return false;
+        }
+        return (
+          game.shop === "steam" ||
+          game.shop === "epic" ||
+          game.shop === "gog" ||
+          game.shop === "custom" ||
+          Boolean(game.macOSCompatibility) ||
+          Boolean(
+            game.executablePath &&
+              game.executablePath.toLowerCase().endsWith(".exe")
+          )
+        );
+      },
+    },
+    switch1: {
+      id: "switch1",
+      labelKey: "shelf_switch1",
+      defaultLabel: "Nintendo Switch 1",
+      matches: (game) => game.shop === "switch1",
+    },
+    switch2: {
+      id: "switch2",
+      labelKey: "shelf_switch2",
+      defaultLabel: "Nintendo Switch 2",
+      matches: (game) => game.shop === "switch2",
+    },
+    steam: {
+      id: "steam",
+      labelKey: "shelf_steam",
+      defaultLabel: "Steam",
+      matches: (game) =>
+        game.shop === "steam" ||
+        Boolean(game.hasActiveSteamImport) ||
+        Boolean(game.source === "steam"),
+    },
+    epic: {
+      id: "epic",
+      labelKey: "shelf_epic",
+      defaultLabel: "Epic Games",
+      matches: (game) =>
+        game.shop === "epic" ||
+        Boolean(game.hasActiveEpicImport) ||
+        Boolean(game.source === "epic"),
+    },
+    gog: {
+      id: "gog",
+      labelKey: "shelf_gog",
+      defaultLabel: "GOG Galaxy",
+      matches: (game) => game.shop === "gog" || Boolean(game.source === "gog"),
+    },
+    classics: {
+      id: "classics",
+      labelKey: "shelf_classics",
+      defaultLabel: "Clássicos & Emuladores",
+      matches: (game) => game.shop === "launchbox",
+    },
+  };
 
 const STORAGE_KEY_ORDER = "cerberus_library_shelves_order";
 const STORAGE_KEY_HIDDEN = "cerberus_library_shelves_hidden";

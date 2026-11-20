@@ -54,8 +54,10 @@ export class NxBuildService {
   private static activeProcess: ChildProcess | null = null;
   private static activeJob: NxBuildJobEvent | null = null;
   private static isCancelled = false;
-  private static metalCache: { at: number; value: NxMetalToolchainInfo } | null =
-    null;
+  private static metalCache: {
+    at: number;
+    value: NxMetalToolchainInfo;
+  } | null = null;
   private static estimateCache = new Map<
     string,
     { at: number; value: NxBuildEstimate }
@@ -68,11 +70,7 @@ export class NxBuildService {
   public static async detectMetalToolchain(
     force = false
   ): Promise<NxMetalToolchainInfo> {
-    if (
-      !force &&
-      this.metalCache &&
-      Date.now() - this.metalCache.at < 60_000
-    ) {
+    if (!force && this.metalCache && Date.now() - this.metalCache.at < 60_000) {
       return this.metalCache.value;
     }
 
@@ -576,12 +574,7 @@ export class NxBuildService {
         }
       }
     } else {
-      args.push(
-        "--platform",
-        "mac-app",
-        "--work-dir",
-        workspace.workDir
-      );
+      args.push("--platform", "mac-app", "--work-dir", workspace.workDir);
       if (options.titleId?.trim()) {
         args.push("--title-id", options.titleId.trim().toUpperCase());
       }

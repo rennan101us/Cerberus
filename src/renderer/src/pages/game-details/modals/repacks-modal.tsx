@@ -129,7 +129,8 @@ export function RepacksModal({
 
   useEffect(() => {
     if (!visible) return;
-    window.electron?.storesGetAccounts?.()
+    window.electron
+      ?.storesGetAccounts?.()
       ?.then((res) => {
         if (!res) return;
         setStoreAccounts({
@@ -140,7 +141,8 @@ export function RepacksModal({
       })
       ?.catch(() => {});
 
-    window.electron?.storesGetOwnedGames?.()
+    window.electron
+      ?.storesGetOwnedGames?.()
       ?.then((games) => setOwnedStoreGames(games || []))
       ?.catch(() => {});
   }, [visible]);

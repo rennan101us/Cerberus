@@ -1,21 +1,12 @@
 import { useContext, useEffect, useState } from "react";
-import type {
-  HowLongToBeatCategory,
-  SteamAppDetails,
-} from "@types";
+import type { HowLongToBeatCategory, SteamAppDetails } from "@types";
 import { useTranslation } from "react-i18next";
 import { Button } from "@renderer/components/button/button";
 import { StarRating } from "@renderer/components/star-rating/star-rating";
 
 import { gameDetailsContext } from "@renderer/context";
-import {
-  useFormat,
-} from "@renderer/hooks";
-import {
-  DownloadIcon,
-  PeopleIcon,
-  StarIcon,
-} from "@primer/octicons-react";
+import { useFormat } from "@renderer/hooks";
+import { DownloadIcon, PeopleIcon, StarIcon } from "@primer/octicons-react";
 import { HowLongToBeatSection } from "./how-long-to-beat-section";
 import { LaunchboxDetailsSection } from "./launchbox-details-section";
 import { SidebarSection } from "../sidebar-section/sidebar-section";
@@ -34,15 +25,8 @@ export function Sidebar() {
   const [activeRequirement, setActiveRequirement] =
     useState<keyof SteamAppDetails["pc_requirements"]>("minimum");
 
-  const {
-    game,
-    gameTitle,
-    shopDetails,
-    objectId,
-    shop,
-    catalogueGame,
-    stats,
-  } = useContext(gameDetailsContext);
+  const { game, gameTitle, shopDetails, objectId, shop, catalogueGame, stats } =
+    useContext(gameDetailsContext);
 
   const { t } = useTranslation("game_details");
   const { numberFormatter } = useFormat();

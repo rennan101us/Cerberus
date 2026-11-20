@@ -28,7 +28,9 @@
     border: 1px solid globals.$border-color;
     background-color: globals.$dark-background-color;
     cursor: pointer;
-    transition: border-color 0.15s ease, background-color 0.15s ease;
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease;
 
     &:hover {
       border-color: rgba(255, 255, 255, 0.2);

@@ -112,7 +112,9 @@ export const SidebarGameItem = memo(function SidebarGameItem({
         <button
           type="button"
           className="sidebar__menu-item-button"
-          data-tooltip-id={isCollapsed ? "sidebar-collapsed-tooltip" : undefined}
+          data-tooltip-id={
+            isCollapsed ? "sidebar-collapsed-tooltip" : undefined
+          }
           data-tooltip-content={isCollapsed ? getGameTitle(game) : undefined}
           onClick={(event) => {
             handleSidebarGameClick(game);

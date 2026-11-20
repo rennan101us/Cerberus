@@ -26,6 +26,7 @@ Retornar ao Hub: [[00_Cerberus_MOC]]
 ## 🎨 1. Stack Tecnológico do Frontend
 
 A interface gráfica do Cerberus está localizada em `src/renderer/` e `src/big-picture/`:
+
 - **React 18 & TypeScript**: Componentização modular baseada em hooks e tipagem estrita via `@types`.
 - **Redux Toolkit (`@reduxjs/toolkit`)**: Estado global centralizado (biblioteca de jogos, filtros ativos, downloads em andamento, preferências de áudio e notificações).
 - **Radix UI & Floating UI**: Componentes acessíveis e sem estilos embutidos (modais, menus de contexto, tooltips e dropdowns via `@radix-ui/react-dropdown-menu` e `@floating-ui/dom`).
@@ -37,6 +38,7 @@ A interface gráfica do Cerberus está localizada em `src/renderer/` e `src/big-
 ## ⚡ 2. Virtualização de Alta Performance (`@tanstack/react-virtual`)
 
 Quando um usuário possui centenas ou milhares de jogos na biblioteca ou navega pelo catálogo completo:
+
 - Criar nós DOM para cada card causaria degradação severa de memória e travamento no scroll.
 - O Cerberus utiliza o `@tanstack/react-virtual` para renderizar apenas os elementos visíveis na janela de exibição (viewport) mais um pequeno buffer acima e abaixo.
 - Isso garante 60 FPS estáveis mesmo em computadores mais modestos ou durante scroll rápido em bibliotecas massivas.
@@ -46,6 +48,7 @@ Quando um usuário possui centenas ou milhares de jogos na biblioteca ou navega 
 ## 🖌️ 3. Sistema de Temas e Editor Monaco
 
 O Cerberus possui um motor de temas totalmente dinâmico baseado em variáveis CSS customizadas:
+
 - **Variáveis Principais**: `--color-background`, `--color-surface`, `--color-accent`, `--color-text-primary`, `--border-radius`, `--blur-intensity`.
 - **Editor Monaco Embutido (`@monaco-editor/react`)**:
   - Usuários avançados podem abrir o editor integrado de CSS na aba de configurações.
@@ -58,6 +61,7 @@ O Cerberus possui um motor de temas totalmente dinâmico baseado em variáveis C
 ## 🎮 4. Modo Big Picture (Console / Handheld Mode)
 
 Para jogadores que utilizam o Cerberus em TVs de sala ou dispositivos portáteis (como Steam Deck, ROG Ally ou MacBooks conectados à televisão):
+
 - **Código Separado**: Localizado em `src/big-picture/`, com bundle independente configurado no Vite (`npm run dev:big-picture`).
 - **Navegação Integral por Gamepad**:
   - Foco visual claro (outline animado e zoom suave no card selecionado).
@@ -67,6 +71,7 @@ Para jogadores que utilizam o Cerberus em TVs de sala ou dispositivos portáteis
 ---
 
 ## 🔗 Relações no Grafo
+
 - **Hub Central**: [[00_Cerberus_MOC]]
 - **Arquitetura Base**: [[Cerberus_Architecture_and_Runtime]]
 - **Biblioteca de Jogos**: [[Cerberus_Library_and_Game_Management]]

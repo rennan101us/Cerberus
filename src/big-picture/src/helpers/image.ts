@@ -45,8 +45,8 @@ export function getGameImageSources(game: LibraryGame) {
   const steamAppId =
     game.shop === "steam"
       ? game.objectId
-      : (extractSteamAppId(game.coverImageUrl) ||
-         extractSteamAppId(game.libraryImageUrl));
+      : extractSteamAppId(game.coverImageUrl) ||
+        extractSteamAppId(game.libraryImageUrl);
   const steamFallbacks = steamAppId ? getSteamCoverFallbacks(steamAppId) : [];
 
   return [

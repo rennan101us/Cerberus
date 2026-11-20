@@ -69,7 +69,9 @@ export function SidebarProfile({
     try {
       await window.electron.updateUserPreferences({ playerName: trimmed });
       if (userPreferences) {
-        dispatch(setUserPreferences({ ...userPreferences, playerName: trimmed }));
+        dispatch(
+          setUserPreferences({ ...userPreferences, playerName: trimmed })
+        );
       }
       showSuccessToast(`Nome do jogador alterado para "${trimmed}"`);
     } catch (error) {

@@ -33,7 +33,9 @@ const hydraApiCall = async (
   }
 
   if (method === "put" || method === "patch" || method === "delete") {
-    throw new Error(`Hydra API is read-only in Cerberus: blocked ${method.toUpperCase()} ${url}`);
+    throw new Error(
+      `Hydra API is read-only in Cerberus: blocked ${method.toUpperCase()} ${url}`
+    );
   }
 
   const hydraApiOptions = {

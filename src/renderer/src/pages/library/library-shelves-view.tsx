@@ -1,5 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { ChevronLeftIcon, ChevronRightIcon, SlidersIcon } from "@primer/octicons-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  SlidersIcon,
+} from "@primer/octicons-react";
 import type { LibraryGame } from "@types";
 import { LibraryGameCard } from "./library-game-card";
 import {
@@ -59,10 +63,7 @@ function ShelfRow({ shelf, onContextMenu }: Readonly<ShelfRowProps>) {
         <div className="library-shelf-row__track" ref={trackRef}>
           {shelf.games.map((game) => (
             <div key={game.id} className="library-shelf-row__card-wrapper">
-              <LibraryGameCard
-                game={game}
-                onContextMenu={onContextMenu}
-              />
+              <LibraryGameCard game={game} onContextMenu={onContextMenu} />
             </div>
           ))}
         </div>

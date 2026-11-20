@@ -1,11 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Downloader } from "@shared";
-import type {
-  Download,
-  DownloadProgress,
-  StoreDownloadProgress,
-} from "@types";
+import type { Download, DownloadProgress, StoreDownloadProgress } from "@types";
 import { downloadsSublevel, gamesSublevel, levelKeys } from "@main/level";
 import { EpicDownloadProgressParser } from "@main/services/epic/download";
 import {
@@ -48,7 +44,10 @@ class EpicDownloadServiceImpl {
     entry: ActiveEpicDownload,
     downloadRecord?: Download | null
   ) {
-    WindowManager.sendToAppWindows("on-store-download-progress", entry.progress);
+    WindowManager.sendToAppWindows(
+      "on-store-download-progress",
+      entry.progress
+    );
 
     if (!downloadRecord) return;
     const gameId = levelKeys.game("epic", entry.appName);
@@ -200,7 +199,10 @@ class EpicDownloadServiceImpl {
               4
             );
             if (exes.length > 0) {
-              resolvedExe = CrossOverDiscovery.pickPrimaryExecutable(title, exes);
+              resolvedExe = CrossOverDiscovery.pickPrimaryExecutable(
+                title,
+                exes
+              );
             }
           }
 
@@ -217,14 +219,17 @@ class EpicDownloadServiceImpl {
           };
           await downloadsSublevel.put(gameKey, downloadRecord).catch(() => {});
 
-          const existingGame = await gamesSublevel.get(gameKey).catch(() => null);
+          const existingGame = await gamesSublevel
+            .get(gameKey)
+            .catch(() => null);
           if (existingGame) {
             await gamesSublevel.put(gameKey, {
               ...existingGame,
-              executablePath: resolvedExe ?? existingGame.executablePath ?? null,
+              executablePath:
+                resolvedExe ?? existingGame.executablePath ?? null,
               executablePathUpdatedAt: resolvedExe
                 ? new Date()
-                : existingGame.executablePathUpdatedAt ?? null,
+                : (existingGame.executablePathUpdatedAt ?? null),
               installedSizeInBytes:
                 installed?.install_size ??
                 (parser.state.fileSize || existingGame.installedSizeInBytes),
@@ -265,7 +270,8 @@ class EpicDownloadServiceImpl {
       })
       .catch(async (err) => {
         this.activeDownloads.delete(appName);
-        const msg = err instanceof Error ? err.message : "Erro ao baixar da Epic";
+        const msg =
+          err instanceof Error ? err.message : "Erro ao baixar da Epic";
         logger.error("[EpicDownload] Failed", err);
         downloadRecord = { ...downloadRecord, status: "error" };
         await downloadsSublevel.put(gameKey, downloadRecord).catch(() => {});
@@ -287,7 +293,9 @@ class EpicDownloadServiceImpl {
       entry.cancelled = true;
       entry.abortController.abort();
     }
-    await downloadsSublevel.del(levelKeys.game("epic", appName)).catch(() => {});
+    await downloadsSublevel
+      .del(levelKeys.game("epic", appName))
+      .catch(() => {});
     WindowManager.sendToAppWindows("on-library-batch-complete");
   }
 
@@ -298,9 +306,12 @@ class EpicDownloadServiceImpl {
     const installedPath = path.join(getLegendaryConfigDir(), "installed.json");
     if (!fs.existsSync(installedPath)) return null;
 
-    let res = await runLegendary(["launch", appName, "--dry-run", "--json"]).catch(
-      () => null
-    );
+    let res = await runLegendary([
+      "launch",
+      appName,
+      "--dry-run",
+      "--json",
+    ]).catch(() => null);
     if (!res || res.code !== 0) {
       res = await runLegendary([
         "launch",
@@ -315,8 +326,12 @@ class EpicDownloadServiceImpl {
     try {
       const parsed = JSON.parse(res.stdout) as LegendaryDryRunJson;
       const args = [
-        ...(Array.isArray(parsed.game_parameters) ? parsed.game_parameters : []),
-        ...(Array.isArray(parsed.user_parameters) ? parsed.user_parameters : []),
+        ...(Array.isArray(parsed.game_parameters)
+          ? parsed.game_parameters
+          : []),
+        ...(Array.isArray(parsed.user_parameters)
+          ? parsed.user_parameters
+          : []),
         ...(Array.isArray(parsed.egl_parameters) ? parsed.egl_parameters : []),
       ];
       return {

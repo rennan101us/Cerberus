@@ -5,10 +5,7 @@ import {
   CrossOverRunner,
 } from "@main/services/crossover";
 import { WindowManager } from "@main/services";
-import type {
-  CrossOverProvisionProgress,
-  RedWineBottleConfig,
-} from "@types";
+import type { CrossOverProvisionProgress, RedWineBottleConfig } from "@types";
 
 const resetCrossOverTrial = async () => {
   return await CrossOverProvisioner.resetTrial();
@@ -79,8 +76,14 @@ const getMacHardwareSpecs = async () => {
 registerEvent("resetCrossOverTrial", resetCrossOverTrial);
 registerEvent("createCrossOverBottle", createCrossOverBottle);
 registerEvent("installCrossOverDemo", installCrossOverDemo);
-registerEvent("getHeadBottleDependenciesStatus", getHeadBottleDependenciesStatus);
-registerEvent("provisionHeadBottleDependencies", provisionHeadBottleDependencies);
+registerEvent(
+  "getHeadBottleDependenciesStatus",
+  getHeadBottleDependenciesStatus
+);
+registerEvent(
+  "provisionHeadBottleDependencies",
+  provisionHeadBottleDependencies
+);
 registerEvent("getMacHardwareSpecs", getMacHardwareSpecs);
 
 registerEvent(

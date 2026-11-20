@@ -116,7 +116,10 @@ class GogDownloadServiceImpl {
         windowsInstallers,
       };
     } catch (err) {
-      logger.error(`[GOG Download] Error fetching downloads for ${gameId}`, err);
+      logger.error(
+        `[GOG Download] Error fetching downloads for ${gameId}`,
+        err
+      );
       return null;
     }
   }

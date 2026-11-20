@@ -34,7 +34,9 @@ export function stripHtmlTags(input: string): string {
   return decodeHtmlEntities(input.replace(/<[^>]+>/g, " "));
 }
 
-export function normalizeRussianSize(raw: string | null | undefined): string | null {
+export function normalizeRussianSize(
+  raw: string | null | undefined
+): string | null {
   if (!raw) return null;
   const cleaned = decodeHtmlEntities(raw)
     .replace(/,/g, ".")
@@ -54,8 +56,9 @@ export function splitTitleAndVersion(rawTitle: string): {
   const decoded = decodeHtmlEntities(rawTitle);
   // Match trailing version like "Crimson Desert 2.03.02", "Frostpunk 2 1.5.3", "Rebel Cops v1.0.7.0 (2019)"
   const cleanedYear = decoded.replace(/\s*\(\d{4}\)\s*$/i, "").trim();
-  const verMatch =
-    /\s+(v?\d+\.\d+(?:\.\d+)*(?:\s*\(\d+\))?)\s*$/i.exec(cleanedYear);
+  const verMatch = /\s+(v?\d+\.\d+(?:\.\d+)*(?:\s*\(\d+\))?)\s*$/i.exec(
+    cleanedYear
+  );
   if (verMatch && cleanedYear.length - verMatch[0].length >= 3) {
     return {
       title: cleanedYear.slice(0, verMatch.index).trim(),
@@ -72,7 +75,10 @@ export function normalizeMacNativeTitle(raw: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[™®©]/g, "")
-    .replace(/\b(macos|mac os|arm64|apple silicon|universal|u2b|enhanced|repack)\b/gi, " ")
+    .replace(
+      /\b(macos|mac os|arm64|apple silicon|universal|u2b|enhanced|repack)\b/gi,
+      " "
+    )
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
@@ -85,7 +91,10 @@ export function buildMacNativeObjectId(normalizedTitle: string): string {
   return slug || "mac-game";
 }
 
-function resolveUrl(base: string, raw: string | null | undefined): string | null {
+function resolveUrl(
+  base: string,
+  raw: string | null | undefined
+): string | null {
   if (!raw) return null;
   const trimmed = decodeHtmlEntities(raw).trim();
   if (!trimmed) return null;
@@ -127,12 +136,15 @@ function pickBestSrcFromImgTag(imgTag: string, baseUrl: string): string | null {
   return srcMatch ? resolveUrl(baseUrl, srcMatch[1]) : null;
 }
 
-export function parseAppstorrentListingHtml(html: string): ParsedMacNativeCard[] {
+export function parseAppstorrentListingHtml(
+  html: string
+): ParsedMacNativeCard[] {
   const BASE = "https://appstorrent.ru";
   const results: ParsedMacNativeCard[] = [];
   const seen = new Set<string>();
 
-  const articleRegex = /<article\s+class="games-item[^"]*"[^>]*>([\s\S]*?)<\/article>/gi;
+  const articleRegex =
+    /<article\s+class="games-item[^"]*"[^>]*>([\s\S]*?)<\/article>/gi;
   let match: RegExpExecArray | null;
   while ((match = articleRegex.exec(html)) !== null) {
     const block = match[1];
@@ -152,7 +164,9 @@ export function parseAppstorrentListingHtml(html: string): ParsedMacNativeCard[]
     const normalizedTitle = normalizeMacNativeTitle(title);
     if (!normalizedTitle) continue;
 
-    const coverBlock = /<div\s+class="cover"[^>]*>([\s\S]*?)<\/div>/i.exec(block);
+    const coverBlock = /<div\s+class="cover"[^>]*>([\s\S]*?)<\/div>/i.exec(
+      block
+    );
     const coverImgTag = coverBlock ? /<img[^>]+>/i.exec(coverBlock[1]) : null;
     const coverUrl = coverImgTag
       ? pickBestSrcFromImgTag(coverImgTag[0], BASE)
@@ -194,7 +208,11 @@ export function parseAppstorrentDetailHtml(
   html: string,
   detailUrl: string,
   gameTitle: string
-): { summary: string | null; fileSize: string | null; options: MacNativeDownloadOption[] } {
+): {
+  summary: string | null;
+  fileSize: string | null;
+  options: MacNativeDownloadOption[];
+} {
   const options: MacNativeDownloadOption[] = [];
   const seen = new Set<string>();
 
@@ -204,8 +222,9 @@ export function parseAppstorrentDetailHtml(
     );
   const fileSize = normalizeRussianSize(sizeBtnMatch?.[1] ?? null);
 
-  const metaDescMatch =
-    /<meta\s+name="description"\s+content="([^"]+)"/i.exec(html);
+  const metaDescMatch = /<meta\s+name="description"\s+content="([^"]+)"/i.exec(
+    html
+  );
   const summary = metaDescMatch ? decodeHtmlEntities(metaDescMatch[1]) : null;
 
   const listLinkMatch = /<div\s+class="list_link"[^>]*>([\s\S]*?)<\/div>/i.exec(
@@ -220,7 +239,8 @@ export function parseAppstorrentDetailHtml(
   while ((m = linkRegex.exec(searchRegion)) !== null) {
     const rawHref = decodeHtmlEntities(m[1]).trim();
     const label = stripHtmlTags(m[2]);
-    if (!rawHref || rawHref.startsWith("#") || rawHref.startsWith("/")) continue;
+    if (!rawHref || rawHref.startsWith("#") || rawHref.startsWith("/"))
+      continue;
     if (seen.has(rawHref)) continue;
 
     const lower = rawHref.toLowerCase();
@@ -229,14 +249,21 @@ export function parseAppstorrentDetailHtml(
       !lower.includes("mediafire.com/file/") &&
       !lower.includes("cloud.mail.ru");
     const isMediafire = lower.includes("mediafire.com/");
-    const isTorrent = lower.startsWith("magnet:") || /\.torrent(\?|$)/i.test(lower);
+    const isTorrent =
+      lower.startsWith("magnet:") || /\.torrent(\?|$)/i.test(lower);
     const isMailRu = lower.includes("cloud.mail.ru/");
     const isOtherHoster =
       lower.includes("gofile.io/") ||
       lower.includes("pixeldrain.com/") ||
       lower.includes("mega.nz/");
 
-    if (!isDirectFile && !isMediafire && !isTorrent && !isMailRu && !isOtherHoster) {
+    if (
+      !isDirectFile &&
+      !isMediafire &&
+      !isTorrent &&
+      !isMailRu &&
+      !isOtherHoster
+    ) {
       continue;
     }
     seen.add(rawHref);
@@ -277,12 +304,15 @@ export function parseAppstorrentDetailHtml(
   return { summary, fileSize, options };
 }
 
-export function parseTorrentMacListingHtml(html: string): ParsedMacNativeCard[] {
+export function parseTorrentMacListingHtml(
+  html: string
+): ParsedMacNativeCard[] {
   const BASE = "https://www.torrentmac.net";
   const results: ParsedMacNativeCard[] = [];
   const seen = new Set<string>();
 
-  const articleRegex = /<article[^>]*class="[^"]*post[^"]*"[^>]*>([\s\S]*?)<\/article>/gi;
+  const articleRegex =
+    /<article[^>]*class="[^"]*post[^"]*"[^>]*>([\s\S]*?)<\/article>/gi;
   let match: RegExpExecArray | null;
 
   while ((match = articleRegex.exec(html)) !== null) {
@@ -302,7 +332,8 @@ export function parseTorrentMacListingHtml(html: string): ParsedMacNativeCard[] 
     const normalizedTitle = normalizeMacNativeTitle(title);
     if (!normalizedTitle) continue;
 
-    const imgMatch = /<img[^>]+wp-post-image[^>]*>/i.exec(block) || /<img[^>]+>/i.exec(block);
+    const imgMatch =
+      /<img[^>]+wp-post-image[^>]*>/i.exec(block) || /<img[^>]+>/i.exec(block);
     const coverUrl = imgMatch ? pickBestSrcFromImgTag(imgMatch[0], BASE) : null;
 
     const timeMatch = /<time[^>]+datetime=["']([^"']+)["']/i.exec(block);
@@ -336,7 +367,11 @@ export function parseTorrentMacDetailHtml(
   html: string,
   detailUrl: string,
   gameTitle: string
-): { summary: string | null; fileSize: string | null; options: MacNativeDownloadOption[] } {
+): {
+  summary: string | null;
+  fileSize: string | null;
+  options: MacNativeDownloadOption[];
+} {
   const BASE = "https://www.torrentmac.net";
   const options: MacNativeDownloadOption[] = [];
   const seen = new Set<string>();
@@ -350,8 +385,9 @@ export function parseTorrentMacDetailHtml(
     );
   const fileSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
 
-  const metaDescMatch =
-    /<meta\s+name="description"\s+content="([^"]+)"/i.exec(html);
+  const metaDescMatch = /<meta\s+name="description"\s+content="([^"]+)"/i.exec(
+    html
+  );
   const summary = metaDescMatch ? decodeHtmlEntities(metaDescMatch[1]) : null;
 
   const linkRegex = /href=["']([^"']+)["']/gi;

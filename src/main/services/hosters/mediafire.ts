@@ -81,12 +81,21 @@ export class MediafireApi {
       }
     }
 
-    if (this.isCloudflareChallenge(response.status, response.headers, finalUrl, html)) {
+    if (
+      this.isCloudflareChallenge(
+        response.status,
+        response.headers,
+        finalUrl,
+        html
+      )
+    ) {
       throw new MediafireChallengeError(url);
     }
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch Mediafire page (HTTP ${response.status})`);
+      throw new Error(
+        `Failed to fetch Mediafire page (HTTP ${response.status})`
+      );
     }
 
     if (depth < 1) {
@@ -151,7 +160,9 @@ export class MediafireApi {
     const scrambledMatch = this.scrambledUrlRe.exec(html);
     if (scrambledMatch?.[1]) {
       try {
-        const decoded = Buffer.from(scrambledMatch[1], "base64").toString("utf8").trim();
+        const decoded = Buffer.from(scrambledMatch[1], "base64")
+          .toString("utf8")
+          .trim();
         if (this.directDownloadUrlRe.test(decoded)) {
           return decoded;
         }

@@ -4,18 +4,8 @@ import type {
   DownloadSource,
 } from "@types";
 
-import {
-  useAppDispatch,
-  useAppSelector,
-  useFormat,
-} from "@renderer/hooks";
-import {
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useAppDispatch, useAppSelector, useFormat } from "@renderer/hooks";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import "./catalogue.scss";
 
@@ -508,187 +498,186 @@ export default function Catalogue() {
       ) : (
         <>
           <div className="catalogue__header">
-        <div className="catalogue__header-row">
-          <div className="catalogue__header-summary">
-            <span className="catalogue__result-count">
-              {t("result_count", {
-                resultCount: formatNumber(itemsCount),
-              })}
-            </span>
-            {selectedFiltersCount === 0 && (
-              <span className="catalogue__filters-hint">
-                {t("filters_sidebar_hint")}
-              </span>
+            <div className="catalogue__header-row">
+              <div className="catalogue__header-summary">
+                <span className="catalogue__result-count">
+                  {t("result_count", {
+                    resultCount: formatNumber(itemsCount),
+                  })}
+                </span>
+                {selectedFiltersCount === 0 && (
+                  <span className="catalogue__filters-hint">
+                    {t("filters_sidebar_hint")}
+                  </span>
+                )}
+              </div>
+
+              <div className="catalogue__sort-inline">
+                <span className="catalogue__sort-label">{t("sort_by")}</span>
+                <SelectField
+                  theme="dark"
+                  className="catalogue__sort-select"
+                  value={
+                    sortValues.includes(selectedSortValue as CatalogueSortValue)
+                      ? selectedSortValue
+                      : "popularity:desc"
+                  }
+                  options={sortOptions}
+                  onChange={(event) => {
+                    const [sortBy, sortOrder] = event.target.value.split(
+                      ":"
+                    ) as [
+                      CatalogueSearchPayload["sortBy"],
+                      CatalogueSearchPayload["sortOrder"],
+                    ];
+
+                    dispatch(setFilters({ sortBy, sortOrder }));
+                  }}
+                />
+              </div>
+            </div>
+
+            {selectedFiltersCount > 0 && (
+              <div className="catalogue__header-row catalogue__header-row--filters">
+                <span className="catalogue__active-filters-label">
+                  {t("active_filters")}
+                </span>
+
+                <div className="catalogue__filters-wrapper">
+                  <ul className="catalogue__filters-list">
+                    {activeGroupedFilters.map((filter) => (
+                      <li key={`${filter.key}-${filter.value}`}>
+                        <FilterItem
+                          filter={filter.label ?? ""}
+                          filterType={filter.filterType}
+                          orbColor={filter.orbColor}
+                          onRemove={() => {
+                            if (filter.value === "range") {
+                              dispatch(setFilters({ releaseYear: undefined }));
+                              return;
+                            }
+
+                            if (filter.key === "recompilation") {
+                              dispatch(setFilters({ [filter.key]: undefined }));
+                              return;
+                            }
+
+                            if (filter.value === "threshold") {
+                              dispatch(setFilters({ [filter.key]: [] }));
+                              return;
+                            }
+
+                            const currentValues =
+                              (filters[filter.key] as
+                                | (string | number)[]
+                                | undefined) ?? [];
+
+                            dispatch(
+                              setFilters({
+                                [filter.key]: currentValues.filter(
+                                  (item) => item !== filter.value
+                                ),
+                              })
+                            );
+                          }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <Button
+                  type="button"
+                  theme="outline"
+                  className="catalogue__clear-all-button"
+                  onClick={() => dispatch(setFilters(clearAllCategoryFilters))}
+                >
+                  {t("clear_filters", {
+                    filterCount: formatNumber(selectedFiltersCount),
+                  })}
+                </Button>
+              </div>
             )}
           </div>
 
-          <div className="catalogue__sort-inline">
-            <span className="catalogue__sort-label">{t("sort_by")}</span>
-            <SelectField
-              theme="dark"
-              className="catalogue__sort-select"
-              value={
-                sortValues.includes(selectedSortValue as CatalogueSortValue)
-                  ? selectedSortValue
-                  : "popularity:desc"
-              }
-              options={sortOptions}
-              onChange={(event) => {
-                const [sortBy, sortOrder] = event.target.value.split(":") as [
-                  CatalogueSearchPayload["sortBy"],
-                  CatalogueSearchPayload["sortOrder"],
-                ];
+          <div className="catalogue__content">
+            <div
+              className={cn("catalogue__games-container", {
+                "catalogue__games-container--classics": mode === "classics",
+              })}
+            >
+              {showSkeleton ? (
+                <SkeletonTheme baseColor="#1c1c1c" highlightColor="#444">
+                  {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                    <Skeleton key={i} className="catalogue__skeleton" />
+                  ))}
+                </SkeletonTheme>
+              ) : (
+                results.map((game) => <GameItem key={game.id} game={game} />)
+              )}
 
-                dispatch(setFilters({ sortBy, sortOrder }));
-              }}
-            />
-          </div>
-        </div>
-
-        {selectedFiltersCount > 0 && (
-          <div className="catalogue__header-row catalogue__header-row--filters">
-            <span className="catalogue__active-filters-label">
-              {t("active_filters")}
-            </span>
-
-            <div className="catalogue__filters-wrapper">
-              <ul className="catalogue__filters-list">
-                {activeGroupedFilters.map((filter) => (
-                  <li key={`${filter.key}-${filter.value}`}>
-                    <FilterItem
-                      filter={filter.label ?? ""}
-                      filterType={filter.filterType}
-                      orbColor={filter.orbColor}
-                      onRemove={() => {
-                        if (filter.value === "range") {
-                          dispatch(setFilters({ releaseYear: undefined }));
-                          return;
-                        }
-
-                        if (filter.key === "recompilation") {
-                          dispatch(setFilters({ [filter.key]: undefined }));
-                          return;
-                        }
-
-                        if (filter.value === "threshold") {
-                          dispatch(setFilters({ [filter.key]: [] }));
-                          return;
-                        }
-
-                        const currentValues =
-                          (filters[filter.key] as
-                            | (string | number)[]
-                            | undefined) ?? [];
-
-                        dispatch(
-                          setFilters({
-                            [filter.key]: currentValues.filter(
-                              (item) => item !== filter.value
-                            ),
-                          })
-                        );
-                      }}
-                    />
-                  </li>
-                ))}
-              </ul>
+              <div className="catalogue__pagination-container">
+                <Pagination
+                  page={page}
+                  totalPages={Math.ceil(itemsCount / PAGE_SIZE)}
+                  onPageChange={(page) => {
+                    dispatch(setPage(page));
+                    if (cataloguePageRef.current) {
+                      cataloguePageRef.current.scrollTop = 0;
+                    }
+                  }}
+                />
+              </div>
             </div>
 
-            <Button
-              type="button"
-              theme="outline"
-              className="catalogue__clear-all-button"
-              onClick={() => dispatch(setFilters(clearAllCategoryFilters))}
-            >
-              {t("clear_filters", {
-                filterCount: formatNumber(selectedFiltersCount),
-              })}
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <div className="catalogue__content">
-        <div
-          className={cn("catalogue__games-container", {
-            "catalogue__games-container--classics": mode === "classics",
-          })}
-        >
-          {showSkeleton ? (
-            <SkeletonTheme baseColor="#1c1c1c" highlightColor="#444">
-              {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                <Skeleton
-                  key={i}
-                  className="catalogue__skeleton"
-                />
-              ))}
-            </SkeletonTheme>
-          ) : (
-            results.map((game) => <GameItem key={game.id} game={game} />)
-          )}
-
-          <div className="catalogue__pagination-container">
-            <Pagination
-              page={page}
-              totalPages={Math.ceil(itemsCount / PAGE_SIZE)}
-              onPageChange={(page) => {
-                dispatch(setPage(page));
-                if (cataloguePageRef.current) {
-                  cataloguePageRef.current.scrollTop = 0;
-                }
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="catalogue__filters-container">
-          <div className="catalogue__filters-sections">
-            <ReleaseYearSection
-              title={t("release_year")}
-              color={filterCategoryColors.releaseYear}
-              value={filters.releaseYear}
-              onChange={(value) =>
-                dispatch(setFilters({ releaseYear: value }))
-              }
-            />
-
-            {filterSections.map((section) => (
-              <FilterSection
-                key={section.key}
-                title={section.title}
-                onClear={() => dispatch(setFilters({ [section.key]: [] }))}
-                color={filterCategoryColors[section.key]}
-                onSelect={(value) => {
-                  if (filters[section.key].includes(value)) {
-                    dispatch(
-                      setFilters({
-                        [section.key]: filters[
-                          section.key as
-                            | "genres"
-                            | "tags"
-                            | "downloadSourceFingerprints"
-                            | "developers"
-                            | "publishers"
-                            | "protondbSupportBadges"
-                            | "deckCompatibility"
-                        ].filter((item) => item !== value),
-                      })
-                    );
-                  } else {
-                    dispatch(
-                      setFilters({
-                        [section.key]: [...filters[section.key], value],
-                      })
-                    );
+            <div className="catalogue__filters-container">
+              <div className="catalogue__filters-sections">
+                <ReleaseYearSection
+                  title={t("release_year")}
+                  color={filterCategoryColors.releaseYear}
+                  value={filters.releaseYear}
+                  onChange={(value) =>
+                    dispatch(setFilters({ releaseYear: value }))
                   }
-                }}
-                items={section.items}
-                isLoading={section.isLoading}
-              />
-            ))}
+                />
+
+                {filterSections.map((section) => (
+                  <FilterSection
+                    key={section.key}
+                    title={section.title}
+                    onClear={() => dispatch(setFilters({ [section.key]: [] }))}
+                    color={filterCategoryColors[section.key]}
+                    onSelect={(value) => {
+                      if (filters[section.key].includes(value)) {
+                        dispatch(
+                          setFilters({
+                            [section.key]: filters[
+                              section.key as
+                                | "genres"
+                                | "tags"
+                                | "downloadSourceFingerprints"
+                                | "developers"
+                                | "publishers"
+                                | "protondbSupportBadges"
+                                | "deckCompatibility"
+                            ].filter((item) => item !== value),
+                          })
+                        );
+                      } else {
+                        dispatch(
+                          setFilters({
+                            [section.key]: [...filters[section.key], value],
+                          })
+                        );
+                      }
+                    }}
+                    items={section.items}
+                    isLoading={section.isLoading}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
         </>
       )}
     </div>

@@ -14,17 +14,12 @@ registerEvent("socialGetConversations", () =>
 
 registerEvent(
   "socialGetMessages",
-  (
-    _event,
-    friendId: string,
-    params?: { before?: number; take?: number }
-  ) => SocialHubService.getMessages(friendId, params)
+  (_event, friendId: string, params?: { before?: number; take?: number }) =>
+    SocialHubService.getMessages(friendId, params)
 );
 
-registerEvent(
-  "socialSendMessage",
-  (_event, friendId: string, body: string) =>
-    SocialHubService.sendMessage(friendId, body)
+registerEvent("socialSendMessage", (_event, friendId: string, body: string) =>
+  SocialHubService.sendMessage(friendId, body)
 );
 
 registerEvent("socialSendTyping", (_event, friendId: string) =>

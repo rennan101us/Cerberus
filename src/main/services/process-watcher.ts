@@ -786,9 +786,7 @@ const onCloseGame = (game: Game, _options: { isShutdown?: boolean } = {}) => {
 
   if (
     process.platform === "darwin" &&
-    (game.shop === "steam" ||
-      game.shop === "epic" ||
-      game.shop === "custom") &&
+    (game.shop === "steam" || game.shop === "epic" || game.shop === "custom") &&
     game.automaticCloudSync !== false
   ) {
     import("./icloud-save-service")

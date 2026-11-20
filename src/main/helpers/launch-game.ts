@@ -8,7 +8,10 @@ import { isEpicUpdateInterrupted } from "@shared";
 import { updateGameExecutablePath } from "./update-executable-path";
 import { isInstallerExecutableName } from "./find-game-installer";
 import { GameFilesManager } from "@main/services/game-files-manager";
-import { CrossOverDetector, DEFAULT_BOTTLE_NAME } from "@main/services/crossover";
+import {
+  CrossOverDetector,
+  DEFAULT_BOTTLE_NAME,
+} from "@main/services/crossover";
 import {
   clearCloudSaveLaunchGuard,
   canRunAutomaticCloudSaveSync,

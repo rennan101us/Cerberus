@@ -150,7 +150,9 @@ const toSimpleWinPath = (posixPath: string, bottleDir: string): string => {
   return `Z:\\${absPath.replace(/^\/+/, "").split(path.sep).join("\\")}`;
 };
 
-const hasRealGamesInsideBottle = async (bottleDir: string): Promise<boolean> => {
+const hasRealGamesInsideBottle = async (
+  bottleDir: string
+): Promise<boolean> => {
   const gameFolders = [
     path.join(bottleDir, "drive_c", "Games"),
     path.join(bottleDir, "drive_c", "GOG Games"),
@@ -158,7 +160,10 @@ const hasRealGamesInsideBottle = async (bottleDir: string): Promise<boolean> => 
     path.join(bottleDir, "drive_c", "Program Files", "DODI-Repacks"),
   ];
 
-  const hasExeRecursive = async (dir: string, depth: number): Promise<boolean> => {
+  const hasExeRecursive = async (
+    dir: string,
+    depth: number
+  ): Promise<boolean> => {
     if (depth > 3 || !fs.existsSync(dir)) return false;
     const entries = await fs.promises
       .readdir(dir, { withFileTypes: true })
@@ -279,21 +284,32 @@ export class CrossOverProvisioner {
         }
 
         // Update saved library entries referencing legacy /Bottles/Steam or /Bottles/HydraGames
-        const entries = await gamesSublevel.iterator().all().catch(() => []);
+        const entries = await gamesSublevel
+          .iterator()
+          .all()
+          .catch(() => []);
         for (const [key, game] of entries) {
           if (!game || game.isDeleted) continue;
 
           let updated = false;
           const next = { ...game };
 
-          const rewriteLegacyPath = (val?: string | null): string | null | undefined => {
+          const rewriteLegacyPath = (
+            val?: string | null
+          ): string | null | undefined => {
             if (!val) return val;
             let result = val;
             if (result.includes("/Bottles/Steam")) {
-              result = result.replace(/\/Bottles\/Steam(?=\/|$)/g, `/Bottles/${DEFAULT_BOTTLE_NAME}`);
+              result = result.replace(
+                /\/Bottles\/Steam(?=\/|$)/g,
+                `/Bottles/${DEFAULT_BOTTLE_NAME}`
+              );
             }
             if (result.includes("/Bottles/HydraGames")) {
-              result = result.replace(/\/Bottles\/HydraGames(?=\/|$)/g, `/Bottles/${DEFAULT_BOTTLE_NAME}`);
+              result = result.replace(
+                /\/Bottles\/HydraGames(?=\/|$)/g,
+                `/Bottles/${DEFAULT_BOTTLE_NAME}`
+              );
             }
             return result;
           };
@@ -646,11 +662,7 @@ export class CrossOverProvisioner {
       else if (rawMsync === "0" && rawEsync === "0") defaults.syncMode = "none";
 
       const rawWin = readConfKey("WindowsVersion");
-      if (
-        rawWin === "win10" ||
-        rawWin === "win11" ||
-        rawWin === "win7"
-      ) {
+      if (rawWin === "win10" || rawWin === "win11" || rawWin === "win7") {
         defaults.windowsVersion = rawWin;
       }
 
@@ -888,16 +900,28 @@ export class CrossOverProvisioner {
     }
 
     const vcredist =
-      fs.existsSync(path.join(bottleDir, "drive_c/windows/system32/vcruntime140_1.dll")) &&
-      fs.existsSync(path.join(bottleDir, "drive_c/windows/syswow64/vcruntime140.dll"));
+      fs.existsSync(
+        path.join(bottleDir, "drive_c/windows/system32/vcruntime140_1.dll")
+      ) &&
+      fs.existsSync(
+        path.join(bottleDir, "drive_c/windows/syswow64/vcruntime140.dll")
+      );
 
     const directx =
-      fs.existsSync(path.join(bottleDir, "drive_c/windows/system32/d3dx9_43.dll")) ||
-      fs.existsSync(path.join(bottleDir, "drive_c/windows/system32/d3dcompiler_47.dll"));
+      fs.existsSync(
+        path.join(bottleDir, "drive_c/windows/system32/d3dx9_43.dll")
+      ) ||
+      fs.existsSync(
+        path.join(bottleDir, "drive_c/windows/system32/d3dcompiler_47.dll")
+      );
 
     const steam =
-      fs.existsSync(path.join(bottleDir, "drive_c/Program Files (x86)/Steam/steam.exe")) ||
-      fs.existsSync(path.join(bottleDir, "drive_c/Program Files/Steam/steam.exe"));
+      fs.existsSync(
+        path.join(bottleDir, "drive_c/Program Files (x86)/Steam/steam.exe")
+      ) ||
+      fs.existsSync(
+        path.join(bottleDir, "drive_c/Program Files/Steam/steam.exe")
+      );
 
     const epic =
       fs.existsSync(
@@ -1092,11 +1116,18 @@ export class CrossOverProvisioner {
       try {
         emit("downloading", task.basePct, `Baixando ${task.label}...`);
         await downloadToFile(task.url, dest, () => {});
-        emit("configuring", task.basePct + 6, `Instalando ${task.label} na Head Bottle...`);
+        emit(
+          "configuring",
+          task.basePct + 6,
+          `Instalando ${task.label} na Head Bottle...`
+        );
         await this.runBottleCommandWait(bottlesDir, bottleDir, dest, task.args);
       } catch (err) {
         await removeFileQuietly(dest);
-        logger.warn(`[RedWine] Optional/dependency step warning for ${task.label}`, err);
+        logger.warn(
+          `[RedWine] Optional/dependency step warning for ${task.label}`,
+          err
+        );
         AppLogHub.warn(
           "crossover",
           `[Head Bottle] Aviso em ${task.label}: ${err instanceof Error ? err.message : String(err)}`

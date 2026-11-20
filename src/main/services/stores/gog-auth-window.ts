@@ -36,11 +36,9 @@ export function openGogAuthWindow(callbacks: GogAuthWindowCallbacks) {
         if (code && !completed) {
           completed = true;
           authWindow.hide();
-          void callbacks
-            .onCode(code)
-            .finally(() => {
-              if (!authWindow.isDestroyed()) authWindow.close();
-            });
+          void callbacks.onCode(code).finally(() => {
+            if (!authWindow.isDestroyed()) authWindow.close();
+          });
           return true;
         }
       }

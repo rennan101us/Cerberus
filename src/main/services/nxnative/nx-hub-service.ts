@@ -234,7 +234,9 @@ export class NxHubService {
         const list = parsed?.result?.devices ?? [];
         for (const d of list) {
           const devProps =
-            d.deviceProperties ?? d.properties?.state ?? ({} as Record<string, any>);
+            d.deviceProperties ??
+            d.properties?.state ??
+            ({} as Record<string, any>);
           const hwProps =
             d.hardwareProperties ??
             d.properties?.hardware ??
@@ -306,7 +308,7 @@ export class NxHubService {
           const parts = trimmed.split(/\s+/);
           if (parts.length < 3) continue;
           const idPart = parts.find(
-            (p) => p.length >= 16 && (/^[0-9A-Fa-f-]+$/.test(p))
+            (p) => p.length >= 16 && /^[0-9A-Fa-f-]+$/.test(p)
           );
           if (!idPart) continue;
           const isAvailable =
@@ -608,7 +610,10 @@ export class NxHubService {
     await fsp.mkdir(derivedDataDir, { recursive: true });
 
     const expectedChain = getCurrentShaderChain(nxRepo.path);
-    const targetFwPath = path.join(frameworksDir, `DmGame${cleanTid}.framework`);
+    const targetFwPath = path.join(
+      frameworksDir,
+      `DmGame${cleanTid}.framework`
+    );
     const python = NxPathsService.findBestPython(nxRepo.path);
     const pythonPath = python.path || "/usr/bin/python3";
     const [appSupportDir, nx2aHome, cacheRoot, prodKeys] = await Promise.all([
@@ -797,102 +802,100 @@ export class NxHubService {
     let fwLogTail = "";
     const fwBuildResult = fwReady
       ? { ok: true }
-      : await new Promise<{ ok: boolean; error?: string }>(
-      (resolve) => {
-        const child = spawn(pythonPath, fwArgs, {
-          cwd: nxRepo.path,
-          env: baseEnv,
-          stdio: ["ignore", "pipe", "pipe"],
-        });
-        options.onProcessSpawned?.(child);
+      : await new Promise<{ ok: boolean; error?: string }>((resolve) => {
+          const child = spawn(pythonPath, fwArgs, {
+            cwd: nxRepo.path,
+            env: baseEnv,
+            stdio: ["ignore", "pipe", "pipe"],
+          });
+          options.onProcessSpawned?.(child);
 
-        let lastErr = "";
-        const handleLine = (rawLine: string, isErr: boolean) => {
-          const line = rawLine.trim();
-          if (!line) return;
-          fwLogTail = `${fwLogTail}\n${line}`.slice(-4000);
-          if (line.startsWith("{") && line.endsWith("}")) {
-            try {
-              const ev = JSON.parse(line) as {
-                ev?: string;
-                name?: string;
-                k?: number;
-                n?: number;
-                step?: string;
-                frac?: number;
-                msg?: string;
-              };
-              if (ev.ev === "stage") {
-                AppLogHub.step(
-                  "build",
-                  `[${ev.k || 1}/${ev.n || 1}] ${ev.name || "Processando"}`
-                );
-                options.onProgress?.({
-                  phase: "stage",
-                  stageName: ev.name || "Compilando Framework",
-                  stageIndex: ev.k || 1,
-                  stageTotal: ev.n || 1,
-                });
-                return;
-              }
-              if (ev.ev === "step" && ev.step) {
-                AppLogHub.info("build", `↳ ${ev.step}`);
-                options.onProgress?.({ phase: "step", step: ev.step });
-                return;
-              }
-              if (ev.ev === "progress") {
-                options.onProgress?.({
-                  phase: "progress",
-                  fraction: (ev.frac ?? 0) * 0.65,
-                });
-                return;
-              }
-              if (ev.ev === "say" && ev.msg) {
-                if (ev.msg.startsWith("[RED]")) {
-                  lastErr = ev.msg.slice(5).trim();
+          let lastErr = "";
+          const handleLine = (rawLine: string, isErr: boolean) => {
+            const line = rawLine.trim();
+            if (!line) return;
+            fwLogTail = `${fwLogTail}\n${line}`.slice(-4000);
+            if (line.startsWith("{") && line.endsWith("}")) {
+              try {
+                const ev = JSON.parse(line) as {
+                  ev?: string;
+                  name?: string;
+                  k?: number;
+                  n?: number;
+                  step?: string;
+                  frac?: number;
+                  msg?: string;
+                };
+                if (ev.ev === "stage") {
+                  AppLogHub.step(
+                    "build",
+                    `[${ev.k || 1}/${ev.n || 1}] ${ev.name || "Processando"}`
+                  );
+                  options.onProgress?.({
+                    phase: "stage",
+                    stageName: ev.name || "Compilando Framework",
+                    stageIndex: ev.k || 1,
+                    stageTotal: ev.n || 1,
+                  });
+                  return;
                 }
-                AppLogHub.info("build", ev.msg);
-                return;
+                if (ev.ev === "step" && ev.step) {
+                  AppLogHub.info("build", `↳ ${ev.step}`);
+                  options.onProgress?.({ phase: "step", step: ev.step });
+                  return;
+                }
+                if (ev.ev === "progress") {
+                  options.onProgress?.({
+                    phase: "progress",
+                    fraction: (ev.frac ?? 0) * 0.65,
+                  });
+                  return;
+                }
+                if (ev.ev === "say" && ev.msg) {
+                  if (ev.msg.startsWith("[RED]")) {
+                    lastErr = ev.msg.slice(5).trim();
+                  }
+                  AppLogHub.info("build", ev.msg);
+                  return;
+                }
+              } catch {
+                // plain line
               }
-            } catch {
-              // plain line
             }
-          }
-          if (isErr) lastErr = line;
-          AppLogHub.append(isErr ? "error" : "info", "build", line);
-        };
+            if (isErr) lastErr = line;
+            AppLogHub.append(isErr ? "error" : "info", "build", line);
+          };
 
-        readline
-          .createInterface({ input: child.stdout })
-          .on("line", (l) => handleLine(l, false));
-        readline
-          .createInterface({ input: child.stderr })
-          .on("line", (l) => handleLine(l, true));
+          readline
+            .createInterface({ input: child.stdout })
+            .on("line", (l) => handleLine(l, false));
+          readline
+            .createInterface({ input: child.stderr })
+            .on("line", (l) => handleLine(l, true));
 
-        child.on("close", (code) => {
-          options.onProcessSpawned?.(null);
-          workspace?.cleanup();
-          if (code === 0 && fs.existsSync(targetFwPath)) {
-            sanitizeFrameworkArtifacts(targetFwPath);
-            resolve({ ok: true });
-          } else {
-            const keyHint = formatPortErrorHint(fwLogTail);
-            resolve({
-              ok: false,
-              error:
-                keyHint ||
-                lastErr ||
-                `Falha ao gerar DmGame${cleanTid}.framework (código ${code})`,
-            });
-          }
+          child.on("close", (code) => {
+            options.onProcessSpawned?.(null);
+            workspace?.cleanup();
+            if (code === 0 && fs.existsSync(targetFwPath)) {
+              sanitizeFrameworkArtifacts(targetFwPath);
+              resolve({ ok: true });
+            } else {
+              const keyHint = formatPortErrorHint(fwLogTail);
+              resolve({
+                ok: false,
+                error:
+                  keyHint ||
+                  lastErr ||
+                  `Falha ao gerar DmGame${cleanTid}.framework (código ${code})`,
+              });
+            }
+          });
+          child.on("error", (err) => {
+            options.onProcessSpawned?.(null);
+            workspace?.cleanup();
+            resolve({ ok: false, error: err.message });
+          });
         });
-        child.on("error", (err) => {
-          options.onProcessSpawned?.(null);
-          workspace?.cleanup();
-          resolve({ ok: false, error: err.message });
-        });
-      }
-    );
 
     if (!fwBuildResult.ok) {
       return fwBuildResult;
@@ -997,7 +1000,11 @@ export class NxHubService {
             for (const line of txt.split(/\r?\n/)) {
               const trimmed = line.trim();
               if (trimmed) {
-                AppLogHub.append(isErr ? "warning" : "info", "build", `[build_shell] ${trimmed}`);
+                AppLogHub.append(
+                  isErr ? "warning" : "info",
+                  "build",
+                  `[build_shell] ${trimmed}`
+                );
               }
             }
           };
@@ -1572,7 +1579,10 @@ export class NxHubService {
       // Fuzzy match *.romfs.img in root
       try {
         for (const entry of fs.readdirSync(root)) {
-          if (entry.startsWith("._") || !entry.toLowerCase().endsWith(".romfs.img")) {
+          if (
+            entry.startsWith("._") ||
+            !entry.toLowerCase().endsWith(".romfs.img")
+          ) {
             continue;
           }
           const stemNorm = entry
@@ -1652,14 +1662,23 @@ export class NxHubService {
         params.outputDir,
         `${cleanName || tid}.romfs.img`
       );
-      const unpackTmpBase = await NxPathsService.getTempDirectory(params.stagingDir);
+      const unpackTmpBase = await NxPathsService.getTempDirectory(
+        params.stagingDir
+      );
       const tmpUnpack = await fsp.mkdtemp(
         path.join(unpackTmpBase, "cerberus_romfs_unpack_")
       );
       try {
         await execFileAsync(
           "/usr/bin/unzip",
-          ["-j", "-o", ipaCandidate, "Payload/*.app/romfs.img", "-d", tmpUnpack],
+          [
+            "-j",
+            "-o",
+            ipaCandidate,
+            "Payload/*.app/romfs.img",
+            "-d",
+            tmpUnpack,
+          ],
           { timeout: 180_000 }
         );
         const unpacked = path.join(tmpUnpack, "romfs.img");

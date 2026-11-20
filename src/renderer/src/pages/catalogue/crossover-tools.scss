@@ -225,7 +225,11 @@
   &__progress-fill {
     height: 100%;
     border-radius: 999px;
-    background: linear-gradient(90deg, globals.$brand-teal, globals.$brand-blue);
+    background: linear-gradient(
+      90deg,
+      globals.$brand-teal,
+      globals.$brand-blue
+    );
     transition: width 0.2s ease;
   }
 

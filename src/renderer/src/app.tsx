@@ -177,7 +177,13 @@ export function App() {
       unsubBuild();
       unsubLib();
     };
-  }, [dispatch, showErrorToast, showSuccessToast, showWarningToast, updateLibrary]);
+  }, [
+    dispatch,
+    showErrorToast,
+    showSuccessToast,
+    showWarningToast,
+    updateLibrary,
+  ]);
 
   useEffect(() => {
     const unsubscribe = window.electron.onUserPreferencesUpdated(
@@ -719,7 +725,8 @@ export function App() {
       <FirstRunOnboardingModal
         visible={
           forceOpenOnboarding ||
-          (preferencesLoaded && !userPreferences?.hasCompletedFirstRunOnboarding)
+          (preferencesLoaded &&
+            !userPreferences?.hasCompletedFirstRunOnboarding)
         }
         onClose={() => setForceOpenOnboarding(false)}
       />

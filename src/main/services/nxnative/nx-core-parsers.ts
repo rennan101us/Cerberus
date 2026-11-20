@@ -563,7 +563,9 @@ export function decodeHtmlEntitiesText(raw: string): string {
     .replace(/&nbsp;/gi, " ")
     .replace(/&#(\d+);/g, (_m, dec) => {
       const code = Number.parseInt(dec, 10);
-      return Number.isFinite(code) && code > 0 ? String.fromCodePoint(code) : " ";
+      return Number.isFinite(code) && code > 0
+        ? String.fromCodePoint(code)
+        : " ";
     });
 }
 
@@ -572,7 +574,10 @@ export function cleanPortalCardTitle(raw: string): string {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!decoded || /^(download(\s+now)?|read\s+more|view(\s+game)?)$/i.test(decoded)) {
+  if (
+    !decoded ||
+    /^(download(\s+now)?|read\s+more|view(\s+game)?)$/i.test(decoded)
+  ) {
     return "";
   }
   return decoded
@@ -644,9 +649,10 @@ export function extractPortalSlugCandidates(urlOrPath: string): string[] {
 }
 
 export function extractBlueRomsDownloadPath(html: string): string | null {
-  const match = /href=["']((?:https?:\/\/(?:www\.)?blueroms\.ws)?\/download\/[^"']+)["']/i.exec(
-    html
-  );
+  const match =
+    /href=["']((?:https?:\/\/(?:www\.)?blueroms\.ws)?\/download\/[^"']+)["']/i.exec(
+      html
+    );
   return match?.[1] ?? null;
 }
 

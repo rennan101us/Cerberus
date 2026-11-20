@@ -51,7 +51,9 @@ const extractTagBody = (stanza: string, tagName: string): string | null => {
   return match ? unescapeXml(match[1]) : null;
 };
 
-export function parseEpicPresenceStanza(stanza: string): EpicXmppPresence | null {
+export function parseEpicPresenceStanza(
+  stanza: string
+): EpicXmppPresence | null {
   const openTagMatch = /<presence\b([^>]*)>/i.exec(stanza);
   if (!openTagMatch) return null;
 
@@ -89,13 +91,21 @@ export function parseEpicPresenceStanza(stanza: string): EpicXmppPresence | null
 
       const props = (json.Properties ?? {}) as Record<string, unknown>;
       for (const [key, val] of Object.entries(props)) {
-        if (key.includes("party.joininfodata") && val && typeof val === "object") {
+        if (
+          key.includes("party.joininfodata") &&
+          val &&
+          typeof val === "object"
+        ) {
           const joinData = val as Record<string, unknown>;
           if (typeof joinData.partyId === "string") partyId = joinData.partyId;
           if (typeof joinData.appId === "string") appId = joinData.appId;
           joinable = true;
         }
-        if (typeof val === "string" && !appId && key.toLowerCase().includes("appid")) {
+        if (
+          typeof val === "string" &&
+          !appId &&
+          key.toLowerCase().includes("appid")
+        ) {
           appId = val;
         }
       }
@@ -184,9 +194,10 @@ export function parseEpicMessageStanza(
     }
   }
 
-  const cerbMatch = /^\[Convite Epic:\s*(.+?)\](?:\s*\(App:\s*([^)]+)\))?/i.exec(
-    rawBody.trim()
-  );
+  const cerbMatch =
+    /^\[Convite Epic:\s*(.+?)\](?:\s*\(App:\s*([^)]+)\))?/i.exec(
+      rawBody.trim()
+    );
   if (cerbMatch) {
     const gameTitle = cerbMatch[1].trim();
     const appId = cerbMatch[2]?.trim();

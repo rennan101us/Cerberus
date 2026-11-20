@@ -249,7 +249,9 @@ export function MacNativeCatalogue() {
                 {selectedSources.map((src) => (
                   <li key={`mac-src-${src}`}>
                     <FilterItem
-                      filter={src === "appstorrent" ? "Appstorrent" : "TorrentMac"}
+                      filter={
+                        src === "appstorrent" ? "Appstorrent" : "TorrentMac"
+                      }
                       filterType="Fonte"
                       orbColor="#f59e0b"
                       onRemove={() => toggleSource(src)}
@@ -273,7 +275,8 @@ export function MacNativeCatalogue() {
         <div className="catalogue__games-container">
           {isLoading ? (
             <p className="switch-catalogue__empty">
-              Carregando jogos nativos de macOS (Appstorrent &amp; TorrentMac)...
+              Carregando jogos nativos de macOS (Appstorrent &amp;
+              TorrentMac)...
             </p>
           ) : paginatedItems.length === 0 ? (
             <p className="switch-catalogue__empty">
@@ -337,14 +340,10 @@ export function MacNativeCatalogue() {
                     })}
                     onClick={() => void handleAddToLibrary(item)}
                     title={
-                      added
-                        ? "Já está na biblioteca"
-                        : "Adicionar à biblioteca"
+                      added ? "Já está na biblioteca" : "Adicionar à biblioteca"
                     }
                     aria-label={
-                      added
-                        ? "Já está na biblioteca"
-                        : "Adicionar à biblioteca"
+                      added ? "Já está na biblioteca" : "Adicionar à biblioteca"
                     }
                     disabled={added || isAdding}
                   >

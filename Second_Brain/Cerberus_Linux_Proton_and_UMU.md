@@ -56,6 +56,7 @@ No Linux, a execução de títulos Windows sem cliente Steam depende da padroniz
 ## ⚙️ 1. UMU (Unified Linux Launcher)
 
 O UMU é mantido pelo time do GloriousEggroll / Open-Wine-Components e atua como uma ponte universal entre o Proton e executáveis não-Steam:
+
 - **Resolução Automática de Proton**: Identifica instalações locais de Proton (instaladas via Steam, Lutris ou Heroic) ou baixa versões Proton-GE otimizadas.
 - **Preparação de Prefixo (`umu-prefix-preparation.ts`)**: Cria um diretório de prefixo Wine isolado para cada jogo em `~/.local/share/hydra/prefixes/<game-id>`, evitando que alterações de registro ou instalação de dependências de um jogo interfiram em outros.
 - **Supervisão Contínua (`umu-supervised-process.ts`)**: Mantém a árvore de processos sob monitoramento constante via `/proc` para alimentar o `ProcessWatcher`. Veja [[Cerberus_Library_and_Game_Management]].
@@ -86,6 +87,7 @@ O Cerberus é totalmente compatível com ambientes de desktop modernos no Linux 
 ---
 
 ## 🔗 Relações no Grafo
+
 - **Hub Central**: [[00_Cerberus_MOC]]
 - **Arquitetura Base**: [[Cerberus_Architecture_and_Runtime]]
 - **Biblioteca de Jogos**: [[Cerberus_Library_and_Game_Management]]

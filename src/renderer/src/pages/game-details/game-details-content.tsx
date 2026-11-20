@@ -91,9 +91,7 @@ export function GameDetailsContent() {
 
   const isWindowsGameForICloud = Boolean(
     game &&
-      (game.shop === "steam" ||
-        game.shop === "epic" ||
-        game.shop === "custom")
+      (game.shop === "steam" || game.shop === "epic" || game.shop === "custom")
   );
 
   const aboutTheGame = useMemo(() => {

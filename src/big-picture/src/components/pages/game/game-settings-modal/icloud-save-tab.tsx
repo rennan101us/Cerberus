@@ -9,9 +9,7 @@ interface GameICloudSaveTabProps {
   game: LibraryGame;
 }
 
-export function GameICloudSaveTab({
-  game,
-}: Readonly<GameICloudSaveTabProps>) {
+export function GameICloudSaveTab({ game }: Readonly<GameICloudSaveTabProps>) {
   return (
     <EmbeddedDesktopPanel
       focusId={GAME_ICLOUD_SAVE_PRIMARY_CONTROL_ID}

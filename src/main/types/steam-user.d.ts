@@ -16,7 +16,9 @@ declare module "steam-user" {
     avatar_url_full?: string;
     game_name?: string | null;
     game_lobby_id?: number | string | null;
-    rich_presence?: Array<{ key?: string; value?: string }> | Record<string, string>;
+    rich_presence?:
+      | Array<{ key?: string; value?: string }>
+      | Record<string, string>;
     rich_presence_string?: string;
   }
 
@@ -60,7 +62,11 @@ declare module "steam-user" {
     }>;
     getFriendMessageHistory(
       friendSteamId: SteamIDLike | string,
-      options?: { maxCount?: number; wantBbcode?: boolean; lastTime?: Date | number }
+      options?: {
+        maxCount?: number;
+        wantBbcode?: boolean;
+        lastTime?: Date | number;
+      }
     ): Promise<{
       messages: Array<{
         sender: SteamIDLike;
@@ -104,13 +110,14 @@ declare module "steam-user" {
     logOn(details?: Record<string, unknown> | true): void;
     logOff(): void;
     setPersona(state: number, name?: string): void;
-    gamesPlayed(apps: Array<number | string> | number | string, force?: boolean): void;
+    gamesPlayed(
+      apps: Array<number | string> | number | string,
+      force?: boolean
+    ): void;
     getPersonas(
       steamids: Array<SteamIDLike | string>
     ): Promise<{ personas: Record<string, SteamPersona> }>;
-    addFriend(
-      steamID: SteamIDLike | string
-    ): Promise<{ personaName?: string }>;
+    addFriend(steamID: SteamIDLike | string): Promise<{ personaName?: string }>;
     removeFriend(steamID: SteamIDLike | string): void;
     getUserOwnedApps(
       steamID: SteamIDLike | string,

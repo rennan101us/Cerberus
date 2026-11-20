@@ -88,7 +88,11 @@ export class NxKeyCheckService {
           ? `Firmware até ${FIRMWARE_REVISIONS[highestMaster]} (${Object.keys(keys).length} chaves)`
           : `${Object.keys(keys).length} chaves válidas`;
 
-      return { isValid: true, firmwareSummary: fw, highestMasterKey: highestMaster };
+      return {
+        isValid: true,
+        firmwareSummary: fw,
+        highestMasterKey: highestMaster,
+      };
     } catch (err) {
       return {
         isValid: false,

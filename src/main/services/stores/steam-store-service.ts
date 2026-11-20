@@ -248,7 +248,8 @@ class SteamStoreServiceImpl {
     } catch (err) {
       return {
         ok: false,
-        error: err instanceof Error ? err.message : "Código Steam Guard inválido.",
+        error:
+          err instanceof Error ? err.message : "Código Steam Guard inválido.",
       };
     }
   }
@@ -265,10 +266,7 @@ class SteamStoreServiceImpl {
   ): void {
     const stored = this.storage.getSteam();
     if (!stored || stored.steamId64 !== steamId64) return;
-    if (
-      stored.displayName === displayName &&
-      stored.avatarUrl === avatarUrl
-    ) {
+    if (stored.displayName === displayName && stored.avatarUrl === avatarUrl) {
       return;
     }
     this.storage.setSteam({
@@ -307,11 +305,10 @@ class SteamStoreServiceImpl {
           .catch(() => null);
 
         const cdn = buildSteamCdnAssets(appId, app.img_icon_url);
-        const resolvedIcon =
-          buildSteamIconUrl(
-            appId,
-            app.img_icon_url || existingAssets?.iconUrl || existingGame?.iconUrl
-          );
+        const resolvedIcon = buildSteamIconUrl(
+          appId,
+          app.img_icon_url || existingAssets?.iconUrl || existingGame?.iconUrl
+        );
 
         // Sanitize cover in case of stale unhashed 2x URLs that 404
         let finalCover = existingAssets?.coverImageUrl || cdn.coverImageUrl;
@@ -355,7 +352,8 @@ class SteamStoreServiceImpl {
           lastTimePlayed: existingGame?.lastTimePlayed ?? null,
           addedToLibraryAt: existingGame?.addedToLibraryAt ?? new Date(),
           executablePath: existingGame?.executablePath ?? null,
-          executablePathUpdatedAt: existingGame?.executablePathUpdatedAt ?? null,
+          executablePathUpdatedAt:
+            existingGame?.executablePathUpdatedAt ?? null,
           launchOptions: existingGame?.launchOptions ?? null,
           favorite: existingGame?.favorite ?? false,
           automaticCloudSync: existingGame?.automaticCloudSync ?? false,

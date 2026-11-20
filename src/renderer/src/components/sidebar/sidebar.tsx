@@ -533,9 +533,7 @@ export function Sidebar() {
                     data-tooltip-id={
                       isCollapsed ? "sidebar-collapsed-tooltip" : undefined
                     }
-                    data-tooltip-content={
-                      isCollapsed ? t(nameKey) : undefined
-                    }
+                    data-tooltip-content={isCollapsed ? t(nameKey) : undefined}
                   >
                     {render()}
                     {!isCollapsed && <span>{t(nameKey)}</span>}

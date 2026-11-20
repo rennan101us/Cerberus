@@ -26,11 +26,13 @@ Retornar ao Hub: [[00_Cerberus_MOC]]
 A ponte com a Steam é implementada em `src/main/services/steam-integration/` e `src/main/services/steam.ts`:
 
 ### Fluxo de Autenticação Segura (Steam OpenID)
+
 - Para importar a biblioteca, amigos e tempo de jogo sem solicitar a senha do usuário, o Cerberus abre uma janela dedicada de navegador (`steam-store-session.ts`).
 - O usuário realiza o login na interface oficial da Valve via protocolo OpenID 2.0.
 - O retorno é capturado e validado por `steam-openid-return.ts`, extraindo o `SteamID64` do usuário de forma criptograficamente segura.
 
 ### Sincronização de Biblioteca (`steam-sync-orchestrator.ts`)
+
 - Consulta a API Web da Steam (`IPlayerService/GetOwnedGames`) para obter a lista completa de jogos adquiridos.
 - Detecta os manifestos de instalação locais (`appmanifest_<appid>.acf`) nos diretórios `steamapps/` para marcar jogos instalados como prontos para jogar imediatamente.
 - Realiza a sincronização periódica de conquistas e tempo de jogo acumulado na conta Steam.
@@ -53,6 +55,7 @@ Para gerenciar títulos da Epic Games sem depender do cliente oficial proprietá
 ## 🧩 3. Fusão Unificada de Catálogo
 
 Um dos principais diferenciais da arquitetura do Cerberus é a fusão de títulos:
+
 - Se o usuário possui o mesmo título na Steam e na Epic, o Cerberus consolida as informações em uma única entrada visual na biblioteca.
 - Permite selecionar qual launcher/versão deve ser executada como padrão.
 - Padroniza o visual da biblioteca com heróis e logos de alta resolução, independente da loja de origem. Veja [[Cerberus_Library_and_Game_Management]].
@@ -60,6 +63,7 @@ Um dos principais diferenciais da arquitetura do Cerberus é a fusão de título
 ---
 
 ## 🔗 Relações no Grafo
+
 - **Hub Central**: [[00_Cerberus_MOC]]
 - **Biblioteca de Jogos**: [[Cerberus_Library_and_Game_Management]]
 - **Execução no Mac**: [[Cerberus_macOS_and_FineWine]]

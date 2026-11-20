@@ -62,9 +62,12 @@ export const SidebarGameList = memo(function SidebarGameList({
       >
         {isLoading && <SidebarGameListSkeleton />}
 
-        {!isLoading && !isCollapsed && hasActiveFilter && games.length === 0 && (
-          <p className="sidebar__game-list-empty">{emptyLabel}</p>
-        )}
+        {!isLoading &&
+          !isCollapsed &&
+          hasActiveFilter &&
+          games.length === 0 && (
+            <p className="sidebar__game-list-empty">{emptyLabel}</p>
+          )}
 
         <div
           style={{

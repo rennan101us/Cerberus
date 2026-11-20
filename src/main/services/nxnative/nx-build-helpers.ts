@@ -3,13 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const SWITCH_ROM_EXTENSIONS = new Set([
-  ".nsp",
-  ".nsz",
-  ".xci",
-  ".xcz",
-  ".nup",
-]);
+const SWITCH_ROM_EXTENSIONS = new Set([".nsp", ".nsz", ".xci", ".xcz", ".nup"]);
 
 /** Sanitizes a game title into a valid, safe macOS/Android/iOS bundle filename (no colons or slashes). */
 export function sanitizeOutputAppName(title: string): string {
@@ -18,15 +12,20 @@ export function sanitizeOutputAppName(title: string): string {
   let noUnsafe = "";
   for (const ch of replacedColons) {
     const code = ch.charCodeAt(0);
-    if (code < 0x20 || ch === "*" || ch === "?" || ch === '"' || ch === "<" || ch === ">" || ch === "|") {
+    if (
+      code < 0x20 ||
+      ch === "*" ||
+      ch === "?" ||
+      ch === '"' ||
+      ch === "<" ||
+      ch === ">" ||
+      ch === "|"
+    ) {
       continue;
     }
     noUnsafe += ch;
   }
-  const normalized = noUnsafe
-    .replace(/\s+/g, " ")
-    .replace(/\.+$/g, "")
-    .trim();
+  const normalized = noUnsafe.replace(/\s+/g, " ").replace(/\.+$/g, "").trim();
   return normalized || "SwitchGame";
 }
 
@@ -77,7 +76,10 @@ function extractFilenameTitleId(fileName: string): string | null {
   return m ? m[1].toUpperCase() : null;
 }
 
-function linkFileIntoInputDir(sourceFile: string, inputDir: string): string | null {
+function linkFileIntoInputDir(
+  sourceFile: string,
+  inputDir: string
+): string | null {
   const dest = path.join(inputDir, path.basename(sourceFile));
   try {
     if (fs.existsSync(dest) || fs.lstatSync(dest)) {
@@ -151,7 +153,9 @@ export function prepareStagingWorkspace(options: {
     const parentDir = path.dirname(resolvedSource);
     const tidPrefix =
       resolveBaseTidPrefix(cleanTid) ||
-      resolveBaseTidPrefix(extractFilenameTitleId(path.basename(resolvedSource)));
+      resolveBaseTidPrefix(
+        extractFilenameTitleId(path.basename(resolvedSource))
+      );
     if (tidPrefix && fs.existsSync(parentDir)) {
       for (const entry of fs.readdirSync(parentDir)) {
         if (entry.startsWith("._")) continue;
@@ -200,7 +204,12 @@ export function prepareStagingWorkspace(options: {
   }
 
   // If dump folder or no individual files were linked, fall back directly to sourcePath
-  if (linkedFiles.length === 0 && isDir && !isDumpOrNup && fs.existsSync(resolvedSource)) {
+  if (
+    linkedFiles.length === 0 &&
+    isDir &&
+    !isDumpOrNup &&
+    fs.existsSync(resolvedSource)
+  ) {
     // Empty dir fallback
   }
 
@@ -306,9 +315,9 @@ export function validateFramework(
   }
 
   try {
-    const manifest = JSON.parse(
-      fs.readFileSync(manifestPath, "utf8")
-    ) as { chain?: string };
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+      chain?: string;
+    };
     const manifestChain = manifest.chain?.trim().toLowerCase();
     if (expectedChain) {
       const expectedNorm = expectedChain.trim().toLowerCase();
@@ -413,7 +422,13 @@ export function findAndroidNdkDirectory(
 
   const home = os.homedir();
   const userLegacy = scanToolchains(
-    path.join(home, "Library", "Application Support", "nx2android", "toolchains")
+    path.join(
+      home,
+      "Library",
+      "Application Support",
+      "nx2android",
+      "toolchains"
+    )
   );
   if (userLegacy) return userLegacy;
 
@@ -465,7 +480,10 @@ export function formatPortErrorHint(rawLog: string): string | null {
     const keyName = `master_key_${rev.toString(16).padStart(2, "0")}`;
     return `O seu arquivo prod.keys não possui a chave ${keyName} exigida por este jogo. Atualize seu prod.keys com um dump de firmware mais recente nos Ajustes ou no botão acima.`;
   }
-  if (/missing header_key|header_key/i.test(rawLog) && /prod\.keys/i.test(rawLog)) {
+  if (
+    /missing header_key|header_key/i.test(rawLog) &&
+    /prod\.keys/i.test(rawLog)
+  ) {
     return "prod.keys inválido ou incompleto. Selecione um arquivo prod.keys válido extraído do console.";
   }
   return null;

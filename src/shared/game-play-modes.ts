@@ -31,15 +31,27 @@ export function extractPlayModesFromSteamCategories(
     const desc = (cat.description || "").toLowerCase();
 
     // Single-player (Steam id 2)
-    if (id === 2 || desc.includes("single-player") || desc.includes("um jogador")) {
+    if (
+      id === 2 ||
+      desc.includes("single-player") ||
+      desc.includes("um jogador")
+    ) {
       result.singlePlayer = true;
     }
     // Multi-player (Steam id 1)
-    if (id === 1 || desc.includes("multi-player") || desc.includes("multijogador")) {
+    if (
+      id === 1 ||
+      desc.includes("multi-player") ||
+      desc.includes("multijogador")
+    ) {
       result.multiPlayer = true;
     }
     // Online Co-op (Steam id 38)
-    if (id === 38 || desc.includes("online co-op") || desc.includes("cooperativo online")) {
+    if (
+      id === 38 ||
+      desc.includes("online co-op") ||
+      desc.includes("cooperativo online")
+    ) {
       result.onlineCoop = true;
       result.multiPlayer = true;
     }
@@ -55,12 +67,20 @@ export function extractPlayModesFromSteamCategories(
       result.multiPlayer = true;
     }
     // Online PvP (Steam id 36)
-    if (id === 36 || desc.includes("online pvp") || desc.includes("pvp online")) {
+    if (
+      id === 36 ||
+      desc.includes("online pvp") ||
+      desc.includes("pvp online")
+    ) {
       result.pvpOnline = true;
       result.multiPlayer = true;
     }
     // Cross-Platform (Steam id 27)
-    if (id === 27 || desc.includes("cross-platform") || desc.includes("multiplataforma")) {
+    if (
+      id === 27 ||
+      desc.includes("cross-platform") ||
+      desc.includes("multiplataforma")
+    ) {
       result.crossPlatform = true;
     }
     // Generic Co-op (Steam id 9)

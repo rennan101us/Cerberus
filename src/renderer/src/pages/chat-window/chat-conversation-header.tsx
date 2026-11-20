@@ -268,7 +268,10 @@ export function ChatConversationHeader({
                 {isInviteOpen && (
                   <div className="chat-window__header-invite-popover">
                     <div className="chat-window__header-invite-popover-title">
-                      <span>Escolha um jogo ({provider === "steam" ? "Steam" : "Epic"})</span>
+                      <span>
+                        Escolha um jogo (
+                        {provider === "steam" ? "Steam" : "Epic"})
+                      </span>
                       <button
                         type="button"
                         onClick={() => setIsInviteOpen(false)}

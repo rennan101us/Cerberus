@@ -8,8 +8,7 @@ import type { Game, ShopAssets, StoreAccount, StoreLibraryGame } from "@types";
 const GOG_CLIENT_ID = "46899977096215655";
 const GOG_CLIENT_SECRET =
   "9d85c43b1482497dbbce61f6e4aa173a433796eeae2ca8c5f6129f2dc4de46d9";
-const GOG_REDIRECT_URI =
-  "https://embed.gog.com/on_login_success?origin=client";
+const GOG_REDIRECT_URI = "https://embed.gog.com/on_login_success?origin=client";
 
 interface GogTokenResponse {
   access_token: string;
@@ -133,9 +132,14 @@ class GogStoreServiceImpl {
             const tokenData = (await tokenRes.json()) as GogTokenResponse;
             let userData: GogUserData = {};
             try {
-              const userRes = await fetch("https://embed.gog.com/userData.json", {
-                headers: { Authorization: `Bearer ${tokenData.access_token}` },
-              });
+              const userRes = await fetch(
+                "https://embed.gog.com/userData.json",
+                {
+                  headers: {
+                    Authorization: `Bearer ${tokenData.access_token}`,
+                  },
+                }
+              );
               if (userRes.ok) {
                 userData = (await userRes.json()) as GogUserData;
               }
@@ -265,7 +269,8 @@ class GogStoreServiceImpl {
           lastTimePlayed: existingGame?.lastTimePlayed ?? null,
           addedToLibraryAt: existingGame?.addedToLibraryAt ?? new Date(),
           executablePath: existingGame?.executablePath ?? null,
-          executablePathUpdatedAt: existingGame?.executablePathUpdatedAt ?? null,
+          executablePathUpdatedAt:
+            existingGame?.executablePathUpdatedAt ?? null,
           launchOptions: existingGame?.launchOptions ?? null,
           favorite: existingGame?.favorite ?? false,
           automaticCloudSync: existingGame?.automaticCloudSync ?? false,

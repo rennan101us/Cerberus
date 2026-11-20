@@ -142,10 +142,12 @@ test("buildSwitchLaunchEnv forces local APFS save/PSO dirs, replaces /Volumes TM
       mouseAsRightStick: false,
     },
     canonicalDataDir: "/Users/test/Library/Application Support/nxnative",
-    appSupportDir: "/Volumes/SSD FN501 PRO/Emulations/NativePort/NxNative_Data/AppSupport",
+    appSupportDir:
+      "/Volumes/SSD FN501 PRO/Emulations/NativePort/NxNative_Data/AppSupport",
     logsDir: "/Users/test/Library/Logs/nxnative",
     tmpDir: "/Volumes/SSD FN501 PRO/Staging/.tmp",
-    icloudSyncRoot: "/Users/test/Library/Mobile Documents/com~apple~CloudDocs/nxnative_launcher",
+    icloudSyncRoot:
+      "/Users/test/Library/Mobile Documents/com~apple~CloudDocs/nxnative_launcher",
     hostEnv: {
       HOME: "/Users/test",
       USER: "test",

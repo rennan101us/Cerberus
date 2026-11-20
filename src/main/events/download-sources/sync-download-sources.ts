@@ -7,9 +7,7 @@ import { NxCloudScraperService } from "@main/services/nxnative/nx-cloud-scraper-
 const syncDownloadSources = async (_event: Electron.IpcMainInvokeEvent) => {
   const downloadSources = await downloadSourcesSublevel.values().all();
 
-  const hydraSources = downloadSources.filter(
-    (s) => s.sourceKind !== "switch"
-  );
+  const hydraSources = downloadSources.filter((s) => s.sourceKind !== "switch");
   const hasSwitchSources = downloadSources.some(
     (s) => s.sourceKind === "switch"
   );

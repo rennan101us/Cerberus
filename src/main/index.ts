@@ -307,9 +307,7 @@ const initializeApp = async () => {
   if (language) i18n.changeLanguage(language);
 
   // Check if starting from a "run" deep link - don't show main window in that case
-  const deepLinkArg = process.argv.find((arg) =>
-    arg.startsWith("cerberus://")
-  );
+  const deepLinkArg = process.argv.find((arg) => arg.startsWith("cerberus://"));
   const forceBigPicture = process.argv.includes("--big-picture");
 
   await loadSocialWindowsBounds();

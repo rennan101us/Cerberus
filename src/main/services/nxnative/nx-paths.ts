@@ -449,7 +449,10 @@ export class NxPathsService {
             isExperimental: false,
           };
           if (hasModules && hasAndroidModules) return info;
-          if (!fallbackStable || (info.isSufficient && !fallbackStable.isSufficient)) {
+          if (
+            !fallbackStable ||
+            (info.isSufficient && !fallbackStable.isSufficient)
+          ) {
             fallbackStable = info;
           }
         } else if (major === 3 && minor >= 15 && !experimental) {

@@ -97,8 +97,7 @@ export function GameSettingsModal({
   onClose,
 }: Readonly<GameSettingsModalProps>) {
   const { t } = useTranslation(["game_details", "header"]);
-  const isSwitchGame =
-    game.shop === "switch1" || game.shop === "switch2";
+  const isSwitchGame = game.shop === "switch1" || game.shop === "switch2";
   const isDarwin = globalThis.window.electron.platform === "darwin";
   const isLinux = globalThis.window.electron.platform === "linux";
 
@@ -222,7 +221,9 @@ export function GameSettingsModal({
             {
               id: "switch_settings",
               label:
-                game.shop === "switch2" ? "Switch 2 / Portar" : "Switch / Portar",
+                game.shop === "switch2"
+                  ? "Switch 2 / Portar"
+                  : "Switch / Portar",
               content: switchSettingsContent,
             } satisfies SidebarModalTab<GameSettingsTabId>,
           ]

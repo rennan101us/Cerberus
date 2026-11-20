@@ -561,7 +561,10 @@ export class CrossOverDiscovery {
 
       return enrichedCount;
     } catch (error) {
-      logger.error("[CrossOverDiscovery] Error during artwork enrichment", error);
+      logger.error(
+        "[CrossOverDiscovery] Error during artwork enrichment",
+        error
+      );
       return 0;
     }
   }
@@ -757,7 +760,10 @@ export class CrossOverDiscovery {
 
       // Always run library artwork enrichment to ensure covers are present
       await this.enrichLibraryArtwork().catch((err) => {
-        logger.warn("[CrossOverDiscovery] Post-import artwork enrichment warning", err);
+        logger.warn(
+          "[CrossOverDiscovery] Post-import artwork enrichment warning",
+          err
+        );
       });
 
       if (addedCount > 0) {

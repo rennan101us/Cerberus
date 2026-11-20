@@ -387,8 +387,10 @@ function getFolderSizeBytes(target: string): number {
 
 export class NxToolchainService {
   private static isBusy = false;
-  private static prereqsCache: { at: number; list: NxDependencyStatus[] } | null =
-    null;
+  private static prereqsCache: {
+    at: number;
+    list: NxDependencyStatus[];
+  } | null = null;
 
   public static invalidateCache(): void {
     this.prereqsCache = null;

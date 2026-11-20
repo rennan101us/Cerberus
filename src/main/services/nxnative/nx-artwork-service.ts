@@ -766,10 +766,11 @@ export class NxArtworkService {
 
     const diskHero =
       (await this.findLocalCachedAsset(keyCandidates, ["_hero", "_banner"])) ??
-      (await this.findLocalCachedAsset(keyCandidates, [""], [
-        "artwork",
-        "banners",
-      ]));
+      (await this.findLocalCachedAsset(
+        keyCandidates,
+        [""],
+        ["artwork", "banners"]
+      ));
     if (diskHero) {
       return this.toLocalUrl(diskHero);
     }

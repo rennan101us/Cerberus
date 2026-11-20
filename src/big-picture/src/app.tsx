@@ -157,15 +157,16 @@ export default function App() {
         globalThis.window.dispatchEvent(new Event("library-update"));
       });
 
-    const unsubscribeNxBuild =
-      globalThis.window.electron.onNxBuildProgress?.((ev) => {
+    const unsubscribeNxBuild = globalThis.window.electron.onNxBuildProgress?.(
+      (ev) => {
         if (ev.phase === "done") {
           showSuccessToast(`Port de "${ev.gameTitle}" concluído!`);
           globalThis.window.dispatchEvent(new Event("library-update"));
         } else if (ev.phase === "error") {
           showErrorToast(ev.error || `Falha ao portar "${ev.gameTitle}".`);
         }
-      });
+      }
+    );
 
     const onCerberusToast = (event: Event) => {
       const detail = (
@@ -187,13 +188,11 @@ export default function App() {
     };
 
     const unsubscribeSocialInvite =
-      globalThis.window.electron.onSocialGameInvite?.(
-        ({ friend, invite }) => {
-          showSuccessToast(`${friend.displayName} convidou para jogar`, {
-            message: `${invite.gameTitle} — Abra Amigos para entrar.`,
-          });
-        }
-      );
+      globalThis.window.electron.onSocialGameInvite?.(({ friend, invite }) => {
+        showSuccessToast(`${friend.displayName} convidou para jogar`, {
+          message: `${invite.gameTitle} — Abra Amigos para entrar.`,
+        });
+      });
 
     globalThis.window.addEventListener("cerberus:toast", onCerberusToast);
 

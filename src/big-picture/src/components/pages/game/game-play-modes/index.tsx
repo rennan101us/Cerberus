@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  extractPlayModesFromSteamCategories,
-  hasAnyPlayMode,
-} from "@shared";
+import { extractPlayModesFromSteamCategories, hasAnyPlayMode } from "@shared";
 import type { ShopDetails } from "@types";
 import {
   PersonIcon,

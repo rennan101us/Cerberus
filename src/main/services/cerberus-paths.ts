@@ -13,7 +13,9 @@ export interface AppBundleLocationOptions {
 
 const require = createRequire(import.meta.url);
 
-const getElectronApp = (): { isPackaged?: boolean; getPath?: (name: string) => string } | undefined => {
+const getElectronApp = ():
+  | { isPackaged?: boolean; getPath?: (name: string) => string }
+  | undefined => {
   try {
     const mod = require("electron");
     return mod?.app;
@@ -45,7 +47,9 @@ export function resolveAppBundleContainerDir(
       }
     }
 
-    const appMatch = execPath.match(/^(.*\/[^/]+\.app)\/Contents\/MacOS(?:\/|$)/);
+    const appMatch = execPath.match(
+      /^(.*\/[^/]+\.app)\/Contents\/MacOS(?:\/|$)/
+    );
     if (appMatch) {
       return path.dirname(appMatch[1]);
     }
@@ -109,9 +113,7 @@ export class CerberusPathsService {
 
   public static getCacheRootSync(customRoot?: string | null): string {
     const trimmed = customRoot?.trim();
-    const target = trimmed
-      ? path.resolve(trimmed)
-      : this.getDefaultCacheRoot();
+    const target = trimmed ? path.resolve(trimmed) : this.getDefaultCacheRoot();
     fs.mkdirSync(target, { recursive: true });
     return target;
   }
@@ -145,7 +147,9 @@ export class CerberusPathsService {
     return target;
   }
 
-  public static getCrossOverToolsCacheDirSync(customRoot?: string | null): string {
+  public static getCrossOverToolsCacheDirSync(
+    customRoot?: string | null
+  ): string {
     const root = this.getCacheRootSync(customRoot);
     const target = path.join(root, "CrossOverTools");
     fs.mkdirSync(target, { recursive: true });

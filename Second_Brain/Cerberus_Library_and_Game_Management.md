@@ -25,6 +25,7 @@ Retornar ao Hub: [[00_Cerberus_MOC]]
 ## 🗃️ 1. O Modelo de Dados do Jogo (`Game`)
 
 No Cerberus, cada jogo é persistido no LevelDB (`gamesSublevel`) como um registro com as seguintes propriedades essenciais:
+
 - `id`: Identificador único (UUID, Steam AppID ou hash de executável).
 - `title`: Nome visível do título.
 - `executablePath`: Caminho absoluto para o binário executável (`.exe`, `.app` ou script).
@@ -38,6 +39,7 @@ No Cerberus, cada jogo é persistido no LevelDB (`gamesSublevel`) como um regist
 ## 🔍 2. Varredura e Detecção Automática (`scan-installed-games.ts`)
 
 O Cerberus possui um mecanismo avançado de descoberta de jogos instalados:
+
 1. **Varredura de Drives Locais**: Localiza diretórios comuns de instalação em discos internos e externos (ex: `SteamLibrary`, `Epic Games`, `GOG Games`, `Games`, `C:\Program Files`).
 2. **Integração com Garrafas CrossOver/Fine Wine**: No macOS, utiliza o `CrossOverDiscovery` para inspecionar todas as garrafas e extrair jogos automaticamente. Veja [[Cerberus_macOS_and_FineWine]].
 3. **Instaladores Avulsos**: Detecta executáveis `setup.exe` recém-baixados ou extraídos e permite a instalação assistida via `open-game-installer.ts`.
@@ -80,6 +82,7 @@ O Cerberus resolve isso com o **`ProcessWatcher`** (`src/main/services/process-w
 ## 🎨 4. Enriquecimento Visual e SteamGridDB
 
 Para oferecer uma interface rica no estilo console/Steam Deck:
+
 - **Resolução Automática**: Se o jogo não possuir capas locais, o Cerberus busca automaticamente no **SteamGridDB** ou na API da Steam via `src/main/services/game-artwork.ts`.
 - **Assets Padronizados**:
   - `cover`: Capa vertical com proporção de poster (600x900).
@@ -91,6 +94,7 @@ Para oferecer uma interface rica no estilo console/Steam Deck:
 ---
 
 ## 🔗 Relações no Grafo
+
 - **Hub Central**: [[00_Cerberus_MOC]]
 - **Arquitetura Base**: [[Cerberus_Architecture_and_Runtime]]
 - **Execução macOS**: [[Cerberus_macOS_and_FineWine]]

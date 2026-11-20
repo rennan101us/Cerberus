@@ -82,7 +82,11 @@ class SteamSocialServiceImpl {
   }
 
   public getSelfSteamId(): string | null {
-    return this.client?.steamID?.getSteamID64() ?? SteamStoreService.getAccount().accountId ?? null;
+    return (
+      this.client?.steamID?.getSteamID64() ??
+      SteamStoreService.getAccount().accountId ??
+      null
+    );
   }
 
   public getFriends(): UserFriend[] {
@@ -97,7 +101,10 @@ class SteamSocialServiceImpl {
     return [...this.pendingRequests];
   }
 
-  private personaToFriend(steamId64: string, persona?: SteamPersona): UserFriend {
+  private personaToFriend(
+    steamId64: string,
+    persona?: SteamPersona
+  ): UserFriend {
     const id = `steam:${steamId64}`;
     const prev = this.friendsMap.get(id);
     const stateNum = persona?.persona_state ?? (prev?.isOnline ? 1 : 0);
@@ -198,7 +205,11 @@ class SteamSocialServiceImpl {
       }
     }
 
-    this.pendingRequests.splice(0, this.pendingRequests.length, ...nextRequests);
+    this.pendingRequests.splice(
+      0,
+      this.pendingRequests.length,
+      ...nextRequests
+    );
     this.listeners?.onFriendsChanged();
 
     const toFetch = [...friendIds, ...reqIds].slice(0, 250);
@@ -304,89 +315,95 @@ class SteamSocialServiceImpl {
         }
       });
 
-      client.chat.on("friendMessage", async (msg: IncomingSteamFriendMessage) => {
-        const sid64 = msg.steamid_friend.getSteamID64();
-        const friend =
-          this.friendsMap.get(`steam:${sid64}`) ??
-          this.personaToFriend(sid64, this.client?.users?.[sid64]);
-        const createdAt = (msg.server_timestamp ?? new Date()).toISOString();
-        const rawText = msg.message || msg.message_no_bbcode || "";
-        const dedupeKey = `steam-${sid64}-${Math.floor(
-          (msg.server_timestamp?.getTime() ?? Date.now()) / 1000
-        )}-${msg.ordinal}`;
-
-        const parsed = parseSteamGameInviteFromMessage({
-          rawMessage: rawText,
-          senderId: friend.id,
-          messageId: dedupeKey,
-          createdAt,
-          fallbackGameTitle: friend.currentGame?.title,
-          fallbackAppId: friend.currentGame?.objectId,
-        });
-
-        const stored = await SocialChatStore.appendMessage({
-          friend,
-          senderId: friend.id,
-          body: parsed.body,
-          clientNonce: dedupeKey,
-          createdAt,
-          incrementUnread: true,
-          invite: parsed.invite,
-          dedupeKey,
-        });
-
-        this.listeners?.onIncomingMessage(friend, stored);
-        if (parsed.invite) {
-          this.listeners?.onIncomingInvite(friend, stored);
-        }
-      });
-
       client.chat.on(
-        "friendTyping",
-        (msg: { steamid_friend: SteamIDLike }) => {
+        "friendMessage",
+        async (msg: IncomingSteamFriendMessage) => {
           const sid64 = msg.steamid_friend.getSteamID64();
-          this.listeners?.onTyping(`steam:${sid64}`);
+          const friend =
+            this.friendsMap.get(`steam:${sid64}`) ??
+            this.personaToFriend(sid64, this.client?.users?.[sid64]);
+          const createdAt = (msg.server_timestamp ?? new Date()).toISOString();
+          const rawText = msg.message || msg.message_no_bbcode || "";
+          const dedupeKey = `steam-${sid64}-${Math.floor(
+            (msg.server_timestamp?.getTime() ?? Date.now()) / 1000
+          )}-${msg.ordinal}`;
+
+          const parsed = parseSteamGameInviteFromMessage({
+            rawMessage: rawText,
+            senderId: friend.id,
+            messageId: dedupeKey,
+            createdAt,
+            fallbackGameTitle: friend.currentGame?.title,
+            fallbackAppId: friend.currentGame?.objectId,
+          });
+
+          const stored = await SocialChatStore.appendMessage({
+            friend,
+            senderId: friend.id,
+            body: parsed.body,
+            clientNonce: dedupeKey,
+            createdAt,
+            incrementUnread: true,
+            invite: parsed.invite,
+            dedupeKey,
+          });
+
+          this.listeners?.onIncomingMessage(friend, stored);
+          if (parsed.invite) {
+            this.listeners?.onIncomingInvite(friend, stored);
+          }
         }
       );
 
-      client.on("lobbyInvite", async (inviterID: SteamIDLike, lobbyID: SteamIDLike | number | string) => {
-        const sid64 = inviterID.getSteamID64();
-        const friend =
-          this.friendsMap.get(`steam:${sid64}`) ??
-          this.personaToFriend(sid64, this.client?.users?.[sid64]);
-        const lobbyStr = lobbyID.toString();
-        const appId = friend.currentGame?.objectId;
-        const title =
-          friend.currentGame?.title ||
-          (appId ? `Jogo Steam (${appId})` : "Jogo Steam");
-        const createdAt = new Date().toISOString();
-        const invId = `steam-lobby-${lobbyStr}`;
-
-        const invite: SocialGameInvite = {
-          id: invId,
-          provider: "steam",
-          appId,
-          gameTitle: title,
-          lobbyId: lobbyStr,
-          inviterId: friend.id,
-          createdAt,
-          status: "pending",
-        };
-
-        const stored = await SocialChatStore.appendMessage({
-          friend,
-          senderId: friend.id,
-          body: `Convite oficial para jogar ${title}`,
-          clientNonce: invId,
-          createdAt,
-          incrementUnread: true,
-          invite,
-          dedupeKey: invId,
-        });
-
-        this.listeners?.onIncomingMessage(friend, stored);
-        this.listeners?.onIncomingInvite(friend, stored);
+      client.chat.on("friendTyping", (msg: { steamid_friend: SteamIDLike }) => {
+        const sid64 = msg.steamid_friend.getSteamID64();
+        this.listeners?.onTyping(`steam:${sid64}`);
       });
+
+      client.on(
+        "lobbyInvite",
+        async (
+          inviterID: SteamIDLike,
+          lobbyID: SteamIDLike | number | string
+        ) => {
+          const sid64 = inviterID.getSteamID64();
+          const friend =
+            this.friendsMap.get(`steam:${sid64}`) ??
+            this.personaToFriend(sid64, this.client?.users?.[sid64]);
+          const lobbyStr = lobbyID.toString();
+          const appId = friend.currentGame?.objectId;
+          const title =
+            friend.currentGame?.title ||
+            (appId ? `Jogo Steam (${appId})` : "Jogo Steam");
+          const createdAt = new Date().toISOString();
+          const invId = `steam-lobby-${lobbyStr}`;
+
+          const invite: SocialGameInvite = {
+            id: invId,
+            provider: "steam",
+            appId,
+            gameTitle: title,
+            lobbyId: lobbyStr,
+            inviterId: friend.id,
+            createdAt,
+            status: "pending",
+          };
+
+          const stored = await SocialChatStore.appendMessage({
+            friend,
+            senderId: friend.id,
+            body: `Convite oficial para jogar ${title}`,
+            clientNonce: invId,
+            createdAt,
+            incrementUnread: true,
+            invite,
+            dedupeKey: invId,
+          });
+
+          this.listeners?.onIncomingMessage(friend, stored);
+          this.listeners?.onIncomingInvite(friend, stored);
+        }
+      );
 
       client.on("error", (err: Error & { eresult?: number }) => {
         logger.warn("[SteamSocial] Client error", err?.message ?? err);

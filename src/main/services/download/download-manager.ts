@@ -2470,7 +2470,11 @@ export class DownloadManager {
         (resolved.fileName
           ? this.sanitizeFilename(resolved.fileName)
           : undefined) ||
-        this.resolveFilename(resumingFilename, download.uri, resolved.directUrl);
+        this.resolveFilename(
+          resumingFilename,
+          download.uri,
+          resolved.directUrl
+        );
       return {
         ...this.buildDownloadOptions(
           resolved.directUrl,

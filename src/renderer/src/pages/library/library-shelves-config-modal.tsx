@@ -29,7 +29,9 @@ export function LibraryShelvesConfigModal({
   onSaved,
 }: Readonly<LibraryShelvesConfigModalProps>) {
   const [order, setOrder] = useState<LibraryShelfId[]>(getStoredShelvesOrder);
-  const [hidden, setHidden] = useState<LibraryShelfId[]>(getStoredShelvesHidden);
+  const [hidden, setHidden] = useState<LibraryShelfId[]>(
+    getStoredShelvesHidden
+  );
 
   const handleMove = (index: number, direction: -1 | 1) => {
     const nextIndex = index + direction;
@@ -68,7 +70,8 @@ export function LibraryShelvesConfigModal({
     >
       <div className="library-shelves-config">
         <p className="library-shelves-config__description">
-          Ajuste a ordem das categorias horizontais (estilo Netflix) ou oculte as que não deseja ver.
+          Ajuste a ordem das categorias horizontais (estilo Netflix) ou oculte
+          as que não deseja ver.
         </p>
 
         <div className="library-shelves-config__list">
@@ -112,7 +115,9 @@ export function LibraryShelvesConfigModal({
                   <button
                     type="button"
                     className={`library-shelves-config__icon-btn ${
-                      !isHidden ? "library-shelves-config__icon-btn--active" : ""
+                      !isHidden
+                        ? "library-shelves-config__icon-btn--active"
+                        : ""
                     }`}
                     onClick={() => handleToggleHidden(shelfId)}
                     title={isHidden ? "Mostrar sessão" : "Ocultar sessão"}

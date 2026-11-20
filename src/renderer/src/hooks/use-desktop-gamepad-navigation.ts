@@ -44,9 +44,9 @@ function getTopModalRoot(): HTMLElement | null {
 }
 
 function getFocusableElements(scope: HTMLElement): HTMLElement[] {
-  return Array.from(scope.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    isElementVisible
-  );
+  return Array.from(
+    scope.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+  ).filter(isElementVisible);
 }
 
 function findNextSpatialTarget(
@@ -105,7 +105,9 @@ function findNextSpatialTarget(
   return best;
 }
 
-function findScrollContainer(start: HTMLElement | null): HTMLElement | Element | null {
+function findScrollContainer(
+  start: HTMLElement | null
+): HTMLElement | Element | null {
   let node = start;
   while (node && node !== document.body) {
     const style = globalThis.window.getComputedStyle(node);
@@ -194,11 +196,7 @@ export function useDesktopGamepadNavigation(): void {
         const now = performance.now();
         if (dir) {
           const delay =
-            lastDirKey !== dir
-              ? 0
-              : now - firstDirHoldAt < 320
-                ? 320
-                : 110;
+            lastDirKey !== dir ? 0 : now - firstDirHoldAt < 320 ? 320 : 110;
           if (lastDirKey !== dir || now - lastDirTriggerAt >= delay) {
             if (lastDirKey !== dir) {
               firstDirHoldAt = now;

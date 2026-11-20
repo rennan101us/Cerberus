@@ -137,7 +137,10 @@ function normalizeTitle(raw: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[™®©]/g, "")
-    .replace(/\b(nintendo switch 2 edition|switch 2 edition|definitive edition|deluxe edition|complete edition|mac|macos|arm64|universal)\b/gi, " ")
+    .replace(
+      /\b(nintendo switch 2 edition|switch 2 edition|definitive edition|deluxe edition|complete edition|mac|macos|arm64|universal)\b/gi,
+      " "
+    )
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
@@ -148,7 +151,9 @@ function titleSimilarityScore(query: string, candidate: string): number {
   if (!qNorm || !cNorm) return 0;
   if (qNorm === cNorm) return 100;
   if (cNorm.startsWith(qNorm) || qNorm.startsWith(cNorm)) {
-    const ratio = Math.min(qNorm.length, cNorm.length) / Math.max(qNorm.length, cNorm.length);
+    const ratio =
+      Math.min(qNorm.length, cNorm.length) /
+      Math.max(qNorm.length, cNorm.length);
     return Math.round(70 + ratio * 25);
   }
   const qWords = new Set(qNorm.split(/\s+/).filter(Boolean));
@@ -537,7 +542,8 @@ export class IgdbService {
     if (!auth) {
       return {
         ok: false,
-        message: "Falha ao autenticar na Twitch OAuth2. Verifique Client ID e Secret.",
+        message:
+          "Falha ao autenticar na Twitch OAuth2. Verifique Client ID e Secret.",
         clientIdMasked: masked,
       };
     }
@@ -596,10 +602,10 @@ export class IgdbService {
     }
 
     const persisted = (await db
-      .get<string, CachedIgdbEntry | null>(
-        `${IGDB_GAME_CACHE_PREFIX}${cacheKey}`,
-        { valueEncoding: "json" }
-      )
+      .get<
+        string,
+        CachedIgdbEntry | null
+      >(`${IGDB_GAME_CACHE_PREFIX}${cacheKey}`, { valueEncoding: "json" })
       .catch(() => null)) as CachedIgdbEntry | null;
 
     if (persisted) {
@@ -647,9 +653,15 @@ export class IgdbService {
 
         let preferredPlatforms: number[] = [];
         if (targetHint === "switch2") {
-          preferredPlatforms = [IGDB_PLATFORM_IDS.SWITCH_2, IGDB_PLATFORM_IDS.SWITCH_1];
+          preferredPlatforms = [
+            IGDB_PLATFORM_IDS.SWITCH_2,
+            IGDB_PLATFORM_IDS.SWITCH_1,
+          ];
         } else if (targetHint === "switch1") {
-          preferredPlatforms = [IGDB_PLATFORM_IDS.SWITCH_1, IGDB_PLATFORM_IDS.SWITCH_2];
+          preferredPlatforms = [
+            IGDB_PLATFORM_IDS.SWITCH_1,
+            IGDB_PLATFORM_IDS.SWITCH_2,
+          ];
         } else if (targetHint === "mac_native") {
           preferredPlatforms = [IGDB_PLATFORM_IDS.MAC, IGDB_PLATFORM_IDS.PC];
         }

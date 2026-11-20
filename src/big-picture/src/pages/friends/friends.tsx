@@ -288,7 +288,9 @@ export default function Friends() {
     accounts?.steam.connected || accounts?.epic.connected
   );
 
-  const sidebarTarget = getItemFocusTarget(BIG_PICTURE_SIDEBAR_ITEM_IDS.friends);
+  const sidebarTarget = getItemFocusTarget(
+    BIG_PICTURE_SIDEBAR_ITEM_IDS.friends
+  );
 
   return (
     <VerticalFocusGroup
@@ -517,7 +519,10 @@ export default function Friends() {
                   </div>
                 )}
 
-                <ScrollArea showScrollbar className="bp-friends__messages-scroll">
+                <ScrollArea
+                  showScrollbar
+                  className="bp-friends__messages-scroll"
+                >
                   {messages.length === 0 ? (
                     <div className="bp-friends__placeholder">
                       Nenhuma mensagem ainda. Envie um oi ou um convite!

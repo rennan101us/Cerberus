@@ -46,7 +46,10 @@ function sanitizeSegment(input: string): string {
     .trim();
 }
 
-function getFolderStats(dir: string): { fileCount: number; totalBytes: number } {
+function getFolderStats(dir: string): {
+  fileCount: number;
+  totalBytes: number;
+} {
   if (!fs.existsSync(dir)) return { fileCount: 0, totalBytes: 0 };
   let fileCount = 0;
   let totalBytes = 0;
@@ -56,7 +59,8 @@ function getFolderStats(dir: string): { fileCount: number; totalBytes: number } 
       const stat = fs.statSync(target);
       if (stat.isFile()) {
         const base = path.basename(target);
-        if (base === ".DS_Store" || base === "cerberus-icloud-meta.json") return;
+        if (base === ".DS_Store" || base === "cerberus-icloud-meta.json")
+          return;
         fileCount += 1;
         totalBytes += stat.size;
       } else if (stat.isDirectory()) {
@@ -125,7 +129,10 @@ export class ICloudSaveService {
         valueEncoding: "json",
       })
       .catch(() => null)) as UserPreferences | null;
-    if (prefs?.defaultWinePrefixPath && fs.existsSync(prefs.defaultWinePrefixPath)) {
+    if (
+      prefs?.defaultWinePrefixPath &&
+      fs.existsSync(prefs.defaultWinePrefixPath)
+    ) {
       return prefs.defaultWinePrefixPath;
     }
 
@@ -159,7 +166,9 @@ export class ICloudSaveService {
     const metaPath = path.join(folderPath, "cerberus-icloud-meta.json");
     if (!fs.existsSync(metaPath)) return null;
     try {
-      return JSON.parse(fs.readFileSync(metaPath, "utf8")) as ICloudSaveMetadata;
+      return JSON.parse(
+        fs.readFileSync(metaPath, "utf8")
+      ) as ICloudSaveMetadata;
     } catch {
       return null;
     }
@@ -227,7 +236,11 @@ export class ICloudSaveService {
       logger.warn(`[iCloudSave] Preview warning for ${shop}:${objectId}:`, err);
     }
 
-    if (localFileCount === 0 && customSavePath && fs.existsSync(customSavePath)) {
+    if (
+      localFileCount === 0 &&
+      customSavePath &&
+      fs.existsSync(customSavePath)
+    ) {
       const customStats = getFolderStats(customSavePath);
       localFileCount = customStats.fileCount;
       localTotalBytes = customStats.totalBytes;
@@ -279,7 +292,13 @@ export class ICloudSaveService {
       await Ludusavi.copyBinaryToUserData();
       const ludusaviDir = path.join(icloudFolderPath, "ludusavi-backup");
       fs.mkdirSync(ludusaviDir, { recursive: true });
-      await Ludusavi.backupGame(shop, objectId, ludusaviDir, winePrefixUsed, false);
+      await Ludusavi.backupGame(
+        shop,
+        objectId,
+        ludusaviDir,
+        winePrefixUsed,
+        false
+      );
 
       const prevMeta = this.readMetadata(icloudFolderPath);
       const customPath = prevMeta?.customSavePath;

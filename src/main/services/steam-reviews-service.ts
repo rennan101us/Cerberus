@@ -39,7 +39,10 @@ export interface SteamAppReviewsSummary {
 }
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
-const cache = new Map<string, { timestamp: number; data: SteamAppReviewsSummary }>();
+const cache = new Map<
+  string,
+  { timestamp: number; data: SteamAppReviewsSummary }
+>();
 
 export class SteamReviewsService {
   public static async getReviews(
@@ -92,7 +95,7 @@ export class SteamReviewsService {
       const summary = json.query_summary;
       const totalPos = summary?.total_positive ?? 0;
       const totalNeg = summary?.total_negative ?? 0;
-      const totalReviews = summary?.total_reviews ?? (totalPos + totalNeg);
+      const totalReviews = summary?.total_reviews ?? totalPos + totalNeg;
       const positivePercent =
         totalReviews > 0 ? Math.round((totalPos / totalReviews) * 100) : 0;
 
@@ -102,7 +105,8 @@ export class SteamReviewsService {
         reviewText: r.review?.trim() || "",
         votedUp: Boolean(r.voted_up),
         votesUp: r.votes_up ?? 0,
-        playtimeHours: Math.round(((r.author.playtime_forever ?? 0) / 60) * 10) / 10,
+        playtimeHours:
+          Math.round(((r.author.playtime_forever ?? 0) / 60) * 10) / 10,
         createdAt: r.timestamp_created * 1000,
       }));
 
@@ -119,7 +123,10 @@ export class SteamReviewsService {
       cache.set(cacheKey, { timestamp: Date.now(), data: result });
       return result;
     } catch (err) {
-      logger.error(`[SteamReviews] Error fetching reviews for app ${cleanAppId}`, err);
+      logger.error(
+        `[SteamReviews] Error fetching reviews for app ${cleanAppId}`,
+        err
+      );
       return null;
     }
   }

@@ -102,7 +102,9 @@ export function SteamDepotAuthModal() {
                     : "Código Steam Guard / E-mail"
               }
             />
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <div
+              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+            >
               <Button type="button" theme="outline" onClick={handleCancel}>
                 Cancelar Download
               </Button>

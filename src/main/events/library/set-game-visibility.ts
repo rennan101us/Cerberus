@@ -25,11 +25,8 @@ const setGameVisibility = async (
 
   const saved = {
     isHiddenFromOthers:
-      field === "isHiddenFromOthers"
-        ? value
-        : Boolean(game.isHiddenFromOthers),
-    isConcealed:
-      field === "isConcealed" ? value : Boolean(game.isConcealed),
+      field === "isHiddenFromOthers" ? value : Boolean(game.isHiddenFromOthers),
+    isConcealed: field === "isConcealed" ? value : Boolean(game.isConcealed),
   };
 
   await updateGameRecord(gameKey, saved);

@@ -1,11 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type {
-  Game,
-  ShopAssets,
-  StoreAccount,
-  StoreLibraryGame,
-} from "@types";
+import type { Game, ShopAssets, StoreAccount, StoreLibraryGame } from "@types";
 import { gamesShopAssetsSublevel, gamesSublevel, levelKeys } from "@main/level";
 import { openEpicAuthWindow } from "@main/services/epic/auth-window";
 import {
@@ -97,9 +92,7 @@ class EpicStoreServiceImpl {
     try {
       const userPath = path.join(getLegendaryConfigDir(), "user.json");
       if (!fs.existsSync(userPath)) return null;
-      return JSON.parse(
-        fs.readFileSync(userPath, "utf8")
-      ) as LegendaryUserJson;
+      return JSON.parse(fs.readFileSync(userPath, "utf8")) as LegendaryUserJson;
     } catch {
       return null;
     }
@@ -146,7 +139,9 @@ class EpicStoreServiceImpl {
 
     const expiresAtMs = user.expires_at ? Date.parse(user.expires_at) : 0;
     const needsRefresh =
-      !expiresAtMs || Number.isNaN(expiresAtMs) || expiresAtMs - Date.now() < 300_000;
+      !expiresAtMs ||
+      Number.isNaN(expiresAtMs) ||
+      expiresAtMs - Date.now() < 300_000;
 
     if (!needsRefresh) {
       return {
@@ -186,7 +181,10 @@ class EpicStoreServiceImpl {
           }
         }
       } catch (err) {
-        logger.warn("[EpicStore] Direct token refresh failed, trying legendary status", err);
+        logger.warn(
+          "[EpicStore] Direct token refresh failed, trying legendary status",
+          err
+        );
       }
     }
 
@@ -243,7 +241,9 @@ class EpicStoreServiceImpl {
             // Connect Epic social and import library asynchronously
             void import("../social/epic-social-service")
               .then(({ EpicSocialService }) => EpicSocialService.connect())
-              .catch((err) => logger.warn("[EpicStore] Social connect error", err));
+              .catch((err) =>
+                logger.warn("[EpicStore] Social connect error", err)
+              );
 
             void this.syncLibrary().catch((err) =>
               logger.warn("[EpicStore] Post-login library sync failed", err)
@@ -293,11 +293,15 @@ class EpicStoreServiceImpl {
 
   public readInstalledMap(): Record<string, LegendaryInstalledEntry> {
     try {
-      const installedPath = path.join(getLegendaryConfigDir(), "installed.json");
+      const installedPath = path.join(
+        getLegendaryConfigDir(),
+        "installed.json"
+      );
       if (!fs.existsSync(installedPath)) return {};
-      return JSON.parse(
-        fs.readFileSync(installedPath, "utf8")
-      ) as Record<string, LegendaryInstalledEntry>;
+      return JSON.parse(fs.readFileSync(installedPath, "utf8")) as Record<
+        string,
+        LegendaryInstalledEntry
+      >;
     } catch {
       return {};
     }
@@ -362,10 +366,13 @@ class EpicStoreServiceImpl {
           "DieselGameBoxLogo",
         ]);
 
-        let finalCover = existingAssets?.coverImageUrl || tallCover || heroCover || "";
-        let finalHero = existingAssets?.libraryHeroImageUrl || heroCover || tallCover || "";
+        let finalCover =
+          existingAssets?.coverImageUrl || tallCover || heroCover || "";
+        let finalHero =
+          existingAssets?.libraryHeroImageUrl || heroCover || tallCover || "";
         let finalLogo = existingAssets?.logoImageUrl || logoUrl || "";
-        let finalIcon = existingAssets?.iconUrl || tallCover || heroCover || null;
+        let finalIcon =
+          existingAssets?.iconUrl || tallCover || heroCover || null;
 
         if (!finalCover) {
           const matched = await CrossOverDiscovery.matchCandidateToSteam({
@@ -380,7 +387,8 @@ class EpicStoreServiceImpl {
                 title
               ).catch(() => null);
             if (steamAssets) {
-              finalCover = steamAssets.coverImageUrl || steamAssets.libraryImageUrl || "";
+              finalCover =
+                steamAssets.coverImageUrl || steamAssets.libraryImageUrl || "";
               finalHero = finalHero || steamAssets.libraryHeroImageUrl || "";
               finalLogo = finalLogo || steamAssets.logoImageUrl || "";
               finalIcon = finalIcon || steamAssets.iconUrl || null;
@@ -441,15 +449,17 @@ class EpicStoreServiceImpl {
           hasActiveEpicImport: true,
           isDeleted: false,
           iconUrl: finalIcon || existingGame?.iconUrl || null,
-          libraryHeroImageUrl: finalHero || existingGame?.libraryHeroImageUrl || null,
+          libraryHeroImageUrl:
+            finalHero || existingGame?.libraryHeroImageUrl || null,
           logoImageUrl: finalLogo || existingGame?.logoImageUrl || null,
           playTimeInMilliseconds: existingGame?.playTimeInMilliseconds ?? 0,
-          epicPlayTimeInMilliseconds: existingGame?.epicPlayTimeInMilliseconds ?? 0,
+          epicPlayTimeInMilliseconds:
+            existingGame?.epicPlayTimeInMilliseconds ?? 0,
           lastTimePlayed: existingGame?.lastTimePlayed ?? null,
           addedToLibraryAt: existingGame?.addedToLibraryAt ?? new Date(),
           executablePath,
           executablePathUpdatedAt: executablePath
-            ? existingGame?.executablePathUpdatedAt ?? new Date()
+            ? (existingGame?.executablePathUpdatedAt ?? new Date())
             : null,
           installedSizeInBytes,
           launchOptions: existingGame?.launchOptions ?? null,
@@ -491,8 +501,14 @@ class EpicStoreServiceImpl {
         provider: "epic",
         storeId: game.objectId,
         title: game.title,
-        coverUrl: assets?.coverImageUrl || assets?.libraryImageUrl || game.iconUrl || null,
-        installed: Boolean(game.executablePath && fs.existsSync(game.executablePath)),
+        coverUrl:
+          assets?.coverImageUrl ||
+          assets?.libraryImageUrl ||
+          game.iconUrl ||
+          null,
+        installed: Boolean(
+          game.executablePath && fs.existsSync(game.executablePath)
+        ),
       });
     }
     return results;

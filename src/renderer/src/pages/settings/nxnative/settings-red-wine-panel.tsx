@@ -40,31 +40,55 @@ const TOOLS: ToolSpec[] = [
   {
     id: "winecfg",
     icon: Settings,
-    pt: ["Configuração do Wine", "Ajustes gerais, áudio, drivers e versão do Windows"],
-    en: ["Wine Configuration", "General settings, audio, drives, and Windows version"],
+    pt: [
+      "Configuração do Wine",
+      "Ajustes gerais, áudio, drivers e versão do Windows",
+    ],
+    en: [
+      "Wine Configuration",
+      "General settings, audio, drives, and Windows version",
+    ],
   },
   {
     id: "joy",
     icon: Gamepad2,
-    pt: ["Controles de Jogos", "Calibrar, testar e mapear controles SDL/XInput"],
+    pt: [
+      "Controles de Jogos",
+      "Calibrar, testar e mapear controles SDL/XInput",
+    ],
     en: ["Game Controllers", "Calibrate, test, and map SDL/XInput controllers"],
   },
   {
     id: "reboot",
     icon: RotateCcw,
-    pt: ["Simular Reinicialização", "Reinicia a sessão Windows e recarrega o registro"],
-    en: ["Simulate Reboot", "Restarts the Windows session and reloads registry"],
+    pt: [
+      "Simular Reinicialização",
+      "Reinicia a sessão Windows e recarrega o registro",
+    ],
+    en: [
+      "Simulate Reboot",
+      "Restarts the Windows session and reloads registry",
+    ],
   },
   {
     id: "taskmgr",
     icon: ListTodo,
-    pt: ["Gerenciador de Tarefas", "Visualizar processos em execução e encerrar tarefas"],
-    en: ["Task Manager", "Inspect running Windows processes and terminate tasks"],
+    pt: [
+      "Gerenciador de Tarefas",
+      "Visualizar processos em execução e encerrar tarefas",
+    ],
+    en: [
+      "Task Manager",
+      "Inspect running Windows processes and terminate tasks",
+    ],
   },
   {
     id: "inetcpl",
     icon: Globe,
-    pt: ["Configurações da Internet", "Proxy, certificados e protocolos TLS/SSL"],
+    pt: [
+      "Configurações da Internet",
+      "Proxy, certificados e protocolos TLS/SSL",
+    ],
     en: ["Internet Settings", "Proxy, certificates, and TLS/SSL protocols"],
   },
 ];
@@ -164,7 +188,10 @@ export function SettingsRedWinePanel() {
         if (!engineRes.success) {
           showErrorToast(
             engineRes.error ||
-              tr("Falha ao instalar motor Red Wine.", "Failed to install Red Wine engine.")
+              tr(
+                "Falha ao instalar motor Red Wine.",
+                "Failed to install Red Wine engine."
+              )
           );
           return;
         }
@@ -293,10 +320,16 @@ export function SettingsRedWinePanel() {
                 {status?.installed
                   ? `Red Wine ${status.version ? `v${status.version}` : tr("Pronto", "Ready")}`
                   : tr("Ausente", "Missing")}{" "}
-                · Bottle: {headBottleDeps?.bottleReady ? tr("Pronta", "Ready") : tr("Pendente", "Pending")} ·
-                VC++: {headBottleDeps?.vcredist ? "OK" : tr("Pendente", "Pending")} ·
-                DirectX: {headBottleDeps?.directx ? "OK" : tr("Pendente", "Pending")} ·
-                Steam: {headBottleDeps?.steam ? "OK" : tr("Pendente", "Pending")} ·
+                · Bottle:{" "}
+                {headBottleDeps?.bottleReady
+                  ? tr("Pronta", "Ready")
+                  : tr("Pendente", "Pending")}{" "}
+                · VC++:{" "}
+                {headBottleDeps?.vcredist ? "OK" : tr("Pendente", "Pending")} ·
+                DirectX:{" "}
+                {headBottleDeps?.directx ? "OK" : tr("Pendente", "Pending")} ·
+                Steam:{" "}
+                {headBottleDeps?.steam ? "OK" : tr("Pendente", "Pending")} ·
                 Epic: {headBottleDeps?.epic ? "OK" : tr("Pendente", "Pending")}
               </span>
             </div>
@@ -309,7 +342,10 @@ export function SettingsRedWinePanel() {
 
           {isProvisioning && provisionProgress && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <small>{provisionProgress.message || tr("Configurando...", "Configuring...")}</small>
+              <small>
+                {provisionProgress.message ||
+                  tr("Configurando...", "Configuring...")}
+              </small>
               <ProgressBar
                 now={provisionProgress.progress}
                 max={100}
@@ -388,7 +424,10 @@ export function SettingsRedWinePanel() {
               }
             />
             <SelectField
-              label={tr("Versão do Windows (winecfg)", "Windows Version (winecfg)")}
+              label={tr(
+                "Versão do Windows (winecfg)",
+                "Windows Version (winecfg)"
+              )}
               value={bottleConfig?.windowsVersion ?? "win11"}
               options={WINVER_OPTIONS}
               disabled={!status?.installed || busy !== null}

@@ -779,7 +779,9 @@ export class CrossOverRunner {
     });
 
     if (isRepack) {
-      const tag = repackInfo.isFitGirl ? "FitGirl Safe Mode" : "Repack Safe Mode";
+      const tag = repackInfo.isFitGirl
+        ? "FitGirl Safe Mode"
+        : "Repack Safe Mode";
       logger.info(
         `[RedWine] ${tag} active (${repackInfo.reason}): MSync/D3DMetal/AVX disabled, --winver win7, 4 CPU threads, short path ${windowsPath}`
       );
@@ -878,10 +880,7 @@ export class CrossOverRunner {
       workingDir,
       bottleDir
     );
-    const windowsPath = await this.toWineWindowsPath(
-      executablePath,
-      bottleDir
-    );
+    const windowsPath = await this.toWineWindowsPath(executablePath, bottleDir);
 
     const args = [
       "--bottle",

@@ -23,8 +23,7 @@ test("parseDepotDownloaderLine detects 2FA, email auth code, and password prompt
     "steam-guard"
   );
   assert.equal(
-    parseDepotDownloaderLine("Enter the auth code sent to your email:")
-      .prompt,
+    parseDepotDownloaderLine("Enter the auth code sent to your email:").prompt,
     "email-code"
   );
   assert.equal(

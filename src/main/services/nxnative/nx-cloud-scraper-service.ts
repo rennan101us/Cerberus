@@ -629,7 +629,9 @@ export class NxCloudScraperService {
     const fetchPage = async (url: string) => {
       const urlsToTry = [url];
       if (url.includes("://blueroms.ws/")) {
-        urlsToTry.unshift(url.replace("://blueroms.ws/", "://www.blueroms.ws/"));
+        urlsToTry.unshift(
+          url.replace("://blueroms.ws/", "://www.blueroms.ws/")
+        );
       }
       let lastErr: unknown;
       for (const candidateUrl of urlsToTry) {

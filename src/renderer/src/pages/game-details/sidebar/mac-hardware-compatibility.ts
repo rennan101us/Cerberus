@@ -128,7 +128,11 @@ const parseGpuCoresFromText = (text: string): number | null => {
   }
 
   // Older / light GPUs -> 7 GPU cores
-  if (/\b(?:gtx\s*(?:660|750|760|770|950|960)|hd\s*7\d{3}|gt\s*1030)\b/i.test(lower)) {
+  if (
+    /\b(?:gtx\s*(?:660|750|760|770|950|960)|hd\s*7\d{3}|gt\s*1030)\b/i.test(
+      lower
+    )
+  ) {
     return 7;
   }
 
@@ -277,10 +281,7 @@ export function evaluateMacGameCompatibility(options: {
       "Relatórios indicam que este jogo possui bloqueios (ex: Anti-Cheat) ou falhas críticas no Red Wine.";
   } else if (matchingChipReport) {
     chipTarget = `Relatos em ${matchingChipReport.chipset}`;
-    if (
-      matchingChipReport.medianFps &&
-      matchingChipReport.medianFps < 30
-    ) {
+    if (matchingChipReport.medianFps && matchingChipReport.medianFps < 30) {
       chipStatus = "warn";
       chipReason = `Relatos em ${matchingChipReport.chipset} apontam média de ~${matchingChipReport.medianFps} FPS.`;
     } else {

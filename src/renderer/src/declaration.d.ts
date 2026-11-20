@@ -2115,12 +2115,8 @@ declare global {
     storesStartGogLogin: () => Promise<{ ok: boolean; error?: string }>;
     storesDisconnectGog: () => Promise<void>;
     storesSyncGogLibrary: () => Promise<{ syncedGamesCount: number }>;
-    storesGetGogDownloads: (
-      gameId: string
-    ) => Promise<any>;
-    storesResolveGogDownlink: (
-      downlink: string
-    ) => Promise<string | null>;
+    storesGetGogDownloads: (gameId: string) => Promise<any>;
+    storesResolveGogDownlink: (downlink: string) => Promise<string | null>;
     storesGetOwnedGames: (
       provider?: import("@types").StoreProvider
     ) => Promise<import("@types").StoreLibraryGame[]>;
@@ -2145,10 +2141,7 @@ declare global {
     storesGetActiveDownloads: () => Promise<
       import("@types").StoreDownloadProgress[]
     >;
-    getSteamAppReviews: (
-      appId: string,
-      language?: string
-    ) => Promise<any>;
+    getSteamAppReviews: (appId: string, language?: string) => Promise<any>;
     onSteamAuthState: (
       cb: (state: import("@types").SteamLoginSessionStatus) => void
     ) => () => Electron.IpcRenderer;

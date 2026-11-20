@@ -27,14 +27,20 @@ describe("nx-build-helpers", () => {
 
   it("rejects already-ported .app, .framework, .apk, and .ipa sources when appropriate", () => {
     assert.equal(isInvalidPortSourcePath("/Volumes/Ports/Game.app"), true);
-    assert.equal(isInvalidPortSourcePath("/Volumes/Hub/DmGame123.framework"), true);
+    assert.equal(
+      isInvalidPortSourcePath("/Volumes/Hub/DmGame123.framework"),
+      true
+    );
     assert.equal(isInvalidPortSourcePath("/Volumes/Ports/Game.apk"), true);
     assert.equal(isInvalidPortSourcePath("/Volumes/Ports/Game.ipa"), true);
     assert.equal(
       isInvalidPortSourcePath("/Volumes/Ports/Game.ipa", { allowIpa: true }),
       false
     );
-    assert.equal(isInvalidPortSourcePath("/Volumes/ROMs/Game [01001234].nsp"), false);
+    assert.equal(
+      isInvalidPortSourcePath("/Volumes/ROMs/Game [01001234].nsp"),
+      false
+    );
   });
 
   it("isolates a single game + update in per-game staging input via symlinks without unrelated games", () => {
@@ -45,8 +51,14 @@ describe("nx-build-helpers", () => {
       fs.mkdirSync(romsDir, { recursive: true });
 
       const gameBase = path.join(romsDir, "GameA [0100111122220000][v0].nsp");
-      const gameUpd = path.join(romsDir, "GameA Update [0100111122220800][v65536].nsp");
-      const otherGame = path.join(romsDir, "OtherGame [0100999988880000][v0].nsp");
+      const gameUpd = path.join(
+        romsDir,
+        "GameA Update [0100111122220800][v65536].nsp"
+      );
+      const otherGame = path.join(
+        romsDir,
+        "OtherGame [0100999988880000][v0].nsp"
+      );
       fs.writeFileSync(gameBase, "base");
       fs.writeFileSync(gameUpd, "upd");
       fs.writeFileSync(otherGame, "other");

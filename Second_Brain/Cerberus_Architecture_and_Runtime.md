@@ -44,6 +44,7 @@ O Cerberus adota a arquitetura de segregação estrita de processos do Electron 
 ```
 
 ### 1. Main Process (`src/main/index.ts`)
+
 - É o processo pai com privilégios completos de sistema operacional.
 - Inicializa os subsistemas de compatibilidade de SO:
   - No macOS: dispara `CrossOverProvisioner.resetTrial()`, `CrossOverDiscovery.autoImportBottleGames()` e `CrossOverDiscovery.enrichLibraryArtwork()`. Veja [[Cerberus_macOS_and_FineWine]].
@@ -52,10 +53,12 @@ O Cerberus adota a arquitetura de segregação estrita de processos do Electron 
 - Mantém o ciclo de vida das janelas via `WindowManager` (`src/main/services/window-manager.ts`).
 
 ### 2. Preload Scripts (`src/preload/index.ts`)
+
 - Executado em um contexto com acesso limitado, utiliza `contextBridge.exposeInMainWorld("electron", ...)` para publicar de forma tipada e segura as APIs para o Renderer.
 - Não expõe diretamente o módulo `fs` ou `child_process` para a web, apenas métodos estruturados de invocação de eventos IPC (`ipcRenderer.invoke` e `ipcRenderer.send`).
 
 ### 3. Renderer Processes (`src/renderer` & `src/big-picture`)
+
 - Processos de interface baseados em Chromium.
 - Operam com Redux Toolkit para estado de interface e reatividade rápida. Veja [[Cerberus_UI_Renderer_and_Themes]].
 - O Cerberus suporta tanto o modo de desktop tradicional quanto o modo console de TV via rota dedicada `dev:big-picture`.
@@ -95,16 +98,17 @@ Essa estrutura leve e transacional foi fundamental para viabilizar a evolução 
 
 O Cerberus organiza a comunicação IPC em módulos claros dentro de `src/main/events`:
 
-| Módulo | Responsabilidade | Conexão de Grafo |
-| :--- | :--- | :--- |
-| `events/library/*` | Adição de jogos customizados, abertura de instaladores, scans locais e lançamento | [[Cerberus_Library_and_Game_Management]] |
-| `events/catalogue/*` | Busca de informações na base de dados de jogos e recuperação de assets | [[Cerberus_Storefront_Integrations]] |
-| `events/download/*` | Controles de pausa, cancelamento e monitoramento de velocidade de download | [[Cerberus_Torrent_and_Native_Engine]] |
-| `events/hardware/*` | Monitoramento de bateria, temperatura e status de controle | [[Cerberus_UI_Renderer_and_Themes]] |
+| Módulo               | Responsabilidade                                                                  | Conexão de Grafo                         |
+| :------------------- | :-------------------------------------------------------------------------------- | :--------------------------------------- |
+| `events/library/*`   | Adição de jogos customizados, abertura de instaladores, scans locais e lançamento | [[Cerberus_Library_and_Game_Management]] |
+| `events/catalogue/*` | Busca de informações na base de dados de jogos e recuperação de assets            | [[Cerberus_Storefront_Integrations]]     |
+| `events/download/*`  | Controles de pausa, cancelamento e monitoramento de velocidade de download        | [[Cerberus_Torrent_and_Native_Engine]]   |
+| `events/hardware/*`  | Monitoramento de bateria, temperatura e status de controle                        | [[Cerberus_UI_Renderer_and_Themes]]      |
 
 ---
 
 ## 🔗 Relações no Grafo
+
 - **Hub Central**: [[00_Cerberus_MOC]]
 - **Execução macOS**: [[Cerberus_macOS_and_FineWine]]
 - **Execução Linux**: [[Cerberus_Linux_Proton_and_UMU]]

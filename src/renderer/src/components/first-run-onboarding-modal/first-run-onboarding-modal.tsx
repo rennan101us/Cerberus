@@ -118,11 +118,9 @@ export function FirstRunOnboardingModal({
   useEffect(() => {
     if (!visible || step !== 3) return;
 
-    const unsubRedWine = window.electron.onCrossOverProvisionProgress(
-      (ev) => {
-        if (ev.message) setLiveMessage(ev.message);
-      }
-    );
+    const unsubRedWine = window.electron.onCrossOverProvisionProgress((ev) => {
+      if (ev.message) setLiveMessage(ev.message);
+    });
     const unsubNx = window.electron.onNxInstallerProgress((ev) => {
       if (ev.phase === "output" && ev.line) {
         setLiveMessage(ev.line);
@@ -179,7 +177,9 @@ export function FirstRunOnboardingModal({
 
       try {
         if (platform === "windows") {
-          setLiveMessage("Verificando motor Red Wine e Head Bottle (Default)...");
+          setLiveMessage(
+            "Verificando motor Red Wine e Head Bottle (Default)..."
+          );
           const status = await window.electron.getCrossOverStatus(true);
           if (!status.installed) {
             setLiveMessage("Baixando e instalando motor Red Wine...");
@@ -205,7 +205,9 @@ export function FirstRunOnboardingModal({
             windows: "Red Wine e Head Bottle (Default) prontos",
           }));
         } else if (platform === "switch_mac") {
-          setLiveMessage("Verificando dependências de compilação Switch macOS...");
+          setLiveMessage(
+            "Verificando dependências de compilação Switch macOS..."
+          );
           const depsRes =
             await window.electron.nxInstallMissingDependencies("macApp");
           if (!depsRes.ok) {
@@ -216,7 +218,9 @@ export function FirstRunOnboardingModal({
 
           const repos = await window.electron.nxGetRepoStatus(false);
           if (!repos.nxnative.isValid) {
-            setLiveMessage("Clonando repositório nxnative (seedds/nxnative)...");
+            setLiveMessage(
+              "Clonando repositório nxnative (seedds/nxnative)..."
+            );
             const cloneRes = await window.electron.nxCloneRepo();
             if (!cloneRes.ok) {
               throw new Error(cloneRes.message);
@@ -339,7 +343,8 @@ export function FirstRunOnboardingModal({
                 <div>
                   <strong>1. Encontrar Jogos</strong>
                   <span>
-                    Catálogo completo para Windows (PC/Steam), Switch 1 e Switch 2.
+                    Catálogo completo para Windows (PC/Steam), Switch 1 e Switch
+                    2.
                   </span>
                 </div>
               </div>
@@ -359,7 +364,8 @@ export function FirstRunOnboardingModal({
                 <div>
                   <strong>3. Instalar &amp; Portar</strong>
                   <span>
-                    Head Bottle (Default) para jogos Windows e builds nativos para Switch 1/2.
+                    Head Bottle (Default) para jogos Windows e builds nativos
+                    para Switch 1/2.
                   </span>
                 </div>
               </div>
@@ -369,14 +375,18 @@ export function FirstRunOnboardingModal({
                 <div>
                   <strong>4. Jogar</strong>
                   <span>
-                    Biblioteca organizada com capas oficiais, perfis de controle e estatísticas.
+                    Biblioteca organizada com capas oficiais, perfis de controle
+                    e estatísticas.
                   </span>
                 </div>
               </div>
             </div>
 
             <div className="first-run-onboarding__actions">
-              <Button theme="outline" onClick={() => void handleSkipOnboarding()}>
+              <Button
+                theme="outline"
+                onClick={() => void handleSkipOnboarding()}
+              >
                 Pular por agora
               </Button>
               <Button theme="primary" onClick={() => setStep(2)}>
@@ -447,7 +457,8 @@ export function FirstRunOnboardingModal({
                   onClick={() => void handleStartInstall()}
                 >
                   <Download size={15} />
-                  Instalar Dependências Selecionadas ({selectedPlatforms.length})
+                  Instalar Dependências Selecionadas ({selectedPlatforms.length}
+                  )
                 </Button>
               </div>
             </div>
@@ -485,7 +496,10 @@ export function FirstRunOnboardingModal({
                   <div key={id} className="first-run-onboarding__status-row">
                     <div className="first-run-onboarding__status-icon">
                       {state === "running" ? (
-                        <Loader2 size={16} className="first-run-onboarding__spin" />
+                        <Loader2
+                          size={16}
+                          className="first-run-onboarding__spin"
+                        />
                       ) : state === "done" ? (
                         <CheckCircle2 size={16} className="text-ok" />
                       ) : state === "error" ? (
@@ -512,11 +526,7 @@ export function FirstRunOnboardingModal({
 
             <div className="first-run-onboarding__actions">
               <div />
-              <Button
-                theme="primary"
-                disabled={isRunning}
-                onClick={onClose}
-              >
+              <Button theme="primary" disabled={isRunning} onClick={onClose}>
                 {isRunning
                   ? "Instalando dependências..."
                   : "Concluir e Abrir Cerberus"}

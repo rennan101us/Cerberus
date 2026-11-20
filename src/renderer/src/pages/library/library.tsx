@@ -1425,57 +1425,56 @@ export default function Library() {
           !shouldShowFavoritesEmptyState &&
           !shouldShowCollectionEmptyState &&
           !shouldShowClassicsImporting &&
-          !shouldShowNoResultsEmptyState && (
-            viewMode === "shelves" ? (
-              <LibraryShelvesView
-                games={filteredLibrary}
-                onContextMenu={handleOpenContextMenu}
-              />
-            ) : (
-              <div
-                ref={gridRef}
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  position: "relative",
-                  marginRight: GAP,
-                }}
-              >
-                {renderedPlacements.map((placement) => {
-                  const game = gamesByKey.get(placement.key);
-                  if (!game) return null;
+          !shouldShowNoResultsEmptyState &&
+          (viewMode === "shelves" ? (
+            <LibraryShelvesView
+              games={filteredLibrary}
+              onContextMenu={handleOpenContextMenu}
+            />
+          ) : (
+            <div
+              ref={gridRef}
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                position: "relative",
+                marginRight: GAP,
+              }}
+            >
+              {renderedPlacements.map((placement) => {
+                const game = gamesByKey.get(placement.key);
+                if (!game) return null;
 
-                  const box = getLibraryPlacementBox(placement, gridMetrics);
+                const box = getLibraryPlacementBox(placement, gridMetrics);
 
-                  return (
-                    <LibrarySortableGame
-                      key={placement.key}
-                      orderKey={placement.key}
-                      enabled={isCustomOrder}
-                      animated={isReordering}
-                      isDragSource={dragPreview?.sourceKey === placement.key}
-                      style={{
-                        transform: `translate3d(${box.left}px, ${box.top}px, 0)`,
-                        width: box.width,
-                        height: box.height,
-                      }}
-                    >
-                      {viewMode === "large" ? (
-                        <LibraryGameCardLarge
-                          game={game}
-                          onContextMenu={handleOpenContextMenu}
-                        />
-                      ) : (
-                        <LibraryGameCard
-                          game={game}
-                          onContextMenu={handleOpenContextMenu}
-                        />
-                      )}
-                    </LibrarySortableGame>
-                  );
-                })}
-              </div>
-            )
-          )}
+                return (
+                  <LibrarySortableGame
+                    key={placement.key}
+                    orderKey={placement.key}
+                    enabled={isCustomOrder}
+                    animated={isReordering}
+                    isDragSource={dragPreview?.sourceKey === placement.key}
+                    style={{
+                      transform: `translate3d(${box.left}px, ${box.top}px, 0)`,
+                      width: box.width,
+                      height: box.height,
+                    }}
+                  >
+                    {viewMode === "large" ? (
+                      <LibraryGameCardLarge
+                        game={game}
+                        onContextMenu={handleOpenContextMenu}
+                      />
+                    ) : (
+                      <LibraryGameCard
+                        game={game}
+                        onContextMenu={handleOpenContextMenu}
+                      />
+                    )}
+                  </LibrarySortableGame>
+                );
+              })}
+            </div>
+          ))}
       </div>
 
       {gameContextMenu.game && (

@@ -541,7 +541,10 @@ const openGameInstaller = async (
         let foundInstaller: string | undefined;
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
           const full = path.join(dir, entry.name);
-          if (entry.isDirectory() && entry.name.toLowerCase().endsWith(".app")) {
+          if (
+            entry.isDirectory() &&
+            entry.name.toLowerCase().endsWith(".app")
+          ) {
             return { appPath: full };
           }
           if (entry.isFile() && /\.(dmg|pkg|iso)$/i.test(entry.name)) {

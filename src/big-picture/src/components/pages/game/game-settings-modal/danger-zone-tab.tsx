@@ -328,7 +328,9 @@ export function GameDangerZoneSettingsTab({
         {
           deleteSaves: uninstallDeleteSaves,
           deleteStaging:
-            uninstallPreview?.kind === "switch" ? uninstallDeleteStaging : false,
+            uninstallPreview?.kind === "switch"
+              ? uninstallDeleteStaging
+              : false,
         }
       );
 

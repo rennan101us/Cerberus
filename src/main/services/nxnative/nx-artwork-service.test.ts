@@ -7,10 +7,7 @@ import test, { type TestContext } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
-async function loadArtworkService(
-  t: TestContext,
-  appSupportDir: string
-) {
+async function loadArtworkService(t: TestContext, appSupportDir: string) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "nx-art-test-"));
   const key = "__nxArtTest" + randomUUID();
   const globals = globalThis as unknown as Record<string, unknown>;
@@ -22,9 +19,12 @@ async function loadArtworkService(
   });
 
   const stubs: Record<string, string> = {
-    "@main/services/window-manager": "export const WindowManager = { sendToAppWindows() {} };",
-    "@main/services/app-log-hub": "export const AppLogHub = { info() {}, warn() {}, step() {}, error() {}, success() {} };",
-    "@main/services/igdb-service": "export const IgdbService = { fetchGameDetailsByTitle: async () => null };",
+    "@main/services/window-manager":
+      "export const WindowManager = { sendToAppWindows() {} };",
+    "@main/services/app-log-hub":
+      "export const AppLogHub = { info() {}, warn() {}, step() {}, error() {}, success() {} };",
+    "@main/services/igdb-service":
+      "export const IgdbService = { fetchGameDetailsByTitle: async () => null };",
     "./nx-paths": `export const NxPathsService = {
       getAppSupportDirectory: async () => harness.appSupportDir,
       getArtworkSearchDirectories: async () => [harness.appSupportDir],
@@ -65,7 +65,9 @@ async function loadArtworkService(
     ],
   });
 
-  const mod = (await import(pathToFileURL(bundlePath).href)) as typeof import("./nx-artwork-service");
+  const mod = (await import(
+    pathToFileURL(bundlePath).href
+  )) as typeof import("./nx-artwork-service");
   return mod.NxArtworkService;
 }
 
@@ -74,7 +76,9 @@ test("toLocalUrl escapes #, ? and spaces for Electron local: protocol", async (t
   t.after(() => fs.rm(dir, { recursive: true, force: true }));
   const NxArtworkService = await loadArtworkService(t, dir);
 
-  const uri = NxArtworkService.toLocalUrl("/Volumes/SSD FN501 PRO/covers/0400#1?v=2.jpg");
+  const uri = NxArtworkService.toLocalUrl(
+    "/Volumes/SSD FN501 PRO/covers/0400#1?v=2.jpg"
+  );
   assert.equal(
     uri,
     "local:/Volumes/SSD%20FN501%20PRO/covers/0400%231%3Fv=2.jpg"
@@ -109,7 +113,10 @@ test("resolveCoversForBatch resolves Switch 2 covers from disk and online_artwor
     { titleId: "0400000000000000", title: "Unknown Game" },
   ]);
 
-  assert.equal(res.get("040074A01BF12000"), NxArtworkService.toLocalUrl(diskFile));
+  assert.equal(
+    res.get("040074A01BF12000"),
+    NxArtworkService.toLocalUrl(diskFile)
+  );
   assert.equal(
     res.get("0400C76024710000"),
     "https://www.nintendo.com/eu/media/images/pragmata.jpg"

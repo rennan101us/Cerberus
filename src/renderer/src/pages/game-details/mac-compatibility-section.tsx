@@ -130,7 +130,8 @@ export function MacCompatibilitySection({
             </h3>
             <p className="mac-compat__subtitle">
               Relatórios, desempenho no Apple Silicon e comentários da
-              comunidade reunidos do MacGamingDB, AppleGamingWiki e Base Red Wine.
+              comunidade reunidos do MacGamingDB, AppleGamingWiki e Base Red
+              Wine.
             </p>
           </div>
         </div>
@@ -222,7 +223,8 @@ export function MacCompatibilitySection({
           <div className="mac-compat__comments-block">
             <div className="mac-compat__comments-header">
               <span className="mac-compat__section-label">
-                Comentários e Relatos de Compatibilidade ({report.comments.length})
+                Comentários e Relatos de Compatibilidade (
+                {report.comments.length})
               </span>
             </div>
 
@@ -238,7 +240,10 @@ export function MacCompatibilitySection({
             ) : (
               <div className="mac-compat__comments-list">
                 {report.comments.map((comment) => (
-                  <article key={comment.id} className="mac-compat__comment-card">
+                  <article
+                    key={comment.id}
+                    className="mac-compat__comment-card"
+                  >
                     <div className="mac-compat__comment-meta">
                       <span
                         className={`mac-compat__source-tag mac-compat__source-tag--${comment.source}`}

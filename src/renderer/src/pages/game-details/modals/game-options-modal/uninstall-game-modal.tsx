@@ -78,9 +78,7 @@ export function UninstallGameModal({
       if (result.warnings.length > 0) {
         showWarningToast(result.warnings[0]);
       } else {
-        showSuccessToast(
-          t("uninstall_game_success", { game: game.title })
-        );
+        showSuccessToast(t("uninstall_game_success", { game: game.title }));
       }
 
       onUninstalled();
@@ -139,11 +137,13 @@ export function UninstallGameModal({
                   <code>{preview.uninstallerPath.split("/").pop()}</code>
                 </span>
               )}
-              {!isSwitch && preview?.canUninstall && !preview?.uninstallerPath && (
-                <span className="uninstall-game-modal__hint">
-                  {t("uninstall_no_uninstaller_cleanup")}
-                </span>
-              )}
+              {!isSwitch &&
+                preview?.canUninstall &&
+                !preview?.uninstallerPath && (
+                  <span className="uninstall-game-modal__hint">
+                    {t("uninstall_no_uninstaller_cleanup")}
+                  </span>
+                )}
             </div>
 
             <div className="uninstall-game-modal__options">
@@ -171,23 +171,15 @@ export function UninstallGameModal({
         )}
 
         <div className="uninstall-game-modal__actions">
-          <Button
-            onClick={onClose}
-            theme="outline"
-            disabled={uninstalling}
-          >
+          <Button onClick={onClose} theme="outline" disabled={uninstalling}>
             {t("cancel")}
           </Button>
           <Button
             onClick={() => void handleConfirm()}
             theme="danger"
-            disabled={
-              loadingPreview || uninstalling || !preview?.canUninstall
-            }
+            disabled={loadingPreview || uninstalling || !preview?.canUninstall}
           >
-            {uninstalling
-              ? t("uninstalling_progress")
-              : t("danger_uninstall")}
+            {uninstalling ? t("uninstalling_progress") : t("danger_uninstall")}
           </Button>
         </div>
       </div>

@@ -485,8 +485,8 @@ export default function Controllers() {
           <div>
             <h2>Controles & Teclados</h2>
             <span>
-              Perfis unificados para Switch 1, Switch 2 e Windows via Red Wine
-              — Suporte P1 até P8
+              Perfis unificados para Switch 1, Switch 2 e Windows via Red Wine —
+              Suporte P1 até P8
             </span>
           </div>
         </div>

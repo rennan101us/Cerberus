@@ -553,7 +553,9 @@ export default function FriendsWindow() {
         objectId: game.objectId,
         gameTitle: game.title,
       });
-      showSuccessToast(`Convite de ${game.title} enviado para ${friend.displayName}.`);
+      showSuccessToast(
+        `Convite de ${game.title} enviado para ${friend.displayName}.`
+      );
       setInviteTargetFriend(null);
     } catch (err) {
       showErrorToast(
@@ -1246,7 +1248,9 @@ export default function FriendsWindow() {
                 />
                 <span
                   className={`friends-window__status-orb friends-window__status-orb--profile${
-                    hasAnyConnectedStore ? " friends-window__status-orb--online" : ""
+                    hasAnyConnectedStore
+                      ? " friends-window__status-orb--online"
+                      : ""
                   }`}
                 />
               </div>

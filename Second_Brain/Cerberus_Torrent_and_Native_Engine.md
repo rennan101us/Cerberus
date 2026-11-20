@@ -58,6 +58,7 @@ Historicamente, muitos launchers baseados em Electron recorriam a daemons extern
 ## 🦀 1. Addon Rust (`hydra-native`)
 
 Localizado no diretório `hydra-native/`:
+
 - Compilado via `cargo` durante o script de `postinstall` (`scripts/build-native-addon.cjs`). Veja [[Cerberus_Build_Packaging_and_CI]].
 - Produz o arquivo binário compilado `hydra-native/hydra-native.node`, carregado dinamicamente pelo processo Main do Electron.
 - Expõe funções thread-safe para inicializar sessões torrent, adicionar magnet links ou arquivos `.torrent`, ajustar limites de velocidade (upload/download) e receber métricas de progresso em tempo real sem bloquear a event loop do Node.js.
@@ -67,6 +68,7 @@ Localizado no diretório `hydra-native/`:
 ## ⚡ 2. C++ `libtorrent` Bridge
 
 Localizado em `native/torrent-bridge/`:
+
 - Envolve a biblioteca industrial **libtorrent-rasterbar** (uma das mais rápidas e completas implementações BitTorrent do mundo).
 - **Prebuilts Inteligentes**: Para evitar tempos de compilação excessivos em computadores de desenvolvimento e usuários finais, o Cerberus inclui bridges pré-compiladas em `native/torrent-bridge/prebuilt` para Windows x64 e Linux x64.
 - **Compilação via vcpkg**: Em plataformas sem binários prévios ou quando a variável de ambiente `HYDRA_TORRENT_BRIDGE_FROM_SOURCE=1` é definida, o instalador compila o CMake e o libtorrent via vcpkg automaticamente.
@@ -90,6 +92,7 @@ O arquivo `src/main/services/download-orchestrator.ts` é o cérebro das operaç
 ---
 
 ## 🔗 Relações no Grafo
+
 - **Hub Central**: [[00_Cerberus_MOC]]
 - **Arquitetura Base**: [[Cerberus_Architecture_and_Runtime]]
 - **Biblioteca de Jogos**: [[Cerberus_Library_and_Game_Management]]

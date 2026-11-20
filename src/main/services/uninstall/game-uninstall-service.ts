@@ -235,7 +235,9 @@ function extractExecutableFromUninstallString(rawValue: string): string | null {
     }
   }
 
-  const exeMatch = unescaped.match(/([a-zA-Z]:\\[^"*?<>|\r\n]+?\.exe)(?=\s|$|")/i);
+  const exeMatch = unescaped.match(
+    /([a-zA-Z]:\\[^"*?<>|\r\n]+?\.exe)(?=\s|$|")/i
+  );
   if (exeMatch?.[1]) {
     return exeMatch[1].trim();
   }
@@ -297,7 +299,11 @@ export function parseWineRegistryUninstallString(
 
     let matches = false;
     if (installBaseLower && installLoc) {
-      const locBase = installLoc.split(/[/\\]+/).pop()?.toLowerCase() || "";
+      const locBase =
+        installLoc
+          .split(/[/\\]+/)
+          .pop()
+          ?.toLowerCase() || "";
       if (locBase && locBase === installBaseLower) {
         matches = true;
       }
@@ -414,7 +420,9 @@ export function formatMegabytes(bytes: number): string {
   return `${mb.toFixed(1)} MB`;
 }
 
-function deduplicateExistingPaths(candidates: Array<string | null | undefined>): string[] {
+function deduplicateExistingPaths(
+  candidates: Array<string | null | undefined>
+): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const raw of candidates) {
@@ -780,7 +788,8 @@ export class GameUninstallService {
         title: game.title,
         appPath: game.switchPortedAppPath || game.executablePath || null,
         stagingDir,
-        canonicalDataDir: NxRuntimeConfigService.getCanonicalMacNxNativeDataDir(),
+        canonicalDataDir:
+          NxRuntimeConfigService.getCanonicalMacNxNativeDataDir(),
         appSupportDir,
         cachesDir: NxPathsService.getCachesDirectory(),
       });

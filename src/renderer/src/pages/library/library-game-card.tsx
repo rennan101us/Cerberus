@@ -84,8 +84,8 @@ export const LibraryGameCard = memo(function LibraryGameCard({
   const steamAppId =
     game.shop === "steam" || importSources.steam
       ? game.objectId
-      : (extractSteamAppId(game.coverImageUrl) ||
-         extractSteamAppId(game.libraryImageUrl));
+      : extractSteamAppId(game.coverImageUrl) ||
+        extractSteamAppId(game.libraryImageUrl);
   const steamFallbacks = steamAppId ? getSteamCoverFallbacks(steamAppId) : [];
 
   const candidates = [

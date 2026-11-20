@@ -66,9 +66,10 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
 }
 
-function getSpeedCategoryMeta(
-  cat: NxBuildEstimate["speedCategory"]
-): { label: string; color: string } {
+function getSpeedCategoryMeta(cat: NxBuildEstimate["speedCategory"]): {
+  label: string;
+  color: string;
+} {
   switch (cat) {
     case "cached":
       return { label: "Cache Instantâneo", color: "#26d980" };
@@ -355,10 +356,7 @@ export function SwitchPortModal({
   );
 
   const isNupOrDump = Boolean(
-    rom?.isNup ||
-      rom?.isDumpFolder ||
-      isSwitch2 ||
-      isExtractedOrPortedSource
+    rom?.isNup || rom?.isDumpFolder || isSwitch2 || isExtractedOrPortedSource
   );
   // Only treat items as missing AFTER prereqsChecked === true (eliminates false initial flash!)
   const needsProdKeys = prereqsChecked && !isNupOrDump && !prodKeys?.isValid;
@@ -926,7 +924,10 @@ export function SwitchPortModal({
           <div className="switch-port-modal__card">
             <div className="switch-port-modal__est-head">
               <h5>
-                <Clock size={13} style={{ verticalAlign: "-2px", marginRight: 5 }} />
+                <Clock
+                  size={13}
+                  style={{ verticalAlign: "-2px", marginRight: 5 }}
+                />
                 Tempo Estimado de Port
               </h5>
               {estimate && (
@@ -1026,9 +1027,10 @@ export function SwitchPortModal({
                   </strong>
                 </div>
                 <small style={{ opacity: 0.9, lineHeight: 1.45 }}>
-                  1. Conecte o iPhone/iPad via cabo USB • 2. Desbloqueie a tela e
-                  toque em <strong>&quot;Confiar neste Computador&quot;</strong>{" "}
-                  • 3. Ative o <strong>Modo Desenvolvedor</strong> em Ajustes →
+                  1. Conecte o iPhone/iPad via cabo USB • 2. Desbloqueie a tela
+                  e toque em{" "}
+                  <strong>&quot;Confiar neste Computador&quot;</strong> • 3.
+                  Ative o <strong>Modo Desenvolvedor</strong> em Ajustes →
                   Privacidade e Segurança.
                 </small>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1063,12 +1065,14 @@ export function SwitchPortModal({
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <AlertTriangle size={15} />
                   <strong>
-                    {selectedDeviceObj.name} está com a tela bloqueada ou offline
+                    {selectedDeviceObj.name} está com a tela bloqueada ou
+                    offline
                   </strong>
                 </div>
                 <small style={{ opacity: 0.9 }}>
-                  Desbloqueie a tela do seu {selectedDeviceObj.name} e mantenha-a
-                  acesa para permitir a instalação do NxN Launcher via USB.
+                  Desbloqueie a tela do seu {selectedDeviceObj.name} e
+                  mantenha-a acesa para permitir a instalação do NxN Launcher
+                  via USB.
                 </small>
                 <Button
                   theme="primary"
@@ -1097,8 +1101,8 @@ export function SwitchPortModal({
                   </strong>
                 </div>
                 <small style={{ opacity: 0.9, lineHeight: 1.45 }}>
-                  Para instalar diretamente no iPhone/iPad, adicione seu Apple ID
-                  (gratuito ou desenvolvedor) em{" "}
+                  Para instalar diretamente no iPhone/iPad, adicione seu Apple
+                  ID (gratuito ou desenvolvedor) em{" "}
                   <strong>Xcode → Settings → Accounts</strong>.
                 </small>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1354,8 +1358,7 @@ export function SwitchPortModal({
                       theme="outline"
                       size="small"
                       onClick={() =>
-                        outputDir &&
-                        window.electron.nxRevealInFinder(outputDir)
+                        outputDir && window.electron.nxRevealInFinder(outputDir)
                       }
                     >
                       Abrir

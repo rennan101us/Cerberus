@@ -27,4 +27,3 @@ Para evitar consumo desnecessário de contexto e leituras cegas do repositório:
 
 4. **Isolamento de Pesquisas Pesadas**:
    - Caso precise mapear múltiplos arquivos simultaneamente, delegue para subagentes pontuais (`role: research`), que processam a busca em contexto isolado e devolvem apenas a resposta necessária.
-

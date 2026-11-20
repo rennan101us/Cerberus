@@ -114,7 +114,9 @@ export class SocialChatStore {
   ): Promise<{ messages: ChatMessageDto[]; hasMore: boolean }> {
     const take = Math.min(100, Math.max(1, options.take ?? 50));
     const upper =
-      options.before !== undefined ? Math.max(0, options.before - 1) : 999999999999;
+      options.before !== undefined
+        ? Math.max(0, options.before - 1)
+        : 999999999999;
 
     const collected: ChatMessageDto[] = [];
     for await (const [, msg] of socialChatMessagesSublevel.iterator({
@@ -181,7 +183,9 @@ export class SocialChatStore {
   }
 
   public static async markRead(friendId: string): Promise<ChatUnreadState> {
-    const conv = await socialConversationsSublevel.get(friendId).catch(() => null);
+    const conv = await socialConversationsSublevel
+      .get(friendId)
+      .catch(() => null);
     if (conv && conv.unreadCount > 0) {
       await socialConversationsSublevel.put(friendId, {
         ...conv,

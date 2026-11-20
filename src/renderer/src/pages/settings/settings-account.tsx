@@ -226,20 +226,12 @@ export function SettingsAccount() {
         <p>{userDetails?.email ?? t("no_email_account")}</p>
 
         <div className="settings-account__actions">
-          <Button
-            theme="outline"
-            onClick={() => void 0}
-          >
+          <Button theme="outline" onClick={() => void 0}>
             <MailIcon />
             {t("update_email")}
           </Button>
 
-          <Button
-            theme="outline"
-            onClick={() =>
-              void 0
-            }
-          >
+          <Button theme="outline" onClick={() => void 0}>
             <KeyIcon />
             {t("update_password")}
           </Button>

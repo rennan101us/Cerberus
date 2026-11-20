@@ -24,7 +24,9 @@ describe("FitGirl / repack safe installer mode helpers", () => {
       assert.equal(detected.isRepack, true);
       assert.equal(detected.isFitGirl, true);
 
-      const nonRepackDir = fs.mkdtempSync(path.join(os.tmpdir(), "normal-setup-"));
+      const nonRepackDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), "normal-setup-")
+      );
       const normalExe = path.join(nonRepackDir, "installer.exe");
       fs.writeFileSync(normalExe, "mz");
       const notRepack = detectRepackInstaller(normalExe);

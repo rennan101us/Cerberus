@@ -335,8 +335,8 @@ export function SettingsContextGeneral({
         <h3>Metadados IGDB (Switch 1, Switch 2 &amp; Mac Native)</h3>
         <p style={{ fontSize: 13, opacity: 0.78, margin: "0 0 8px" }}>
           Capas em alta resolução, hero 1080p, trailers, screenshots, sinopse,
-          idiomas e jogos similares ativos automaticamente via credencial interna
-          criptografada do Cerberus Launcher.
+          idiomas e jogos similares ativos automaticamente via credencial
+          interna criptografada do Cerberus Launcher.
         </p>
 
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>

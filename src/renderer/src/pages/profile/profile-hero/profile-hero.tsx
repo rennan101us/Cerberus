@@ -30,10 +30,7 @@ import {
 import { addSeconds } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import {
-  EDIT_PROFILE_SEARCH_PARAM,
-  EDIT_PROFILE_SEARCH_VALUE,
-} from "@shared";
+import { EDIT_PROFILE_SEARCH_PARAM, EDIT_PROFILE_SEARCH_VALUE } from "@shared";
 import { GameVisibilityBadge } from "@renderer/components/game-visibility-badge/game-visibility-badge";
 
 import type { FriendRequestAction } from "@types";

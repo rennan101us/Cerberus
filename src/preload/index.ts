@@ -2959,10 +2959,8 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.invoke("socialSendTyping", friendId),
   socialMarkRead: (friendId: string) =>
     ipcRenderer.invoke("socialMarkRead", friendId),
-  socialAddFriend: (
-    provider: import("@types").StoreProvider,
-    query: string
-  ) => ipcRenderer.invoke("socialAddFriend", provider, query),
+  socialAddFriend: (provider: import("@types").StoreProvider, query: string) =>
+    ipcRenderer.invoke("socialAddFriend", provider, query),
   socialRespondFriendRequest: (friendId: string, accept: boolean) =>
     ipcRenderer.invoke("socialRespondFriendRequest", friendId, accept),
   socialRemoveFriend: (friendId: string) =>

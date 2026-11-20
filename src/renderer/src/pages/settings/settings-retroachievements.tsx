@@ -252,15 +252,7 @@ export function SettingsRetroAchievements() {
 
   const renderActions = () => {
     if (!userDetails) {
-      return (
-        <Button
-          onClick={() =>
-            void 0
-          }
-        >
-          {t("steam_sign_in")}
-        </Button>
-      );
+      return <Button onClick={() => void 0}>{t("steam_sign_in")}</Button>;
     }
 
     if (!integration.connected) {

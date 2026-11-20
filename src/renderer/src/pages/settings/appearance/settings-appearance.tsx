@@ -36,10 +36,13 @@ export function SettingsAppearance({
 
   const { clearTheme, updateUserPreferences } = useContext(settingsContext);
   const navigate = useNavigate();
-  const userPreferences = useAppSelector((state) => state.userPreferences.value);
+  const userPreferences = useAppSelector(
+    (state) => state.userPreferences.value
+  );
   const activeHighlight: LauncherHighlightThemeId =
     userPreferences?.highlightTheme ?? "cerberus";
-  const customHighlightColor = userPreferences?.customHighlightColor ?? "#6F31FF";
+  const customHighlightColor =
+    userPreferences?.customHighlightColor ?? "#6F31FF";
 
   const handleSelectHighlight = async (
     themeId: LauncherHighlightThemeId,

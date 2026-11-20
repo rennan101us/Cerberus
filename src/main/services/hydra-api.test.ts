@@ -105,7 +105,9 @@ async function fixture(t: TestContext, apiUrl = "https://api.example.test") {
     ],
   });
 
-  const mod = (await import(pathToFileURL(bundlePath).href)) as typeof import("./hydra-api");
+  const mod = (await import(
+    pathToFileURL(bundlePath).href
+  )) as typeof import("./hydra-api");
   await mod.HydraApi.setupApi();
   return { ...mod, requests };
 }
@@ -117,7 +119,11 @@ test("HydraApi allows anonymous catalogue GET without Authorization header", asy
   assert.equal(HydraApi.hasActiveSubscription(), false);
   assert.equal(HydraApi.getAuthContext(), null);
 
-  const data = await HydraApi.get("/catalogue/featured", { take: 10 }, { needsAuth: false });
+  const data = await HydraApi.get(
+    "/catalogue/featured",
+    { take: 10 },
+    { needsAuth: false }
+  );
   assert.deepEqual(data, { ok: true, url: "/catalogue/featured" });
   assert.equal(requests.length, 1);
   assert.equal(requests[0].config.headers.Authorization, undefined);
@@ -127,7 +133,9 @@ test("HydraApi blocks authenticated or subscription-gated requests locally", asy
   const { HydraApi, requests } = await fixture(t);
 
   await assert.rejects(HydraApi.get("/profile/me"));
-  await assert.rejects(HydraApi.get("/profile/me", undefined, { needsAuth: true }));
+  await assert.rejects(
+    HydraApi.get("/profile/me", undefined, { needsAuth: true })
+  );
   await assert.rejects(
     HydraApi.get("/catalogue/featured", undefined, {
       needsAuth: false,
@@ -144,8 +152,14 @@ test("HydraApi blocks PUT, PATCH, DELETE and non-allowlisted POST", async (t) =>
     HydraApi.put("/profile/games/steam/10/favorite", {}),
     HydraApiWriteBlockedError
   );
-  await assert.rejects(HydraApi.patch("/profile", {}), HydraApiWriteBlockedError);
-  await assert.rejects(HydraApi.delete("/profile/games/1"), HydraApiWriteBlockedError);
+  await assert.rejects(
+    HydraApi.patch("/profile", {}),
+    HydraApiWriteBlockedError
+  );
+  await assert.rejects(
+    HydraApi.delete("/profile/games/1"),
+    HydraApiWriteBlockedError
+  );
   await assert.rejects(
     HydraApi.post("/profile/games/batch", [], { needsAuth: false }),
     HydraApiWriteBlockedError
@@ -160,9 +174,21 @@ test("HydraApi blocks PUT, PATCH, DELETE and non-allowlisted POST", async (t) =>
 test("HydraApi allows pure read-only allowlisted POST lookups", async (t) => {
   const { HydraApi, requests } = await fixture(t);
 
-  await HydraApi.post("/catalogue/search", { take: 12, skip: 0 }, { needsAuth: false });
-  await HydraApi.post("/games/shop-details", { shop: "steam", objectIds: ["10"] }, { needsAuth: false });
-  await HydraApi.post("/hosters/availability", { urls: [] }, { needsAuth: false });
+  await HydraApi.post(
+    "/catalogue/search",
+    { take: 12, skip: 0 },
+    { needsAuth: false }
+  );
+  await HydraApi.post(
+    "/games/shop-details",
+    { shop: "steam", objectIds: ["10"] },
+    { needsAuth: false }
+  );
+  await HydraApi.post(
+    "/hosters/availability",
+    { urls: [] },
+    { needsAuth: false }
+  );
   assert.equal(requests.length, 3);
   assert.deepEqual(
     await HydraApi.checkDownloadSourcesChanges([], [], "2026-01-01"),
