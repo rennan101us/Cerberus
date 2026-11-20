@@ -16,14 +16,15 @@ export function LibraryGamesSkeleton({
   rows,
   gap,
 }: Readonly<LibraryGamesSkeletonProps>) {
+  const effectiveColumns = viewMode === "shelves" ? 6 : columns;
   return (
     <SkeletonTheme baseColor="#1c1c1c" highlightColor="#444">
       <div
         className="library-games-skeleton"
         aria-hidden="true"
-        style={{ gridTemplateColumns: `repeat(${columns}, 1fr)`, gap }}
+        style={{ gridTemplateColumns: `repeat(${effectiveColumns}, 1fr)`, gap }}
       >
-        {Array.from({ length: columns * rows }, (_, index) => (
+        {Array.from({ length: effectiveColumns * rows }, (_, index) => (
           <Skeleton
             key={index}
             containerClassName="library-games-skeleton__item"

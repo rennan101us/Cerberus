@@ -7,10 +7,7 @@ import {
   withHydraClaim,
   markHydraPlaytimeChanged,
 } from "../../services/library-sync/library-write-queue";
-import {
-  gameRequestQueue,
-  HYDRA_GAME_REQUEST_TIMEOUT_MS,
-} from "../../services/library-sync/game-request-queue";
+import { gameRequestQueue } from "../../services/library-sync/game-request-queue";
 import { resetHydraPlaytimeTicks } from "../../services/game-running-state";
 
 const changeGamePlaytime = async (
@@ -31,15 +28,6 @@ const changeGamePlaytime = async (
       async () => {
         const game = await gamesSublevel.get(key);
         if (!game) return;
-        if (game.remoteId)
-          await HydraApi.put(
-            `/profile/games/${shop}/${encodeURIComponent(objectId)}/playtime`,
-            { playTimeInSeconds },
-            {
-              ...(context ? { authContext: context } : {}),
-              timeout: HYDRA_GAME_REQUEST_TIMEOUT_MS,
-            }
-          );
         await libraryWriteQueue.run(async () => {
           const latest = await gamesSublevel.get(key);
           if (!latest) return;

@@ -12,15 +12,20 @@ import {
   Umu,
   Wine,
   WindowManager,
+  CrossOverDetector,
   CrossOverRunner,
   CrossOverDiscovery,
+  DEFAULT_BOTTLE_NAME,
+  detectRepackInstaller,
 } from "@main/services";
+import { AppLogHub } from "@main/services/app-log-hub";
 import { updateGameRecord } from "@main/services/game-record-updater";
 import { updateGameExecutablePath } from "@main/helpers/update-executable-path";
 import { UmuEarlyExitError } from "@main/services/umu-launch-monitor";
 import {
   findDownloadInstaller,
   getDownloadFolderPath,
+  isInstallerExecutableName,
 } from "@main/helpers/find-game-installer";
 import {
   endInstallerRun,
@@ -330,16 +335,34 @@ const executeDarwinInstaller = async (
     }
   }
 
+  const repackInfo = detectRepackInstaller(filePath);
+  if (repackInfo.isFitGirl) {
+    logger.info(
+      `[GameInstaller] FitGirl repack detected (${repackInfo.reason}); launching in Safe Mode (recommend checking 'Limit installer to 2GB RAM')`
+    );
+    AppLogHub.info(
+      "crossover",
+      "FitGirl repack detectado: Safe Mode ativado. Recomendação: marque 'Limit installer to 2GB RAM' no assistente."
+    );
+  }
+
   try {
     const result = await CrossOverRunner.executeInstaller({
       installerPath: filePath,
       onExit: options.onExit,
     });
     if (result.spawned) {
-      return trackedLaunch(filePath, "with Fine Wine");
+      return trackedLaunch(
+        filePath,
+        repackInfo.isFitGirl
+          ? "with Red Wine (FitGirl Safe Mode)"
+          : repackInfo.isRepack
+            ? "with Red Wine (Repack Safe Mode)"
+            : "with Red Wine"
+      );
     }
   } catch (error) {
-    logger.error("Failed to execute game installer with Fine Wine", error);
+    logger.error("Failed to execute game installer with Red Wine", error);
   }
 
   return { launched: false, tracked: false };
@@ -472,6 +495,14 @@ const openGameInstaller = async (
     game?.winePrefixPath,
     objectId
   );
+  const effectiveWinePrefixPath =
+    process.platform === "darwin"
+      ? (winePrefixPath ??
+        path.join(
+          await CrossOverDetector.getBottlesDirectory(),
+          DEFAULT_BOTTLE_NAME
+        ))
+      : winePrefixPath;
 
   const gamePath = download ? await getDownloadFolderPath(download) : null;
 
@@ -492,6 +523,65 @@ const openGameInstaller = async (
   const installerStartedAt = Date.now();
   runningInstallers.set(gameKey, installerStartedAt);
   stopInstalledExecutablePolling(gameKey);
+
+  if (shop === "mac_native" && process.platform === "darwin") {
+    try {
+      const scanMacTarget = (
+        dir: string,
+        depth = 0
+      ): { appPath?: string; installerFile?: string } => {
+        if (!fs.existsSync(dir)) return {};
+        const stat = fs.statSync(dir);
+        if (!stat.isDirectory()) {
+          if (/\.(dmg|pkg|iso)$/i.test(dir)) return { installerFile: dir };
+          return {};
+        }
+        if (dir.toLowerCase().endsWith(".app")) return { appPath: dir };
+        if (depth > 2) return {};
+        let foundInstaller: string | undefined;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory() && entry.name.toLowerCase().endsWith(".app")) {
+            return { appPath: full };
+          }
+          if (entry.isFile() && /\.(dmg|pkg|iso)$/i.test(entry.name)) {
+            foundInstaller = foundInstaller ?? full;
+          } else if (entry.isDirectory() && depth < 2) {
+            const sub = scanMacTarget(full, depth + 1);
+            if (sub.appPath) return sub;
+            if (sub.installerFile && !foundInstaller) {
+              foundInstaller = sub.installerFile;
+            }
+          }
+        }
+        return { installerFile: foundInstaller };
+      };
+
+      const detected = scanMacTarget(gamePath);
+      if (detected.appPath) {
+        await updateGameRecord(gameKey, (current) =>
+          updateGameExecutablePath(current, detected.appPath!)
+        );
+        releaseRunningInstaller(gameKey, installerStartedAt);
+        await updateInstallerState(gameKey, {
+          installerLaunched: false,
+          installerRunning: false,
+        });
+        WindowManager.sendToAppWindows("on-library-batch-complete");
+        return true;
+      }
+      if (detected.installerFile) {
+        releaseRunningInstaller(gameKey, installerStartedAt);
+        await shell.openPath(detected.installerFile);
+        return true;
+      }
+    } catch (err) {
+      logger.warn("[GameInstaller] mac_native scan failed:", err);
+    }
+    releaseRunningInstaller(gameKey, installerStartedAt);
+    await shell.openPath(gamePath);
+    return true;
+  }
 
   const installerPath = await findDownloadInstaller(download).catch(() => null);
 
@@ -514,13 +604,14 @@ const openGameInstaller = async (
       return true;
     }
 
-    // 2. On macOS, scan gamePath for any executable candidates
+    // 2. On macOS, scan gamePath for any executable candidates (excluding installers)
     if (process.platform === "darwin") {
-      const candidates = await CrossOverDiscovery.findExecutablesInDir(
-        gamePath,
-        0,
-        3
-      ).catch(() => [] as string[]);
+      const candidates = (
+        await CrossOverDiscovery.findExecutablesInDir(gamePath, 0, 3).catch(
+          () => [] as string[]
+        )
+      ).filter((c) => !isInstallerExecutableName(c));
+
       if (candidates.length > 0) {
         const primary = CrossOverDiscovery.pickPrimaryExecutable(
           path.basename(gamePath),
@@ -567,7 +658,7 @@ const openGameInstaller = async (
 
   const launchResult = await executeGameInstaller(installerPath, {
     gameId: objectId,
-    winePrefixPath,
+    winePrefixPath: effectiveWinePrefixPath,
     protonPath: game?.protonPath,
     onExit: (exitCode) =>
       afterLaunchRecorded(() =>
@@ -575,7 +666,7 @@ const openGameInstaller = async (
           shop,
           objectId,
           installerStartedAt,
-          winePrefixPath,
+          effectiveWinePrefixPath,
           exitCode
         )
       ),

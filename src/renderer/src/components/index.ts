@@ -47,3 +47,5 @@ export * from "./rich-text-editor/rich-text-limit";
 export * from "./inline-edit-field/inline-edit-field";
 export * from "./rich-text-content/rich-text-content";
 export * from "./hydra-cloud-badge/hydra-cloud-badge";
+export * from "./changelog-modal/changelog-modal";
+export * from "./first-run-onboarding-modal/first-run-onboarding-modal";

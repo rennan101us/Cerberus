@@ -7,7 +7,6 @@ import {
   HeartFillIcon,
   CommentDiscussionIcon,
   GiftIcon,
-  ThumbsupIcon,
 } from "@primer/octicons-react";
 import retroAchievementsLogo from "@renderer/assets/icons/retroachievements.png";
 import { useTranslation } from "react-i18next";
@@ -18,9 +17,7 @@ import cn from "classnames";
 import {
   buildLeaderboardNotificationTarget,
   buildLeaderboardNotificationText,
-  buildScreenshotNotificationTarget,
   buildSouvenirNotificationTarget,
-  isScreenshotNotificationType,
   parseLeaderboardNotification,
 } from "@shared";
 import {
@@ -32,7 +29,7 @@ import type { Notification, Badge } from "@types";
 import { openCloudGiftModal } from "../shared-modals/cloud-gift-modal.events";
 import "./notification-item.scss";
 
-const PROFILE_DEEP_LINK_PARAMS = ["tab", "souvenir", "screenshot"];
+const PROFILE_DEEP_LINK_PARAMS = ["tab", "souvenir"];
 
 const buildProfileTarget = (userId: string, searchParams: URLSearchParams) => {
   const params = new URLSearchParams();
@@ -84,10 +81,7 @@ const parseNotificationUrl = (notificationUrl: string): string => {
 
 const getNotificationUrl = (notification: Notification) => {
   if (notification.url) return notification.url;
-  if (!isScreenshotNotificationType(notification.type)) return null;
-
-  const ownerId = notification.variables.ownerId;
-  return ownerId ? `/profile/${encodeURIComponent(ownerId)}` : null;
+  return null;
 };
 
 const getNotificationTarget = (notification: Notification) => {
@@ -98,10 +92,6 @@ const getNotificationTarget = (notification: Notification) => {
 
   if (notification.type === "SOUVENIR_LIKE") {
     return buildSouvenirNotificationTarget(target, notification.variables);
-  }
-
-  if (isScreenshotNotificationType(notification.type)) {
-    return buildScreenshotNotificationTarget(target, notification.variables);
   }
 
   return target;
@@ -196,11 +186,6 @@ export function NotificationItem({
     [notification.id, onDismiss]
   );
 
-  const screenshotGameTitle =
-    notification.variables.gameTitle ||
-    notification.variables.customGameTitle ||
-    t("screenshot_custom_game");
-
   const getNotificationContent = () => {
     if (leaderboardInfo) {
       return {
@@ -278,35 +263,6 @@ export function NotificationItem({
           }),
           showActions: false,
         };
-      case "SCREENSHOT_LIKE":
-        return {
-          title: t("screenshot_like_title", { gameTitle: screenshotGameTitle }),
-          description: t("screenshot_like_description", {
-            count: Number(notification.variables.likeCount ?? 1),
-          }),
-          showActions: false,
-        };
-      case "SCREENSHOT_COMMENT":
-        return {
-          title: t("screenshot_comment_title", {
-            gameTitle: screenshotGameTitle,
-          }),
-          description: t("screenshot_comment_description", {
-            gameTitle: screenshotGameTitle,
-            count: Number(notification.variables.commentCount ?? 1),
-          }),
-          showActions: false,
-        };
-      case "SCREENSHOT_COMMENT_UPVOTE":
-        return {
-          title: t("screenshot_comment_upvote_title", {
-            gameTitle: screenshotGameTitle,
-          }),
-          description: t("screenshot_comment_upvote_description", {
-            count: Number(notification.variables.upvoteCount ?? 1),
-          }),
-          showActions: false,
-        };
       case "RETROACHIEVEMENTS_CREDENTIALS_RESTORED":
         return {
           title: t("retroachievements_credentials_restored_title"),
@@ -356,10 +312,6 @@ export function NotificationItem({
   const isReviewAnswerUpvote = notification.type === "REVIEW_ANSWER_UPVOTE";
   const isReview = isReviewUpvote || isReviewAnswer || isReviewAnswerUpvote;
   const isSouvenirLike = notification.type === "SOUVENIR_LIKE";
-  const isScreenshotLike = notification.type === "SCREENSHOT_LIKE";
-  const isScreenshotComment = notification.type === "SCREENSHOT_COMMENT";
-  const isScreenshotCommentUpvote =
-    notification.type === "SCREENSHOT_COMMENT_UPVOTE";
 
   const isRetroAchievements =
     notification.type === "RETROACHIEVEMENTS_CREDENTIALS_RESTORED" ||
@@ -376,16 +328,13 @@ export function NotificationItem({
     if (isReviewUpvote || isReviewAnswerUpvote) {
       return <StarFillIcon size={24} />;
     }
-    if (isScreenshotCommentUpvote) {
-      return <ThumbsupIcon size={24} />;
-    }
-    if (isReviewAnswer || isScreenshotComment) {
+    if (isReviewAnswer) {
       return <CommentDiscussionIcon size={24} />;
     }
     if (notification.type === "CLOUD_GIFT_RECEIVED") {
       return <GiftIcon size={24} />;
     }
-    if (isSouvenirLike || isScreenshotLike) {
+    if (isSouvenirLike) {
       return <HeartFillIcon size={24} />;
     }
     return <PersonIcon size={24} />;

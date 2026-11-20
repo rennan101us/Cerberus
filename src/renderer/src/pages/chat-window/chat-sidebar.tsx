@@ -9,8 +9,10 @@ import { useTranslation } from "react-i18next";
 import { PlusIcon, SearchIcon, XIcon } from "@primer/octicons-react";
 import cn from "classnames";
 
-import type { UserFriend } from "@types";
+import type { SocialFriendsFilter, StoreProvider, UserFriend } from "@types";
 
+import SteamLogo from "@renderer/assets/steam-logo.svg?react";
+import EpicLogo from "@renderer/assets/epic-integration-logo.svg?react";
 import { ChatFriendAvatar, ChatFriendStatus } from "./chat-friend-status";
 import { ChatNewConversationPanel } from "./chat-new-conversation";
 import { ChatOfficialBadge } from "./chat-official-badge";
@@ -148,6 +150,13 @@ function usePreviewTime() {
   };
 }
 
+const getFriendProvider = (friend: UserFriend): StoreProvider | null => {
+  if (friend.provider) return friend.provider;
+  if (friend.id.startsWith("steam:")) return "steam";
+  if (friend.id.startsWith("epic:")) return "epic";
+  return null;
+};
+
 interface ChatSidebarRowProps {
   conversation: ChatConversation;
   isActive: boolean;
@@ -165,6 +174,7 @@ function ChatSidebarRow({
   const formatTime = usePreviewTime();
   const { friend, isTyping, unreadCount } = conversation;
   const isOfficial = isOfficialAccount(friend);
+  const provider = getFriendProvider(friend);
 
   const hasUnread = !isActive && unreadCount > 0;
   const preview = getConversationPreview(conversation);
@@ -238,6 +248,21 @@ function ChatSidebarRow({
                 {friend.displayName}
               </span>
               {isOfficial && <ChatOfficialBadge size={14} />}
+              {provider && (
+                <span
+                  className={cn(
+                    "chat-window__provider-badge",
+                    `chat-window__provider-badge--${provider}`
+                  )}
+                  title={provider === "steam" ? "Steam" : "Epic Games"}
+                >
+                  {provider === "steam" ? (
+                    <SteamLogo width={10} height={10} />
+                  ) : (
+                    <EpicLogo width={10} height={10} />
+                  )}
+                </span>
+              )}
             </span>
             {time && (
               <span className="chat-window__sidebar-row-time">{time}</span>
@@ -268,6 +293,8 @@ export interface ChatSidebarProps {
   friends: UserFriend[];
   onRefreshFriends: () => void;
   onOpenConversation: (friend: UserFriend) => void;
+  filter?: SocialFriendsFilter;
+  onFilterChange?: (filter: SocialFriendsFilter) => void;
 }
 
 /**
@@ -281,6 +308,8 @@ export function ChatSidebar({
   friends,
   onRefreshFriends,
   onOpenConversation,
+  filter = "all",
+  onFilterChange,
 }: Readonly<ChatSidebarProps>) {
   const { t } = useTranslation("chat_window");
 
@@ -394,7 +423,13 @@ export function ChatSidebar({
   const visibleConversations = filterConversations(
     sortConversationsByActivity(conversations),
     query
-  );
+  ).filter((conversation) => {
+    const provider = getFriendProvider(conversation.friend);
+    if (filter === "online" && !conversation.friend.isOnline) return false;
+    if (filter === "steam" && provider !== "steam") return false;
+    if (filter === "epic" && provider !== "epic") return false;
+    return true;
+  });
 
   const renderRows = () =>
     visibleConversations.map((conversation) => (
@@ -490,6 +525,36 @@ export function ChatSidebar({
               </button>
             )}
           </label>
+
+          {onFilterChange && (
+            <div
+              className="chat-window__sidebar-filters"
+              role="tablist"
+              aria-label="Filtrar conversas"
+            >
+              {(
+                [
+                  { id: "all", label: "Todos" },
+                  { id: "online", label: "Online" },
+                  { id: "steam", label: "Steam" },
+                  { id: "epic", label: "Epic" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === tab.id}
+                  className={cn("chat-window__sidebar-filter", {
+                    "chat-window__sidebar-filter--active": filter === tab.id,
+                  })}
+                  onClick={() => onFilterChange(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <nav
             className="chat-window__sidebar-list"

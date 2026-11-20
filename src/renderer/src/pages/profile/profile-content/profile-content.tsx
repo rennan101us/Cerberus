@@ -17,7 +17,6 @@ import { ProfileHero } from "../profile-hero/profile-hero";
 import {
   useAppDispatch,
   useAppSelector,
-  useFeature,
   useFormat,
   useGamificationProgress,
   useUserDetails,
@@ -26,7 +25,6 @@ import { setHeaderTitle } from "@renderer/features";
 import { useTranslation } from "react-i18next";
 import type { GameShop } from "@types";
 import {
-  AuthPage,
   findSouvenirByNotificationTarget,
   isAchievementSouvenirsEnabled,
   useSouvenirContentWarning,
@@ -48,42 +46,25 @@ import { ProfileTabs, type ProfileTabType } from "./profile-tabs";
 import { LibraryTab } from "./library-tab";
 import { ReviewsTab } from "./reviews-tab";
 import { SouvenirsTab } from "./souvenirs-tab";
-import { ScreenshotsTab } from "./screenshots-tab";
-import {
-  applyProfileScreenshotsTotalUpdate,
-  type ProfileScreenshotsTotalUpdate,
-} from "./screenshots-total";
 import { SouvenirLightbox } from "./souvenir-lightbox";
 import { useSouvenirActions } from "./use-souvenir-actions";
 import type { ProfilePlatform } from "./library-tab";
 import { AnimatePresence } from "framer-motion";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ConfirmationModal } from "@renderer/components";
 import "./profile-content.scss";
 
 type SortOption = "playtime" | "achievementCount" | "playedRecently";
 
 interface RequestedProfileTabOptions {
-  hasRequestedScreenshot: boolean;
-  isScreenshotsEnabled: boolean;
   canShowMissions: boolean;
 }
 
 const getRequestedProfileTab = (
   requestedTab: string | null,
-  {
-    hasRequestedScreenshot,
-    isScreenshotsEnabled,
-    canShowMissions,
-  }: RequestedProfileTabOptions
+  { canShowMissions }: RequestedProfileTabOptions
 ): ProfileTabType => {
   if (requestedTab === "souvenirs") return "souvenirs";
-  if (
-    isScreenshotsEnabled &&
-    (requestedTab === "screenshots" || hasRequestedScreenshot)
-  ) {
-    return "screenshots";
-  }
   if (requestedTab === "missions" && canShowMissions) return "missions";
   return "library";
 };
@@ -167,10 +148,6 @@ export function ProfileContent() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const requestedSouvenir = searchParams.get("souvenir");
-  const requestedScreenshot = searchParams.get("screenshot");
-  const { userId: routeUserId } = useParams();
-  const { isFeatureEnabled, Feature } = useFeature();
-  const isScreenshotsEnabled = isFeatureEnabled(Feature.Screenshots);
   const attemptedDeepLinkPagesRef = useRef(new Set<string>());
   const souvenirsEnabled = useAppSelector((state) =>
     isAchievementSouvenirsEnabled(
@@ -220,25 +197,8 @@ export function ProfileContent() {
 
   const [activeTab, setActiveTab] = useState<ProfileTabType>(() =>
     getRequestedProfileTab(requestedTab, {
-      hasRequestedScreenshot: Boolean(requestedScreenshot),
-      isScreenshotsEnabled,
       canShowMissions,
     })
-  );
-  const [screenshotsTotal, setScreenshotsTotal] = useState<number | null>(null);
-  const screenshotsProfileRef = useRef(userProfile);
-  screenshotsProfileRef.current = userProfile;
-  const handleScreenshotsTotalUpdate = useCallback(
-    (update: ProfileScreenshotsTotalUpdate) => {
-      setScreenshotsTotal((current) =>
-        applyProfileScreenshotsTotalUpdate(
-          current,
-          update,
-          screenshotsProfileRef.current
-        )
-      );
-    },
-    []
   );
 
   // User reviews state
@@ -292,17 +252,6 @@ export function ProfileContent() {
     nextParams.delete("souvenir");
     setSearchParams(nextParams, { replace: true });
   }, [searchParams, setSearchParams]);
-
-  const clearRequestedScreenshot = useCallback(() => {
-    setSearchParams(
-      (current) => {
-        const nextParams = new URLSearchParams(current);
-        nextParams.delete("screenshot");
-        return nextParams;
-      },
-      { replace: true }
-    );
-  }, [setSearchParams]);
 
   useEffect(() => {
     attemptedDeepLinkPagesRef.current.clear();
@@ -428,13 +377,10 @@ export function ProfileContent() {
     setIsLoadingReviews(false);
     setActiveTab(
       getRequestedProfileTab(requestedTab, {
-        hasRequestedScreenshot: false,
-        isScreenshotsEnabled: false,
         canShowMissions: canShowMissionsRef.current,
       })
     );
     setPlatform(readStoredProfilePlatform());
-    setScreenshotsTotal(null);
   }, [requestedTab, userProfile?.id]);
 
   // The Missions tab follows the flag on its own: open it once a requested ?tab=missions becomes
@@ -446,8 +392,6 @@ export function ProfileContent() {
       }
       return current === "missions"
         ? getRequestedProfileTab(requestedTab, {
-            hasRequestedScreenshot: false,
-            isScreenshotsEnabled: false,
             canShowMissions: false,
           })
         : current;
@@ -462,25 +406,6 @@ export function ProfileContent() {
     window.addEventListener(OPEN_PROFILE_TAB_EVENT, openTab);
     return () => window.removeEventListener(OPEN_PROFILE_TAB_EVENT, openTab);
   }, [canShowMissions]);
-  useEffect(() => {
-    if (
-      isScreenshotsEnabled &&
-      (requestedScreenshot || requestedTab === "screenshots")
-    ) {
-      setActiveTab("screenshots");
-    }
-  }, [
-    isScreenshotsEnabled,
-    requestedScreenshot,
-    requestedTab,
-    userProfile?.id,
-  ]);
-
-  useEffect(() => {
-    if (!isScreenshotsEnabled && activeTab === "screenshots") {
-      setActiveTab("library");
-    }
-  }, [activeTab, isScreenshotsEnabled]);
 
   const fetchUserReviews = useCallback(async () => {
     if (!userProfile?.id) return;
@@ -539,7 +464,7 @@ export function ProfileContent() {
 
   const handleVoteReview = async (reviewId: string, isUpvote: boolean) => {
     if (!userDetails) {
-      window.electron.openAuthWindow(AuthPage.SignIn);
+      void 0;
       return;
     }
 
@@ -672,10 +597,6 @@ export function ProfileContent() {
             reviewsTotalCount={reviewsTotalCount}
             souvenirsCount={souvenirsTotal}
             showMissions={canShowMissions}
-            screenshotsCount={
-              screenshotsTotal ?? userProfile.screenshotCount ?? 0
-            }
-            showScreenshots={isScreenshotsEnabled}
             onTabChange={setActiveTab}
           />
 
@@ -749,18 +670,6 @@ export function ProfileContent() {
               )}
 
               {activeTab === "missions" && canShowMissions && <MissionsTab />}
-              {activeTab === "screenshots" && isScreenshotsEnabled && (
-                <ScreenshotsTab
-                  key={userProfile.id}
-                  userId={userProfile.id}
-                  isMe={isMe}
-                  requestedScreenshotId={
-                    userProfile.id === routeUserId ? requestedScreenshot : null
-                  }
-                  onRequestedScreenshotHandled={clearRequestedScreenshot}
-                  onTotalUpdate={handleScreenshotsTotalUpdate}
-                />
-              )}
             </AnimatePresence>
           </div>
         </div>

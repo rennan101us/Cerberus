@@ -1,6 +1,5 @@
 import { appVersion, defaultDownloadsPath, isStaging } from "@main/constants";
 import { ipcMain } from "electron";
-import { ScreenshotService } from "@main/services/screenshot";
 import {
   cleanupAchievementSouvenirSync,
   getAchievementSouvenirSyncDetails,
@@ -25,7 +24,6 @@ import "./misc";
 import "./recompilation";
 import "./notifications";
 import "./profile";
-import "./screenshots";
 import "./themes";
 import "./torrenting";
 import "./user";
@@ -34,15 +32,18 @@ import "./library/transfer-game-files";
 import "./emulators";
 import "./retroarch";
 import "./epic";
-import "./screenshot-input";
+import "./nxnative";
+import "./controllers";
+import "./logs";
+import "./mac-native/mac-native-events";
+import "./icloud-saves/icloud-save-events";
+import "./stores";
+import "./social";
 
 ipcMain.handle("ping", () => "pong");
 ipcMain.handle("getVersion", () => appVersion);
 ipcMain.handle("isStaging", () => isStaging);
 ipcMain.handle("getDefaultDownloadsPath", () => defaultDownloadsPath);
-ipcMain.handle("getScreenshotsPath", () =>
-  ScreenshotService.getScreenshotsPath()
-);
 ipcMain.handle("getAchievementSouvenirSyncStatus", () =>
   getAchievementSouvenirSyncStatus()
 );

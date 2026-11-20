@@ -11,28 +11,24 @@ import {
   SearchIcon,
   XIcon,
 } from "@primer/octicons-react";
+import { Gamepad2, Play } from "lucide-react";
 
 import { Avatar, Button, Toast } from "@renderer/components";
-import { closeToast, setFriendRequests } from "@renderer/features";
-import {
-  useAppDispatch,
-  useAppSelector,
-  useUserDetails,
-} from "@renderer/hooks";
+import { closeToast } from "@renderer/features";
+import { useAppDispatch, useAppSelector, useToast } from "@renderer/hooks";
 import SteamLogo from "@renderer/assets/steam-logo.svg?react";
-import {
-  fetchAllProfileFriends,
-  OFFICIAL_CHAT_FRIEND_ID,
-  PROFILE_FRIENDS_PATH,
-} from "@shared";
+import EpicLogo from "@renderer/assets/epic-integration-logo.svg?react";
+import { buildCerberusInviteUrl } from "@shared";
 import type {
   ChatUnreadState,
   FriendRequest,
-  ProfileFriends,
+  SocialFriendsFilter,
+  SocialGameInvite,
+  SocialInvitableGame,
+  StoreAccountsState,
+  StoreProvider,
   UserFriend,
 } from "@types";
-import { ChatOfficialBadge } from "@renderer/pages/chat-window/chat-official-badge";
-import { toOfficialFriend } from "@renderer/pages/chat-window/chat-official";
 
 import {
   BACKGROUND_IMAGE_SIZES,
@@ -43,7 +39,6 @@ import { consumeAddFriendRequest } from "./add-friend-request";
 import { useAddFriend } from "./use-add-friend";
 import "./friends-window.scss";
 
-const PAGE_SIZE = 100;
 const COPIED_FEEDBACK_MS = 1200;
 const electron = globalThis.electron as Electron;
 
@@ -53,8 +48,6 @@ const FRIEND_AVATAR_IMAGE_SIZE = { width: 80, height: 80 };
 const PROFILE_AVATAR_IMAGE_SIZE = { width: 112, height: 112 };
 const FRIEND_IMAGE_PROCESSING_BATCH_SIZE = 6;
 
-// [name width, status width] per placeholder row; varied so the skeleton reads
-// as a list of people rather than a grid.
 const ONLINE_SKELETON_ROWS = [
   [128, 92],
   [96, 52],
@@ -65,12 +58,8 @@ const OFFLINE_SKELETON_ROWS = [
   [140, 48],
   [84, 48],
   [124, 48],
-  [100, 48],
-  [136, 48],
 ];
-// Rows from this index on fade out to hint that the list keeps going.
 const SKELETON_FADE_FROM_ROW = 3;
-// Opacity each faded row loses relative to the one above it.
 const SKELETON_FADE_STEP = 0.25;
 const SKELETON_ROW_STAGGER_MS = 90;
 const MAX_UNREAD_BADGE_COUNT = 99;
@@ -85,26 +74,49 @@ const isRemoteImageUrl = (
 const getProcessedImageKey = (imageUrl: string, size: FriendImageSize) =>
   `${size.width}x${size.height}:${imageUrl}`;
 
+const getFriendProvider = (friend: {
+  id: string;
+  provider?: StoreProvider;
+}): StoreProvider => {
+  if (friend.provider) return friend.provider;
+  return friend.id.startsWith("epic:") ? "epic" : "steam";
+};
+
+const getFriendStatusText = (
+  friend: UserFriend,
+  onlineLabel: string,
+  offlineLabel: string
+) => {
+  if (!friend.isOnline) return offlineLabel;
+  if (friend.richPresence) return friend.richPresence;
+  switch (friend.personaState) {
+    case "away":
+      return "Ausente";
+    case "snooze":
+      return "Inativo";
+    case "busy":
+      return "Ocupado";
+    case "in-game":
+      return "Em jogo";
+    default:
+      return onlineLabel;
+  }
+};
+
 export default function FriendsWindow() {
   const { t } = useTranslation("friends_window");
   const { t: tProfile } = useTranslation("user_profile");
-  const { t: tChat } = useTranslation("chat_window");
   const dispatch = useAppDispatch();
   const toast = useAppSelector((state) => state.toast);
+  const { showSuccessToast, showErrorToast } = useToast();
   const handleToastClose = useCallback(() => {
     dispatch(closeToast());
   }, [dispatch]);
 
-  const {
-    userDetails,
-    friendRequests,
-    fetchUserDetails,
-    updateUserDetails,
-    fetchFriendRequests,
-    updateFriendRequestState,
-  } = useUserDetails();
-
+  const [accounts, setAccounts] = useState<StoreAccountsState | null>(null);
+  const [systemUsername, setSystemUsername] = useState<string>("");
   const [friends, setFriends] = useState<UserFriend[]>([]);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [isLoadingFriends, setIsLoadingFriends] = useState(true);
   const [hasResolvedSnapshot, setHasResolvedSnapshot] = useState(false);
   const [chatUnread, setChatUnread] = useState<ChatUnreadState>({
@@ -112,31 +124,26 @@ export default function FriendsWindow() {
     byFriend: {},
   });
 
-  useEffect(() => {
-    let cancelled = false;
-
-    electron
-      .getChatUnreadState()
-      .then((state) => {
-        if (!cancelled) setChatUnread(state);
-      })
-      .catch(() => {});
-    const unsubscribe = electron.onChatUnreadUpdated(setChatUnread);
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
+  const [filter, setFilter] = useState<SocialFriendsFilter>("all");
   const [search, setSearch] = useState("");
   const [isAddMode, setIsAddMode] = useState(false);
+  const [addProvider, setAddProvider] = useState<StoreProvider>("steam");
   const [sentRequestsCollapsed, setSentRequestsCollapsed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [searchResults, setSearchResults] = useState<UserFriend[] | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [processedImages, setProcessedImages] = useState<
     Record<string, string>
   >({});
+
+  // Invite popover state per friend
+  const [inviteTargetFriend, setInviteTargetFriend] =
+    useState<UserFriend | null>(null);
+  const [invitableGames, setInvitableGames] = useState<SocialInvitableGame[]>(
+    []
+  );
+  const [loadingInvitableGames, setLoadingInvitableGames] = useState(false);
+  const [sendingInviteKey, setSendingInviteKey] = useState<string | null>(null);
+
   const { visibleFriendIds, observeFriendElement, isObservationSupported } =
     useVisibleFriendIds();
   const shouldLoadFriendImages = useCallback(
@@ -145,38 +152,41 @@ export default function FriendsWindow() {
     [isObservationSupported, visibleFriendIds]
   );
 
-  // Presence bursts fire overlapping refetches; only the latest one may write,
-  // so a slow, older response can't roll the list back.
   const friendsRequestIdRef = useRef(0);
+
+  const loadAccounts = useCallback(async () => {
+    try {
+      const next = await electron.storesGetAccounts();
+      setAccounts(next);
+      setAddProvider((prev) => {
+        if (prev === "steam" && !next.steam.connected && next.epic.connected) {
+          return "epic";
+        }
+        if (prev === "epic" && !next.epic.connected && next.steam.connected) {
+          return "steam";
+        }
+        return prev;
+      });
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const fetchFriends = useCallback(async () => {
     const requestId = ++friendsRequestIdRef.current;
 
     try {
-      const response = await fetchAllProfileFriends((take, skip) =>
-        electron.hydraApi.get<ProfileFriends>(PROFILE_FRIENDS_PATH, {
-          params: { take, skip },
-        })
-      );
-
+      const response = await electron.socialGetFriends();
       if (requestId === friendsRequestIdRef.current) {
         setFriends(response.friends);
+        setFriendRequests(response.friendRequests);
       }
     } catch {
       // ignore transient errors; the next refresh will retry
     } finally {
-      // Drop the skeleton even on failure so it can't shimmer forever.
       setIsLoadingFriends(false);
     }
   }, []);
-
-  const refreshUserDetails = useCallback(() => {
-    // fetchUserDetails() only returns the data; updateUserDetails() writes it
-    // into this window's store.
-    return fetchUserDetails().then((details) => {
-      if (details) updateUserDetails(details);
-    });
-  }, [fetchUserDetails, updateUserDetails]);
 
   useEffect(() => {
     document.title = t("title");
@@ -185,11 +195,22 @@ export default function FriendsWindow() {
   useEffect(() => {
     let cancelled = false;
 
-    // This window has its own Redux store, so hydrate the signed-in user.
-    refreshUserDetails();
+    void electron
+      .getSystemUsername()
+      .then((name) => {
+        if (!cancelled && name) setSystemUsername(name);
+      })
+      .catch(() => {});
 
-    // Paint the list the main window prefetched, then revalidate. Fetching only
-    // after the snapshot lands keeps it from overwriting a fresher response.
+    void loadAccounts();
+
+    void electron
+      .getChatUnreadState()
+      .then((state) => {
+        if (!cancelled) setChatUnread(state);
+      })
+      .catch(() => {});
+
     void electron
       .getFriendsSnapshot()
       .catch(() => null)
@@ -198,140 +219,140 @@ export default function FriendsWindow() {
 
         if (snapshot) {
           setFriends(snapshot.friends);
-          dispatch(setFriendRequests(snapshot.friendRequests));
+          setFriendRequests(snapshot.friendRequests);
           setIsLoadingFriends(false);
         }
 
         setHasResolvedSnapshot(true);
-        fetchFriends();
-        fetchFriendRequests();
+        void fetchFriends();
       });
 
     return () => {
       cancelled = true;
     };
-  }, [dispatch, refreshUserDetails, fetchFriends, fetchFriendRequests]);
+  }, [loadAccounts, fetchFriends]);
 
   useEffect(() => {
     if (!hasResolvedSnapshot) return;
-
-    // Main keeps the window hidden until this frame (cached list or skeleton)
-    // is on screen.
     const frame = requestAnimationFrame(() => electron.friendsWindowReady());
-
     return () => cancelAnimationFrame(frame);
   }, [hasResolvedSnapshot]);
 
   useEffect(() => {
-    const unsubscribeFriends = electron.onFriendsUpdated(() => {
-      fetchFriends();
+    const unsubscribeUnread = electron.onChatUnreadUpdated(setChatUnread);
+    const unsubscribeAccounts = electron.onStoreAccountsUpdated(() => {
+      void loadAccounts();
+      void fetchFriends();
     });
-    let interval: ReturnType<typeof setInterval> | null = null;
+    const unsubscribeFriends = electron.onFriendsUpdated(() => {
+      void fetchFriends();
+    });
     const unsubscribePresence =
       typeof electron.onFriendPresence === "function"
-        ? electron.onFriendPresence(({ friendId, isOnline }) => {
+        ? electron.onFriendPresence((presence) => {
             setFriends((prev) =>
               prev.map((friend) =>
-                friend.id === friendId ? { ...friend, isOnline } : friend
+                friend.id === presence.friendId
+                  ? {
+                      ...friend,
+                      isOnline: presence.isOnline,
+                      personaState:
+                        presence.personaState ?? friend.personaState,
+                      currentGame:
+                        presence.currentGame !== undefined
+                          ? presence.currentGame
+                          : friend.currentGame,
+                      richPresence:
+                        presence.richPresence !== undefined
+                          ? presence.richPresence
+                          : friend.richPresence,
+                      gameLobby:
+                        presence.gameLobby !== undefined
+                          ? presence.gameLobby
+                          : friend.gameLobby,
+                    }
+                  : friend
               )
             );
           })
-        : () => {
-            if (interval) clearInterval(interval);
-          };
-
-    if (typeof electron.onFriendPresence !== "function") {
-      interval = setInterval(fetchFriends, 30_000);
-    }
-    const unsubscribeRequests = electron.onSyncFriendRequests(() => {
-      fetchFriendRequests();
-    });
-    const unsubscribeProfile = electron.onProfileUpdated(() => {
-      refreshUserDetails();
-    });
+        : () => {};
 
     return () => {
+      unsubscribeUnread();
+      unsubscribeAccounts();
       unsubscribeFriends();
       unsubscribePresence();
-      unsubscribeRequests();
-      unsubscribeProfile();
     };
-  }, [fetchFriends, fetchFriendRequests, refreshUserDetails]);
+  }, [loadAccounts, fetchFriends]);
 
-  // Debounced friend search
-  useEffect(() => {
-    const query = search.trim();
+  const selfDisplayName =
+    accounts?.steam.displayName ||
+    accounts?.epic.displayName ||
+    accounts?.steam.accountName ||
+    accounts?.epic.accountName ||
+    systemUsername ||
+    "Cerberus";
 
-    if (!query) {
-      setSearchResults(null);
-      return;
+  const selfAvatarUrl =
+    accounts?.steam.avatarUrl || accounts?.epic.avatarUrl || null;
+
+  const selfCopyValue =
+    accounts?.steam.accountId || accounts?.epic.displayName || null;
+
+  const hasAnyConnectedStore = Boolean(
+    accounts?.steam.connected || accounts?.epic.connected
+  );
+
+  const filterCounts = useMemo(() => {
+    let online = 0;
+    let steam = 0;
+    let epic = 0;
+    for (const f of friends) {
+      if (f.isOnline) online++;
+      const p = getFriendProvider(f);
+      if (p === "steam") steam++;
+      else epic++;
     }
-
-    const timeout = setTimeout(async () => {
-      try {
-        const response = await electron.hydraApi.get<{
-          friends: UserFriend[];
-        }>("/profile/friends/search", {
-          params: { query, take: PAGE_SIZE, skip: 0 },
-        });
-
-        setSearchResults(response.friends);
-      } catch {
-        setSearchResults([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timeout);
-  }, [search]);
-
-  // /profile/friends/search does not return isOnline, so reuse the presence
-  // info we already have from the full friends list.
-  const onlineMap = useMemo(() => {
-    const map = new Map<string, boolean>();
-    friends.forEach((friend) => map.set(friend.id, Boolean(friend.isOnline)));
-    return map;
+    return {
+      all: friends.length,
+      online,
+      steam,
+      epic,
+    };
   }, [friends]);
 
-  const displayedFriends = useMemo(() => {
-    if (searchResults === null) return friends;
-
-    return searchResults.map((friend) => ({
-      ...friend,
-      isOnline: friend.isOnline ?? onlineMap.get(friend.id) ?? false,
-    }));
-  }, [searchResults, friends, onlineMap]);
+  const filteredFriends = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return friends.filter((friend) => {
+      const provider = getFriendProvider(friend);
+      if (filter === "online" && !friend.isOnline) return false;
+      if (filter === "steam" && provider !== "steam") return false;
+      if (filter === "epic" && provider !== "epic") return false;
+      if (q) {
+        const matchName = friend.displayName.toLowerCase().includes(q);
+        const matchGame = friend.currentGame?.title.toLowerCase().includes(q);
+        if (!matchName && !matchGame) return false;
+      }
+      return true;
+    });
+  }, [friends, filter, search]);
 
   const sortedFriends = useMemo(
     () =>
       sortFriendsByUnreadMessages(
-        displayedFriends,
+        filteredFriends,
         chatUnread.byFriend,
         chatUnread.lastMessageAtByFriend ?? {}
       ),
-    [displayedFriends, chatUnread]
+    [filteredFriends, chatUnread]
   );
-
-  const officialFriend = useMemo(
-    () =>
-      toOfficialFriend({
-        id: OFFICIAL_CHAT_FRIEND_ID,
-        displayName: t("official_name"),
-        profileImageUrl: null,
-        isOfficial: true,
-      }),
-    [t]
-  );
-  const showOfficialRow =
-    Boolean(userDetails?.id) &&
-    !isAddMode &&
-    !search.trim() &&
-    (chatUnread.byFriend[OFFICIAL_CHAT_FRIEND_ID] ?? 0) > 0;
 
   const onlineFriends = sortedFriends.filter((friend) => friend.isOnline);
-  const offlineFriends = sortedFriends.filter((friend) => !friend.isOnline);
+  const offlineFriends =
+    filter === "online"
+      ? []
+      : sortedFriends.filter((friend) => !friend.isOnline);
 
-  // null = follow the default (collapsed when the section is empty); a boolean
-  // means the user explicitly toggled it.
   const [onlineOverride, setOnlineOverride] = useState<boolean | null>(null);
   const [offlineOverride, setOfflineOverride] = useState<boolean | null>(null);
   const [requestsOverride, setRequestsOverride] = useState<boolean | null>(
@@ -344,32 +365,10 @@ export default function FriendsWindow() {
   const receivedRequests = friendRequests.filter(
     (request) => request.type === "RECEIVED"
   );
-
-  const [requestBackgrounds, setRequestBackgrounds] = useState<
-    Record<string, string | null>
-  >({});
-  const requestedBackgroundIdsRef = useRef(new Set<string>());
-
-  useEffect(() => {
-    for (const request of friendRequests) {
-      if (requestedBackgroundIdsRef.current.has(request.id)) continue;
-      requestedBackgroundIdsRef.current.add(request.id);
-
-      electron.hydraApi
-        .get<{ backgroundImageUrl: string | null }>(`/users/${request.id}`)
-        .then(({ backgroundImageUrl }) => {
-          setRequestBackgrounds((current) => ({
-            ...current,
-            [request.id]: backgroundImageUrl ?? null,
-          }));
-        })
-        .catch(() => {
-          requestedBackgroundIdsRef.current.delete(request.id);
-        });
-    }
-  }, [friendRequests]);
-
-  const profile = userDetails;
+  const sentRequests = friendRequests.filter(
+    (request) => request.type === "SENT"
+  );
+  const requestsCollapsed = requestsOverride ?? receivedRequests.length === 0;
 
   useEffect(() => {
     if (typeof electron.getProcessedImage !== "function") return;
@@ -384,16 +383,13 @@ export default function FriendsWindow() {
       size: FriendImageSize
     ) => {
       if (!isRemoteImageUrl(imageUrl)) return;
-
       const key = getProcessedImageKey(imageUrl, size);
-
       if (!processedImages[key]) {
         pendingImages.set(key, { imageUrl, size });
       }
     };
 
-    addImage(profile?.profileImageUrl, PROFILE_AVATAR_IMAGE_SIZE);
-    addImage(profile?.backgroundImageUrl, BACKGROUND_IMAGE_SIZES.profile);
+    addImage(selfAvatarUrl, PROFILE_AVATAR_IMAGE_SIZE);
 
     for (const friend of friends) {
       if (!shouldLoadFriendImages(friend.id)) continue;
@@ -401,15 +397,8 @@ export default function FriendsWindow() {
       addImage(friend.backgroundImageUrl, BACKGROUND_IMAGE_SIZES.friend);
     }
 
-    for (const friend of searchResults ?? []) {
-      if (!shouldLoadFriendImages(friend.id)) continue;
-      addImage(friend.profileImageUrl, FRIEND_AVATAR_IMAGE_SIZE);
-      addImage(friend.backgroundImageUrl, BACKGROUND_IMAGE_SIZES.friend);
-    }
-
     for (const request of friendRequests) {
       addImage(request.profileImageUrl, FRIEND_AVATAR_IMAGE_SIZE);
-      addImage(requestBackgrounds[request.id], BACKGROUND_IMAGE_SIZES.friend);
     }
 
     if (!pendingImages.size) return;
@@ -442,7 +431,6 @@ export default function FriendsWindow() {
 
             setProcessedImages((current) => {
               if (current[key] === processedImageUrl) return current;
-
               return {
                 ...current,
                 [key]: processedImageUrl ?? imageUrl,
@@ -455,7 +443,7 @@ export default function FriendsWindow() {
       }
     };
 
-    loadImages();
+    void loadImages();
 
     return () => {
       cancelled = true;
@@ -463,10 +451,8 @@ export default function FriendsWindow() {
   }, [
     friends,
     friendRequests,
-    profile,
+    selfAvatarUrl,
     processedImages,
-    requestBackgrounds,
-    searchResults,
     shouldLoadFriendImages,
   ]);
 
@@ -488,35 +474,124 @@ export default function FriendsWindow() {
 
   const selfGame = useAppSelector((state) => state.gameRunning.gameRunning);
 
-  const requestsCollapsed = requestsOverride ?? receivedRequests.length === 0;
-
   const handleCopyFriendCode = () => {
-    if (!profile?.id) return;
-
-    navigator.clipboard.writeText(profile.id);
+    if (!selfCopyValue) return;
+    navigator.clipboard.writeText(selfCopyValue);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), COPIED_FEEDBACK_MS);
-  };
-
-  const handleFriendClick = (friendId: string) => {
-    electron.openFriendProfileInMainWindow(friendId);
   };
 
   const handleMessageFriend = (friend: UserFriend) => {
     void electron.openChatWindow(friend);
   };
 
+  const handleJoinFriendLobby = async (friend: UserFriend) => {
+    const provider = getFriendProvider(friend);
+    const invite: SocialGameInvite = {
+      id: `lobby-${friend.id}-${Date.now()}`,
+      provider,
+      appId: friend.currentGame?.objectId ?? friend.gameLobby?.appId,
+      gameTitle: friend.currentGame?.title || "Jogo",
+      lobbyId: friend.gameLobby?.lobbyId,
+      connectString: friend.gameLobby?.connectString,
+      partyId: friend.gameLobby?.partyId,
+      inviterId: friend.id,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const res = await electron.socialAcceptGameInvite(invite);
+      if (res.launched) {
+        showSuccessToast(`Abrindo ${invite.gameTitle}...`);
+      } else if (res.navigatedTo) {
+        showErrorToast(
+          `${invite.gameTitle} não está instalado neste dispositivo.`
+        );
+      } else {
+        showErrorToast(
+          `Não foi possível localizar ${invite.gameTitle} na biblioteca.`
+        );
+      }
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error ? err.message : "Erro ao entrar no jogo."
+      );
+    }
+  };
+
+  const handleToggleInvitePicker = async (friend: UserFriend) => {
+    if (inviteTargetFriend?.id === friend.id) {
+      setInviteTargetFriend(null);
+      return;
+    }
+
+    setInviteTargetFriend(friend);
+    setLoadingInvitableGames(true);
+    setInvitableGames([]);
+
+    try {
+      const provider = getFriendProvider(friend);
+      const games = await electron.socialGetInvitableGames(provider);
+      setInvitableGames(games);
+    } catch {
+      setInvitableGames([]);
+    } finally {
+      setLoadingInvitableGames(false);
+    }
+  };
+
+  const handleSendGameInvite = async (
+    friend: UserFriend,
+    game: SocialInvitableGame
+  ) => {
+    const key = `${friend.id}:${game.shop}:${game.objectId}`;
+    setSendingInviteKey(key);
+    try {
+      await electron.socialSendGameInvite({
+        friendId: friend.id,
+        gameShop: game.shop,
+        objectId: game.objectId,
+        gameTitle: game.title,
+      });
+      showSuccessToast(`Convite de ${game.title} enviado para ${friend.displayName}.`);
+      setInviteTargetFriend(null);
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error ? err.message : "Falha ao enviar convite."
+      );
+    } finally {
+      setSendingInviteKey(null);
+    }
+  };
+
+  const handleCopyCerberusInvite = (game: SocialInvitableGame) => {
+    const link = buildCerberusInviteUrl({
+      shop: game.shop,
+      objectId: game.objectId,
+      title: game.title,
+    });
+    navigator.clipboard
+      .writeText(link)
+      .then(() => {
+        showSuccessToast("Link de convite Cerberus copiado!");
+        setInviteTargetFriend(null);
+      })
+      .catch(() => {});
+  };
+
   const friendIds = useMemo(
     () => new Set(friends.map((friend) => friend.id)),
     [friends]
   );
+
   const addFriend = useAddFriend({
+    provider: addProvider,
     isFriend: (userId) => friendIds.has(userId),
-    onOpenProfile: handleFriendClick,
+    onSuccess: () => {
+      void fetchFriends();
+    },
   });
-  const sentRequests = friendRequests.filter(
-    (request) => request.type === "SENT"
-  );
+
   const searchFieldValue = isAddMode ? addFriend.friendCode : search;
 
   const handleSearchFieldChange = (value: string) => {
@@ -559,13 +634,21 @@ export default function FriendsWindow() {
   };
 
   const handleAcceptRequest = (userId: string) => {
-    updateFriendRequestState(userId, "ACCEPTED")
+    void electron
+      .socialRespondFriendRequest(userId, true)
       .then(() => fetchFriends())
-      .catch(() => {});
+      .catch((err) => {
+        showErrorToast(
+          err instanceof Error ? err.message : "Falha ao aceitar solicitação."
+        );
+      });
   };
 
   const handleRefuseRequest = (userId: string) => {
-    updateFriendRequestState(userId, "REFUSED").catch(() => {});
+    void electron
+      .socialRespondFriendRequest(userId, false)
+      .then(() => fetchFriends())
+      .catch(() => {});
   };
 
   const getGameIcon = (game: { iconUrl: string | null; title: string }) => {
@@ -584,33 +667,25 @@ export default function FriendsWindow() {
     return <SteamLogo width={16} height={16} />;
   };
 
+  const renderProviderBadge = (provider: StoreProvider) => (
+    <span
+      className={`friends-window__provider-badge friends-window__provider-badge--${provider}`}
+      title={provider === "steam" ? "Steam" : "Epic Games"}
+    >
+      {provider === "steam" ? (
+        <SteamLogo width={11} height={11} />
+      ) : (
+        <EpicLogo width={11} height={11} />
+      )}
+    </span>
+  );
+
   const renderRequest = (request: FriendRequest, actions: React.ReactNode) => {
-    const backgroundImageUrl = getProcessedImageUrl(
-      requestBackgrounds[request.id],
-      BACKGROUND_IMAGE_SIZES.friend
-    );
+    const provider = getFriendProvider(request);
 
     return (
-      <li
-        key={request.id}
-        className={`friends-window__friend${
-          backgroundImageUrl ? " friends-window__friend--has-bg" : ""
-        }`}
-      >
-        {backgroundImageUrl && (
-          <img
-            src={backgroundImageUrl}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="friends-window__friend-bg"
-          />
-        )}
-        <button
-          type="button"
-          className="friends-window__friend-button"
-          onClick={() => handleFriendClick(request.id)}
-        >
+      <li key={request.id} className="friends-window__friend">
+        <div className="friends-window__friend-button">
           <div className="friends-window__avatar-wrapper">
             <Avatar
               size={40}
@@ -621,24 +696,27 @@ export default function FriendsWindow() {
               alt={request.displayName}
             />
           </div>
-          <span className="friends-window__friend-name">
-            {request.displayName}
-          </span>
-        </button>
+          <div className="friends-window__friend-details">
+            <span className="friends-window__friend-name-row">
+              <span className="friends-window__friend-name">
+                {request.displayName}
+              </span>
+              {renderProviderBadge(provider)}
+            </span>
+          </div>
+        </div>
         <div className="friends-window__request-actions">{actions}</div>
       </li>
     );
   };
 
   const getMessageLabel = (friend: UserFriend, unreadCount: number) => {
-    const unreadLabel = t("unread_messages", { count: unreadCount });
-    if (friend.isOfficial) return unreadLabel;
-
     const messageFriendLabel = t("message_friend", {
       name: friend.displayName,
     });
     if (unreadCount === 0) return messageFriendLabel;
 
+    const unreadLabel = t("unread_messages", { count: unreadCount });
     return `${messageFriendLabel}, ${unreadLabel}`;
   };
 
@@ -670,47 +748,14 @@ export default function FriendsWindow() {
     );
   };
 
-  const renderOfficialSection = () => (
-    <section className="friends-window__section">
-      <ul className="friends-window__list">
-        <li className="friends-window__friend">
-          <button
-            type="button"
-            className="friends-window__friend-button"
-            onClick={() => handleMessageFriend(officialFriend)}
-          >
-            <div className="friends-window__avatar-wrapper">
-              <Avatar
-                size={40}
-                src={officialFriend.profileImageUrl}
-                alt={officialFriend.displayName}
-              />
-            </div>
-
-            <div className="friends-window__friend-details">
-              <span className="friends-window__friend-name-row">
-                <span className="friends-window__friend-name">
-                  {officialFriend.displayName}
-                </span>
-                <ChatOfficialBadge size={14} />
-              </span>
-              <small className="friends-window__friend-status">
-                {tChat("official_subtitle")}
-              </small>
-            </div>
-          </button>
-
-          {renderMessageButton(officialFriend)}
-        </li>
-      </ul>
-    </section>
-  );
-
   const renderFriend = (friend: UserFriend) => {
     const backgroundImageUrl = getProcessedImageUrl(
       friend.backgroundImageUrl,
       BACKGROUND_IMAGE_SIZES.friend
     );
+    const provider = getFriendProvider(friend);
+    const isInviteOpen = inviteTargetFriend?.id === friend.id;
+    const statusText = getFriendStatusText(friend, t("online"), t("offline"));
 
     return (
       <li
@@ -719,63 +764,182 @@ export default function FriendsWindow() {
         data-friend-id={friend.id}
         className={`friends-window__friend${
           backgroundImageUrl ? " friends-window__friend--has-bg" : ""
-        }`}
+        }${isInviteOpen ? " friends-window__friend--invite-open" : ""}`}
       >
-        {backgroundImageUrl && (
-          <img
-            src={backgroundImageUrl}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="friends-window__friend-bg"
-          />
-        )}
-        <button
-          type="button"
-          className="friends-window__friend-button"
-          onClick={() => handleFriendClick(friend.id)}
-          title={
-            friend.currentGame
-              ? t("playing", { game: friend.currentGame.title })
-              : undefined
-          }
-        >
-          <div className="friends-window__avatar-wrapper">
-            <Avatar
-              size={40}
-              src={getProcessedImageUrl(
-                friend.profileImageUrl,
-                FRIEND_AVATAR_IMAGE_SIZE
-              )}
-              alt={friend.displayName}
+        <div className="friends-window__friend-row">
+          {backgroundImageUrl && (
+            <img
+              src={backgroundImageUrl}
+              alt=""
               loading="lazy"
               decoding="async"
+              className="friends-window__friend-bg"
             />
-            <span
-              className={`friends-window__status-orb${
-                friend.isOnline ? " friends-window__status-orb--online" : ""
-              }`}
-            />
-          </div>
+          )}
+          <button
+            type="button"
+            className="friends-window__friend-button"
+            onClick={() => handleMessageFriend(friend)}
+            title={
+              friend.currentGame
+                ? t("playing", { game: friend.currentGame.title })
+                : undefined
+            }
+          >
+            <div className="friends-window__avatar-wrapper">
+              <Avatar
+                size={40}
+                src={getProcessedImageUrl(
+                  friend.profileImageUrl,
+                  FRIEND_AVATAR_IMAGE_SIZE
+                )}
+                alt={friend.displayName}
+                loading="lazy"
+                decoding="async"
+              />
+              <span
+                className={`friends-window__status-orb${
+                  friend.isOnline ? " friends-window__status-orb--online" : ""
+                }${
+                  friend.personaState === "away" ||
+                  friend.personaState === "snooze"
+                    ? " friends-window__status-orb--away"
+                    : ""
+                }`}
+              />
+            </div>
 
-          <div className="friends-window__friend-details">
-            <span className="friends-window__friend-name">
-              {friend.displayName}
-            </span>
-            {friend.currentGame ? (
-              <div className="friends-window__game-info">
-                {getGameIcon(friend.currentGame)}
-                <small>{friend.currentGame.title}</small>
+            <div className="friends-window__friend-details">
+              <span className="friends-window__friend-name-row">
+                <span className="friends-window__friend-name">
+                  {friend.displayName}
+                </span>
+                {renderProviderBadge(provider)}
+              </span>
+              {friend.currentGame ? (
+                <div className="friends-window__game-info">
+                  {getGameIcon(friend.currentGame)}
+                  <small>
+                    {friend.currentGame.title}
+                    {friend.richPresence &&
+                    friend.richPresence !== friend.currentGame.title
+                      ? ` — ${friend.richPresence}`
+                      : ""}
+                  </small>
+                </div>
+              ) : (
+                <small className="friends-window__friend-status">
+                  {statusText}
+                </small>
+              )}
+            </div>
+          </button>
+
+          <div className="friends-window__friend-actions">
+            {friend.gameLobby?.joinable && (
+              <button
+                type="button"
+                className="friends-window__join-button"
+                onClick={() => void handleJoinFriendLobby(friend)}
+                title={`Entrar no jogo de ${friend.displayName}`}
+              >
+                <Play size={12} />
+                <span>Entrar</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className={`friends-window__invite-button${
+                isInviteOpen ? " friends-window__invite-button--active" : ""
+              }`}
+              onClick={() => void handleToggleInvitePicker(friend)}
+              title="Chamar para jogar"
+              aria-label={`Chamar ${friend.displayName} para jogar`}
+            >
+              <Gamepad2 size={16} />
+            </button>
+
+            {renderMessageButton(friend)}
+          </div>
+        </div>
+
+        {isInviteOpen && (
+          <div className="friends-window__invite-picker">
+            <div className="friends-window__invite-picker-header">
+              <span>Chamar {friend.displayName} para jogar</span>
+              <button
+                type="button"
+                onClick={() => setInviteTargetFriend(null)}
+                aria-label="Fechar convite"
+              >
+                <XIcon size={14} />
+              </button>
+            </div>
+            {loadingInvitableGames ? (
+              <p className="friends-window__invite-picker-empty">
+                Carregando jogos disponíveis...
+              </p>
+            ) : invitableGames.length === 0 ? (
+              <div className="friends-window__invite-picker-empty">
+                {selfGame ? (
+                  <button
+                    type="button"
+                    className="friends-window__invite-game-item"
+                    onClick={() =>
+                      void handleSendGameInvite(friend, {
+                        objectId: selfGame.objectId,
+                        shop: selfGame.shop,
+                        title: selfGame.title,
+                        iconUrl: selfGame.iconUrl,
+                        isInstalled: true,
+                      })
+                    }
+                  >
+                    <span>Convidar para {selfGame.title}</span>
+                  </button>
+                ) : (
+                  <span>
+                    Nenhum jogo {provider === "steam" ? "Steam" : "Epic"} na
+                    biblioteca ainda. Sincronize em Configurações → Integrações.
+                  </span>
+                )}
               </div>
             ) : (
-              <small className="friends-window__friend-status">
-                {friend.isOnline ? t("online") : t("offline")}
-              </small>
+              <div className="friends-window__invite-game-list">
+                {invitableGames.slice(0, 12).map((game) => {
+                  const key = `${friend.id}:${game.shop}:${game.objectId}`;
+                  const busy = sendingInviteKey === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={busy}
+                      className="friends-window__invite-game-item"
+                      onClick={() => void handleSendGameInvite(friend, game)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        handleCopyCerberusInvite(game);
+                      }}
+                      title="Clique para convidar na loja. Botão direito para copiar link Cerberus."
+                    >
+                      <span className="friends-window__invite-game-title">
+                        {game.title}
+                      </span>
+                      <span className="friends-window__invite-game-tag">
+                        {busy
+                          ? "Enviando..."
+                          : game.isInstalled
+                            ? "Instalado"
+                            : "Biblioteca"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
-        </button>
-
-        {renderMessageButton(friend)}
+        )}
       </li>
     );
   };
@@ -886,9 +1050,44 @@ export default function FriendsWindow() {
     </section>
   );
 
+  const renderFilterTabs = () => (
+    <div
+      className="friends-window__filters"
+      role="tablist"
+      aria-label="Filtrar amigos"
+    >
+      {(
+        [
+          { id: "all", label: "Todos", count: filterCounts.all },
+          { id: "online", label: "Online", count: filterCounts.online },
+          { id: "steam", label: "Steam", count: filterCounts.steam },
+          { id: "epic", label: "Epic", count: filterCounts.epic },
+        ] as const
+      ).map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={filter === tab.id}
+          className={`friends-window__filter-tab${
+            filter === tab.id ? " friends-window__filter-tab--active" : ""
+          }`}
+          onClick={() => setFilter(tab.id)}
+        >
+          {tab.id === "steam" && <SteamLogo width={12} height={12} />}
+          {tab.id === "epic" && <EpicLogo width={12} height={12} />}
+          <span>{tab.label}</span>
+          <span className="friends-window__filter-count">{tab.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+
   const renderSearchControls = () => {
     const searchPlaceholder = isAddMode
-      ? tProfile("friend_code")
+      ? addProvider === "steam"
+        ? "SteamID64, código ou link do perfil"
+        : "Nome de exibição na Epic Games"
       : t("search_placeholder");
     const addFriendToggleLabel = isAddMode ? t("close") : t("add_friend");
 
@@ -957,52 +1156,56 @@ export default function FriendsWindow() {
         </div>
 
         {isAddMode && (
-          <div className="friends-window__add-actions">
-            <Button
-              theme="primary"
-              disabled={addFriend.isSending}
-              onClick={() => void addFriend.sendRequest()}
-            >
-              <PersonAddIcon size={16} />
-              {addFriend.isSending
-                ? tProfile("sending")
-                : t("send_friend_request")}
-            </Button>
-            <Button
-              theme="outline"
-              disabled={addFriend.isSending}
-              onClick={() => void addFriend.openProfile()}
-            >
-              {tProfile("see_profile")}
-            </Button>
+          <div className="friends-window__add-panel">
+            <div className="friends-window__add-providers">
+              <button
+                type="button"
+                className={`friends-window__filter-tab${
+                  addProvider === "steam"
+                    ? " friends-window__filter-tab--active"
+                    : ""
+                }`}
+                onClick={() => setAddProvider("steam")}
+              >
+                <SteamLogo width={12} height={12} />
+                <span>Steam</span>
+              </button>
+              <button
+                type="button"
+                className={`friends-window__filter-tab${
+                  addProvider === "epic"
+                    ? " friends-window__filter-tab--active"
+                    : ""
+                }`}
+                onClick={() => setAddProvider("epic")}
+              >
+                <EpicLogo width={12} height={12} />
+                <span>Epic Games</span>
+              </button>
+            </div>
+            <div className="friends-window__add-actions">
+              <Button
+                theme="primary"
+                disabled={addFriend.isSending}
+                onClick={() => void addFriend.sendRequest()}
+              >
+                <PersonAddIcon size={16} />
+                {addFriend.isSending
+                  ? tProfile("sending")
+                  : t("send_friend_request")}
+              </Button>
+            </div>
           </div>
         )}
       </>
     );
   };
 
-  const showSkeleton = isLoadingFriends && searchResults === null;
-
-  const profileBackgroundImageUrl = getProcessedImageUrl(
-    profile?.backgroundImageUrl,
-    BACKGROUND_IMAGE_SIZES.profile
-  );
+  const showSkeleton = isLoadingFriends && friends.length === 0;
 
   return (
     <div className="friends-window">
-      <div
-        className={`friends-window__header${
-          profileBackgroundImageUrl ? " friends-window__header--has-bg" : ""
-        }`}
-      >
-        {profileBackgroundImageUrl && (
-          <img
-            src={profileBackgroundImageUrl}
-            alt=""
-            className="friends-window__header-bg"
-          />
-        )}
-
+      <div className="friends-window__header">
         {!electron.hasNativeWindowDecorations && (
           <header className="friends-window__title-bar">
             <h4>{t("title")}</h4>
@@ -1031,36 +1234,29 @@ export default function FriendsWindow() {
 
         <section className="friends-window__profile">
           <div className="friends-window__profile-content">
-            <button
-              type="button"
-              className="friends-window__profile-avatar"
-              onClick={() => profile?.id && handleFriendClick(profile.id)}
-              disabled={!profile?.id}
-              title={profile?.displayName}
-            >
+            <div className="friends-window__profile-avatar">
               <div className="friends-window__avatar-wrapper">
                 <Avatar
                   size={56}
                   src={getProcessedImageUrl(
-                    profile?.profileImageUrl,
+                    selfAvatarUrl,
                     PROFILE_AVATAR_IMAGE_SIZE
                   )}
-                  alt={profile?.displayName}
+                  alt={selfDisplayName}
                 />
-                <span className="friends-window__status-orb friends-window__status-orb--online friends-window__status-orb--profile" />
+                <span
+                  className={`friends-window__status-orb friends-window__status-orb--profile${
+                    hasAnyConnectedStore ? " friends-window__status-orb--online" : ""
+                  }`}
+                />
               </div>
-            </button>
+            </div>
             <div className="friends-window__profile-info">
               <div className="friends-window__profile-name-row">
-                <button
-                  type="button"
-                  className="friends-window__profile-name"
-                  onClick={() => profile?.id && handleFriendClick(profile.id)}
-                  disabled={!profile?.id}
-                >
-                  {profile?.displayName}
-                </button>
-                {profile?.id && (
+                <span className="friends-window__profile-name">
+                  {selfDisplayName}
+                </span>
+                {selfCopyValue && (
                   <button
                     type="button"
                     className={`friends-window__friend-code${
@@ -1070,7 +1266,7 @@ export default function FriendsWindow() {
                     title={t("copy_friend_code")}
                   >
                     <span className="friends-window__friend-code-value">
-                      {isCopied ? t("copied") : profile.id}
+                      {isCopied ? t("copied") : selfCopyValue}
                     </span>
                     <CopyIcon size={14} />
                   </button>
@@ -1086,9 +1282,32 @@ export default function FriendsWindow() {
                   <small>{selfGame.title}</small>
                 </div>
               ) : (
-                <small className="friends-window__profile-status">
-                  {t("online")}
-                </small>
+                <div className="friends-window__store-pills">
+                  <span
+                    className={`friends-window__store-pill${
+                      accounts?.steam.connected
+                        ? " friends-window__store-pill--connected"
+                        : ""
+                    }`}
+                  >
+                    <SteamLogo width={11} height={11} />
+                    <span>
+                      {accounts?.steam.connected ? "Steam OK" : "Steam off"}
+                    </span>
+                  </span>
+                  <span
+                    className={`friends-window__store-pill${
+                      accounts?.epic.connected
+                        ? " friends-window__store-pill--connected"
+                        : ""
+                    }`}
+                  >
+                    <EpicLogo width={11} height={11} />
+                    <span>
+                      {accounts?.epic.connected ? "Epic OK" : "Epic off"}
+                    </span>
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -1097,14 +1316,28 @@ export default function FriendsWindow() {
 
       <div className="friends-window__content">
         {renderSearchControls()}
+        {renderFilterTabs()}
 
         <div
           className="friends-window__list-container"
           aria-busy={showSkeleton}
         >
-          {showOfficialRow && renderOfficialSection()}
-
-          {showSkeleton ? (
+          {!hasAnyConnectedStore && !showSkeleton && friends.length === 0 ? (
+            <div className="friends-window__connect-cta">
+              <p>
+                Conecte sua conta <strong>Steam</strong> ou{" "}
+                <strong>Epic Games</strong> em{" "}
+                <strong>Configurações → Integrações</strong> para sincronizar
+                seus amigos, presença ao vivo, chat e convites de jogo.
+              </p>
+              <Button
+                theme="outline"
+                onClick={() => void electron.openMainWindow()}
+              >
+                Abrir janela principal
+              </Button>
+            </div>
+          ) : showSkeleton ? (
             <>
               {renderSkeletonSection(t("online"), ONLINE_SKELETON_ROWS, 0)}
               {renderSkeletonSection(
@@ -1193,11 +1426,12 @@ export default function FriendsWindow() {
                 onlineFriends,
                 onlineCollapsed,
                 () => setOnlineOverride(!onlineCollapsed),
-                searchResults === null ? t("no_friends") : t("no_results"),
+                search.trim() ? t("no_results") : t("no_friends"),
                 "online"
               )}
 
-              {offlineFriends.length > 0 &&
+              {filter !== "online" &&
+                offlineFriends.length > 0 &&
                 renderCollapsibleSection(
                   t("offline"),
                   offlineFriends.length,

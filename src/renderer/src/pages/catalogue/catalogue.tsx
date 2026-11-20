@@ -27,11 +27,20 @@ import { debounce } from "lodash-es";
 import { useTranslation } from "react-i18next";
 import Skeleton, { SkeletonTheme } from "react-loading-skeleton";
 import cn from "classnames";
+import { Gamepad2, Wrench } from "lucide-react";
 import { ReleaseYearSection } from "./release-year-section";
 import { FilterItem } from "./filter-item";
 import { FilterSection } from "./filter-section";
 import { GameItem } from "./game-item";
 import { Pagination } from "./pagination";
+import { CrossOverToolsCatalog } from "./crossover-tools";
+import { SwitchCatalogue } from "./switch-catalogue";
+import { MacNativeCatalogue } from "./mac-native-catalogue";
+import {
+  MacOSLogoIcon,
+  WindowsLogoIcon,
+} from "@renderer/components/platform-icons/official-platform-icons";
+import { useSearchParams } from "react-router-dom";
 
 const MIN_RELEASE_YEAR = 1970;
 
@@ -87,6 +96,38 @@ export default function Catalogue() {
     };
   }, [filters, deferredTitleFilter]);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<
+    "games" | "mac-native" | "switch1" | "switch2" | "crossover-tools"
+  >(
+    initialTabParam === "mac-native" ||
+      initialTabParam === "switch1" ||
+      initialTabParam === "switch2" ||
+      initialTabParam === "crossover-tools"
+      ? initialTabParam
+      : "games"
+  );
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (
+      tab === "games" ||
+      tab === "mac-native" ||
+      tab === "switch1" ||
+      tab === "switch2" ||
+      tab === "crossover-tools"
+    ) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  const selectCatalogueTab = (
+    tab: "games" | "mac-native" | "switch1" | "switch2" | "crossover-tools"
+  ) => {
+    setActiveTab(tab);
+    setSearchParams(tab === "games" ? {} : { tab });
+  };
   const [isLoading, setIsLoading] = useState(true);
 
   const [results, setResults] = useState<CatalogueSearchResult[]>([]);
@@ -399,7 +440,74 @@ export default function Catalogue() {
 
   return (
     <div className="catalogue" ref={cataloguePageRef}>
-      <div className="catalogue__header">
+      <nav className="catalogue__tabs" aria-label="Abas do catálogo">
+        <button
+          type="button"
+          className={cn("catalogue__tab", {
+            "catalogue__tab--active": activeTab === "games",
+          })}
+          onClick={() => selectCatalogueTab("games")}
+        >
+          <WindowsLogoIcon size={15} />
+          Jogos Windows
+        </button>
+
+        <button
+          type="button"
+          className={cn("catalogue__tab", {
+            "catalogue__tab--active": activeTab === "mac-native",
+          })}
+          onClick={() => selectCatalogueTab("mac-native")}
+        >
+          <MacOSLogoIcon size={15} />
+          Mac Native
+        </button>
+
+        <button
+          type="button"
+          className={cn("catalogue__tab", {
+            "catalogue__tab--active": activeTab === "switch1",
+          })}
+          onClick={() => selectCatalogueTab("switch1")}
+        >
+          <Gamepad2 size={16} strokeWidth={2} />
+          Switch 1
+        </button>
+
+        <button
+          type="button"
+          className={cn("catalogue__tab", {
+            "catalogue__tab--active": activeTab === "switch2",
+          })}
+          onClick={() => selectCatalogueTab("switch2")}
+        >
+          <Gamepad2 size={16} strokeWidth={2} />
+          Switch 2
+        </button>
+
+        <button
+          type="button"
+          className={cn("catalogue__tab", {
+            "catalogue__tab--active": activeTab === "crossover-tools",
+          })}
+          onClick={() => selectCatalogueTab("crossover-tools")}
+        >
+          <Wrench size={16} strokeWidth={2} />
+          Ferramentas Red Wine
+        </button>
+      </nav>
+
+      {activeTab === "crossover-tools" ? (
+        <CrossOverToolsCatalog />
+      ) : activeTab === "mac-native" ? (
+        <MacNativeCatalogue />
+      ) : activeTab === "switch1" ? (
+        <SwitchCatalogue generation="switch1" />
+      ) : activeTab === "switch2" ? (
+        <SwitchCatalogue generation="switch2" />
+      ) : (
+        <>
+          <div className="catalogue__header">
         <div className="catalogue__header-row">
           <div className="catalogue__header-summary">
             <span className="catalogue__result-count">
@@ -581,6 +689,8 @@ export default function Catalogue() {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

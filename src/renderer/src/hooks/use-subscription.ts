@@ -1,32 +1,19 @@
 import { useCallback } from "react";
-import { useAppDispatch, useAppSelector } from "./redux";
-import {
-  setHydraCloudModalVisible,
-  setHydraCloudModalHidden,
-} from "@renderer/features";
-import { HydraCloudFeature } from "@types";
+import type { HydraCloudFeature } from "@types";
 
+/**
+ * Hydra Cloud subscription modal has been removed from Cerberus Launcher.
+ */
 export function useSubscription() {
-  const dispatch = useAppDispatch();
+  const showHydraCloudModal = useCallback((_feature?: HydraCloudFeature) => {
+    // No-op: Hydra Cloud modal removed
+  }, []);
 
-  const { isHydraCloudModalVisible, feature } = useAppSelector(
-    (state) => state.subscription
-  );
-
-  const showHydraCloudModal = useCallback(
-    (feature: HydraCloudFeature) => {
-      dispatch(setHydraCloudModalVisible(feature));
-    },
-    [dispatch]
-  );
-
-  const hideHydraCloudModal = useCallback(() => {
-    dispatch(setHydraCloudModalHidden());
-  }, [dispatch]);
+  const hideHydraCloudModal = useCallback(() => {}, []);
 
   return {
-    isHydraCloudModalVisible,
-    hydraCloudFeature: feature,
+    isHydraCloudModalVisible: false,
+    hydraCloudFeature: null as HydraCloudFeature | null,
     showHydraCloudModal,
     hideHydraCloudModal,
   };

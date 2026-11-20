@@ -22,7 +22,8 @@ import { SidebarSection } from "../sidebar-section/sidebar-section";
 import "./sidebar.scss";
 import { GameLanguageSection } from "./game-language-section";
 import { ControllerSupportSection } from "./controller-support-section";
-import { GameScreenshots } from "../game-screenshots/game-screenshots";
+import { GameModesSection } from "./game-modes-section";
+import { RedWineRecommendedSection } from "./red-wine-recommended-section";
 
 export function Sidebar() {
   const [howLongToBeat, setHowLongToBeat] = useState<{
@@ -42,16 +43,21 @@ export function Sidebar() {
     catalogueGame,
     stats,
   } = useContext(gameDetailsContext);
-  const myScreenshotsGame = game ?? catalogueGame;
-  const communityScreenshotsGame = catalogueGame.objectId
-    ? catalogueGame
-    : myScreenshotsGame;
 
   const { t } = useTranslation("game_details");
   const { numberFormatter } = useFormat();
 
+  const isSwitchGame = shop === "switch1" || shop === "switch2";
+  const isMacNativeGame = shop === "mac_native";
+  const hasVerifiedSteamCatalogue =
+    catalogueGame.shop === "steam" && Boolean(catalogueGame.objectId);
+
   useEffect(() => {
-    if (objectId) {
+    if (
+      objectId &&
+      ((!isSwitchGame && !isMacNativeGame) || hasVerifiedSteamCatalogue) &&
+      catalogueGame.objectId
+    ) {
       setHowLongToBeat({ isLoading: true, data: null });
 
       // Directly fetch from API without checking cache
@@ -71,11 +77,36 @@ export function Sidebar() {
         .catch(() => {
           setHowLongToBeat({ isLoading: false, data: null });
         });
+    } else {
+      setHowLongToBeat({ isLoading: false, data: null });
     }
-  }, [objectId, catalogueGame.shop, catalogueGame.objectId]);
+  }, [
+    objectId,
+    isSwitchGame,
+    hasVerifiedSteamCatalogue,
+    catalogueGame.shop,
+    catalogueGame.objectId,
+  ]);
+
+  const requirementHtml = isSwitchGame
+    ? shopDetails?.mac_requirements?.[activeRequirement] ||
+      shopDetails?.pc_requirements?.[activeRequirement]
+    : shopDetails?.pc_requirements?.[activeRequirement];
+
+  const isLaunchboxGame = shop === "launchbox";
 
   return (
     <aside className="content-sidebar">
+      {!isSwitchGame && !isMacNativeGame && !isLaunchboxGame && (
+        <RedWineRecommendedSection
+          gameTitle={gameTitle}
+          shop={shop}
+          objectId={objectId}
+          game={game}
+          pcRequirements={shopDetails?.pc_requirements}
+        />
+      )}
+
       {stats && (
         <SidebarSection title={t("stats")}>
           <div className="stats__section">
@@ -113,13 +144,6 @@ export function Sidebar() {
         </SidebarSection>
       )}
 
-      {myScreenshotsGame.shop !== "custom" && myScreenshotsGame.objectId ? (
-        <GameScreenshots
-          libraryGame={myScreenshotsGame}
-          catalogueGame={communityScreenshotsGame}
-        />
-      ) : null}
-
       {shop === "launchbox" && (
         <LaunchboxDetailsSection
           platform={shopDetails?.platform}
@@ -133,9 +157,11 @@ export function Sidebar() {
         isLoading={howLongToBeat.isLoading}
       />
 
-      <ControllerSupportSection />
+      {shop !== "custom" && <ControllerSupportSection />}
 
-      {shop !== "launchbox" && (
+      <GameModesSection />
+
+      {shop !== "launchbox" && shop !== "custom" && (
         <SidebarSection title={t("requirements")}>
           <div className="requirement__button-container">
             <Button
@@ -161,7 +187,7 @@ export function Sidebar() {
             className="requirement__details"
             dangerouslySetInnerHTML={{
               __html:
-                shopDetails?.pc_requirements?.[activeRequirement] ??
+                requirementHtml ||
                 t(`no_${activeRequirement}_requirements`, {
                   gameTitle,
                 }),
@@ -170,7 +196,7 @@ export function Sidebar() {
         </SidebarSection>
       )}
 
-      <GameLanguageSection />
+      {shop !== "custom" && <GameLanguageSection />}
     </aside>
   );
 }

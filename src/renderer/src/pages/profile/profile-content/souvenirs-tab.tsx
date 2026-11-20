@@ -583,17 +583,10 @@ export function SouvenirsTab({
       window.electron.onAchievementSouvenirSyncCompleted(() => {
         void onReload(sortBy);
       });
-    const unsubscribeMissing =
-      window.electron.onAchievementSouvenirScreenshotsMissing((count) => {
-        showErrorToast(
-          tSettings("souvenir_sync_screenshot_missing", { count })
-        );
-      });
 
     return () => {
       unsubscribeStatus();
       unsubscribeCompleted();
-      unsubscribeMissing();
     };
   }, [isMe, onReload, showErrorToast, sortBy, tSettings]);
 

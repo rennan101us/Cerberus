@@ -6,6 +6,7 @@ export type FinishedDownloadStep =
   | "extracting"
   | "extract"
   | "play"
+  | "port"
   | "installing"
   | "install"
   | "select-executable";
@@ -16,7 +17,13 @@ export const getFinishedDownload = (
   const download = game?.download;
 
   if (download?.progress !== 1) return null;
-  if (download.downloader === Downloader.Epic) return null;
+  if (
+    download.downloader === Downloader.Epic ||
+    download.downloader === Downloader.Steam ||
+    download.downloader === Downloader.Gog
+  ) {
+    return null;
+  }
 
   return download;
 };
@@ -45,6 +52,9 @@ export const getFinishedDownloadStep = (
   if (!download) return null;
   if (download.extracting) return "extracting";
   if (game.executablePath) return "play";
+  if (game.shop === "switch1" || game.shop === "switch2") {
+    return game.switchPortedAppPath ? "play" : "port";
+  }
   if (game.shop === "launchbox") {
     if ((game.discs?.length ?? 0) > 0) return "play";
     return isUnextractedPs4Pkg(game, download) ? "extract" : null;

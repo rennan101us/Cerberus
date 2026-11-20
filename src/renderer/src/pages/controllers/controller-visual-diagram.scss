@@ -1,0 +1,318 @@
+@use "../../scss/globals.scss";
+
+.controller-diagram {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid globals.$border-color;
+  background: rgba(255, 255, 255, 0.02);
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  &__model-switcher {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  &__nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    border: 1px solid globals.$border-color;
+    background: rgba(255, 255, 255, 0.03);
+    color: globals.$muted-color;
+    cursor: pointer;
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #ffffff;
+    }
+  }
+
+  &__model-pills {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  &__model-pill {
+    padding: 5px 11px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: globals.$body-color;
+    border: 1px solid globals.$border-color;
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    transition: all 0.14s ease;
+
+    &:hover {
+      color: globals.$muted-color;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    &--active {
+      color: #ffffff;
+      border-color: var(--color-accent, globals.$brand-teal);
+      background: rgba(var(--color-accent-rgb, 22, 177, 149), 0.18);
+    }
+  }
+
+  &__toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__subtitle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12px;
+    color: globals.$subtle-color;
+  }
+
+  &__canvas-wrap {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  &__svg {
+    display: block;
+    width: 100%;
+    max-width: 880px;
+    min-width: 620px;
+    margin: 0 auto;
+    height: auto;
+    user-select: none;
+  }
+
+  &__chassis {
+    fill: rgba(28, 32, 43, 0.96);
+    stroke: rgba(255, 255, 255, 0.22);
+    stroke-width: 2;
+  }
+
+  &__trigger {
+    fill: rgba(42, 48, 64, 0.9);
+    stroke: rgba(255, 255, 255, 0.18);
+    stroke-width: 1.5;
+  }
+
+  &__bumper {
+    fill: rgba(54, 62, 82, 0.95);
+    stroke: rgba(255, 255, 255, 0.24);
+    stroke-width: 1.5;
+  }
+
+  &__touchpad {
+    fill: rgba(16, 19, 27, 0.92);
+    stroke: rgba(255, 255, 255, 0.2);
+    stroke-width: 1.5;
+
+    &--ps5 {
+      stroke: rgba(56, 189, 248, 0.6);
+    }
+  }
+
+  &__trackpad {
+    fill: rgba(14, 17, 24, 0.94);
+    stroke: rgba(255, 255, 255, 0.24);
+    stroke-width: 1.5;
+  }
+
+  &__trackpad-cross {
+    stroke: rgba(255, 255, 255, 0.12);
+    stroke-width: 1.2;
+  }
+
+  &__guide {
+    fill: rgba(255, 255, 255, 0.08);
+    stroke: rgba(255, 255, 255, 0.28);
+    stroke-width: 1.5;
+  }
+
+  &__guide-label {
+    fill: rgba(255, 255, 255, 0.65);
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  &__stick-well {
+    fill: rgba(14, 16, 22, 0.95);
+    stroke: rgba(255, 255, 255, 0.28);
+    stroke-width: 1.5;
+  }
+
+  &__stick-deadzone {
+    fill: rgba(var(--color-accent-rgb, 22, 177, 149), 0.14);
+    stroke: rgba(var(--color-accent-rgb, 22, 177, 149), 0.72);
+    stroke-width: 1.2;
+    stroke-dasharray: 2 2;
+  }
+
+  &__stick-dot {
+    fill: #34d399;
+    stroke: #064e3b;
+    stroke-width: 1.5;
+  }
+
+  &__leader {
+    pointer-events: none;
+    stroke: rgba(186, 204, 224, 0.62);
+    stroke-width: 1.6;
+    stroke-dasharray: 4 3;
+    transition: stroke 0.12s ease, stroke-width 0.12s ease;
+
+    &--active {
+      stroke: var(--color-accent, globals.$brand-teal);
+      stroke-width: 2.2;
+      stroke-dasharray: none;
+    }
+
+    &--pressed {
+      stroke: #34d399;
+      stroke-width: 2.6;
+      stroke-dasharray: none;
+    }
+  }
+
+  &__hotspot {
+    cursor: pointer;
+
+    &-ring {
+      fill: rgba(20, 24, 34, 0.92);
+      stroke: rgba(255, 255, 255, 0.38);
+      stroke-width: 1.5;
+      transition: all 0.12s ease;
+    }
+
+    &-chip {
+      fill: #e2e8f0;
+      font-size: 9px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    &:hover &-ring,
+    &--active &-ring {
+      fill: rgba(var(--color-accent-rgb, 22, 177, 149), 0.28);
+      stroke: var(--color-accent, globals.$brand-teal);
+      stroke-width: 2.2;
+    }
+
+    &--pressed &-ring {
+      fill: rgba(52, 211, 153, 0.35);
+      stroke: #34d399;
+      stroke-width: 2.4;
+    }
+  }
+
+  &__callout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    padding: 0 10px;
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(18, 22, 31, 0.94);
+    color: globals.$muted-color;
+    cursor: pointer;
+    transition: all 0.12s ease;
+
+    &:hover,
+    &--active {
+      border-color: var(--color-accent, globals.$brand-teal);
+      background: rgba(var(--color-accent-rgb, 22, 177, 149), 0.16);
+    }
+
+    &--pressed {
+      border-color: #34d399;
+      background: rgba(52, 211, 153, 0.22);
+    }
+
+    &--listening {
+      border-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.2);
+    }
+
+    &-phys {
+      font-size: 11px;
+      color: globals.$body-color;
+      font-weight: 500;
+    }
+
+    &-action {
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #ffffff;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  &__remap-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--color-accent-rgb, 22, 177, 149), 0.36);
+    background: rgba(var(--color-accent-rgb, 22, 177, 149), 0.08);
+  }
+
+  &__remap-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      font-size: 13px;
+      color: #ffffff;
+    }
+
+    span {
+      font-size: 12px;
+      color: globals.$body-color;
+    }
+  }
+
+  &__remap-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__remap-select {
+    padding: 6px 10px;
+    border-radius: 7px;
+    border: 1px solid globals.$border-color;
+    background: #141821;
+    color: #ffffff;
+    font-size: 12.5px;
+  }
+}

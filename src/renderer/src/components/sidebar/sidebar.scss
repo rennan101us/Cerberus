@@ -5,7 +5,11 @@
   color: globals.$muted-color;
   flex-direction: column;
   display: flex;
-  transition: opacity ease 0.2s;
+  transition:
+    opacity ease 0.2s,
+    width 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    min-width 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    max-width 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   border-right: solid 1px globals.$border-color;
   position: relative;
   overflow: hidden;
@@ -14,6 +18,33 @@
   &--resizing {
     opacity: globals.$active-opacity;
     pointer-events: none;
+    transition: opacity ease 0.2s;
+  }
+
+  &--collapsed {
+    .sidebar__content {
+      padding: 0 calc(globals.$spacing-unit);
+      gap: globals.$spacing-unit;
+    }
+
+    .sidebar__game-list {
+      margin-right: 0;
+    }
+
+    .sidebar__game-list-scroll {
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+  }
+
+  &__collapsed-divider {
+    height: 1px;
+    width: 100%;
+    background-color: globals.$border-color;
+    margin: 2px 0;
   }
 
   &__content {
@@ -122,6 +153,22 @@
           rgba(22, 177, 149, 0.3) 0%,
           rgba(62, 98, 192, 0.15) 100%
         );
+      }
+    }
+    &--collapsed {
+      justify-content: center;
+
+      .sidebar__menu-item-button {
+        justify-content: center;
+        padding: 10px 0;
+      }
+
+      .sidebar__game-icon-container,
+      .sidebar__game-icon {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        min-height: 24px;
       }
     }
   }

@@ -8,15 +8,12 @@ import {
   SlidersIcon,
   SortDescIcon,
   StackIcon,
-  TrophyIcon,
 } from "@primer/octicons-react";
+import { Laptop } from "lucide-react";
 import { useId, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "react-tooltip";
-import {
-  ClassicsIcon,
-  type LibraryCategory,
-} from "@renderer/pages/library/category-filter";
+import { type LibraryCategory } from "@renderer/pages/library/category-filter";
 import { type LibrarySource } from "@renderer/pages/library/library-category";
 import type { SortOption } from "@renderer/pages/library/library-display-menu";
 import { SourceIcon } from "@renderer/pages/library/source-icon";
@@ -166,14 +163,14 @@ export function SidebarFilterMenu({
       icon: <StackIcon size={14} />,
     },
     {
-      value: "pc",
-      label: t("category_pc", { ns: "library" }),
-      icon: <DeviceDesktopIcon size={14} />,
+      value: "mac",
+      label: "Mac",
+      icon: <Laptop size={14} />,
     },
     {
-      value: "classics",
-      label: t("category_classics", { ns: "library" }),
-      icon: <ClassicsIcon size={14} />,
+      value: "windows",
+      label: "Windows",
+      icon: <DeviceDesktopIcon size={14} />,
     },
   ];
 
@@ -196,11 +193,6 @@ export function SidebarFilterMenu({
       value: "most_played",
       label: t("sort_most_played", { ns: "library" }),
       icon: <HourglassIcon size={14} />,
-    },
-    {
-      value: "achievements",
-      label: t("sort_achievements", { ns: "library" }),
-      icon: <TrophyIcon size={14} />,
     },
   ];
 

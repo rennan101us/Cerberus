@@ -1,5 +1,5 @@
-appId: gg.hydralauncher.hydra
-productName: Hydra
+appId: gg.cerberus.launcher
+productName: Cerberus
 beforePack: scripts/legendary-before-pack.cjs
 afterPack: scripts/legendary-after-pack.cjs
 afterSign: scripts/legendary-after-pack.cjs
@@ -12,6 +12,7 @@ electronFuses:
   onlyLoadAppFromAsar: true
   grantFileProtocolExtraPrivileges: true
 directories:
+  output: dist
   buildResources: build
 extraResources:
   - ludusavi
@@ -34,6 +35,7 @@ files:
   - "!binaries/epic-prerequisite-runner/**"
   - "!electron.vite.config.{js,ts,mjs,cjs}"
   - "!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}"
+  - "!AGENTS.md"
   - "!{.env,.env.*,.npmrc,pnpm-lock.yaml}"
   - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,tsconfig.test.json}"
   - "!scripts/register-ts-node.mjs"
@@ -42,7 +44,7 @@ asarUnpack:
   - node_modules/sharp/**
   - node_modules/@img/sharp-libvips-*/**
 win:
-  executableName: Hydra
+  executableName: Cerberus
   extraResources:
     - from: legendary/win32/${arch}
       to: legendary
@@ -134,7 +136,7 @@ linux:
   maintainer: electronjs.org
   category: Game
   mimeTypes:
-    - x-scheme-handler/hydralauncher
+    - x-scheme-handler/cerberus
 appImage:
   artifactName: ${name}-${version}.${ext}
 deb:
@@ -143,9 +145,5 @@ deb:
 snap:
   allowNativeWayland: false
 npmRebuild: false
-publish:
-  provider: github
-  owner: hydralauncher
-  repo: hydra
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

@@ -58,7 +58,7 @@ export function useGameDetails(
     null
   );
   const [stats, setStats] = useState<GameStats | null>(null);
-  const { downloadLibrary, updateLibrary } = useLibrary();
+  const { downloadLibrary } = useLibrary();
   const runningGames = useBigPictureRunningGames();
   const [routeGame, setRouteGame] = useState<{
     key: string;
@@ -109,7 +109,7 @@ export function useGameDetails(
   >(null);
   const [protonDBData, setProtonDBData] = useState<ProtonDBData | null>(null);
   const [achievements, setAchievements] = useState<UserAchievement[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !game);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const userPreferences = useUserPreferences();
   const shouldUseRetroAchievements =
@@ -119,17 +119,7 @@ export function useGameDetails(
   const updateGame = useCallback(async () => {
     if (!IS_DESKTOP) return;
     const request = routeRequestRef.current;
-    let operationalGame = operationalGameRef.current;
-    if (!operationalGame) {
-      const library = await globalThis.window.electron.getLibrary(true);
-      if (request !== routeRequestRef.current) return;
-      operationalGame =
-        findLibraryGamePresentation(
-          library,
-          { shop, objectId },
-          Object.keys(runningGamesRef.current)
-        )?.operationalGame ?? null;
-    }
+    const operationalGame = operationalGameRef.current;
     const result = await globalThis.window.electron.getGameByObjectId(
       operationalGame?.shop ?? shop,
       operationalGame?.objectId ?? objectId
@@ -140,8 +130,7 @@ export function useGameDetails(
       library: libraryRef.current,
       game: result,
     });
-    await updateLibrary();
-  }, [objectId, shop, updateLibrary]);
+  }, [objectId, shop]);
 
   useEffect(
     () => () => {
@@ -160,9 +149,10 @@ export function useGameDetails(
       const abort = new AbortController();
       detailsAbortRef.current = abort;
 
-      if (showLoadingState) {
+      if (showLoadingState && !operationalGameRef.current) {
         setIsLoading(true);
       } else {
+        setIsLoading(false);
         setIsRefreshing(true);
       }
 
@@ -184,13 +174,21 @@ export function useGameDetails(
                 )
                 .catch(() => null);
 
-        const [statsResult, assets, shopDetailsResult] = await Promise.all([
-          catalogueShop === "custom"
-            ? Promise.resolve(null)
-            : globalThis.window.electron.getGameStats(
-                catalogueObjectId,
-                catalogueShop
-              ),
+        if (
+          catalogueShop !== "custom" &&
+          catalogueShop !== "switch1" &&
+          catalogueShop !== "switch2" &&
+          catalogueShop !== "mac_native"
+        ) {
+          void globalThis.window.electron
+            .getGameStats(catalogueObjectId, catalogueShop)
+            .then((statsResult) => {
+              if (!abort.signal.aborted) setStats(statsResult);
+            })
+            .catch(() => {});
+        }
+
+        const [assets, shopDetailsResult] = await Promise.all([
           globalThis.window.electron.getGameAssets(
             catalogueObjectId,
             catalogueShop,
@@ -213,7 +211,6 @@ export function useGameDetails(
           shopDetailsResult ??
             buildFallbackShopDetails(catalogueObjectId, assets ?? null)
         );
-        setStats(statsResult);
       } finally {
         if (!abort.signal.aborted) {
           setIsLoading(false);
@@ -235,13 +232,40 @@ export function useGameDetails(
 
   useEffect(() => {
     let current = true;
-    setShopDetails(null);
+    const localGame = operationalGameRef.current;
+    if (localGame) {
+      setShopDetails(
+        buildFallbackShopDetails(catalogueObjectId, {
+          objectId: localGame.objectId,
+          shop: localGame.shop,
+          title: localGame.title,
+          iconUrl: localGame.iconUrl ?? null,
+          libraryImageUrl:
+            localGame.coverImageUrl ?? localGame.iconUrl ?? null,
+          libraryHeroImageUrl: localGame.libraryHeroImageUrl ?? null,
+          logoImageUrl: localGame.logoImageUrl ?? null,
+          logoPosition: localGame.logoPosition ?? null,
+          coverImageUrl:
+            localGame.coverImageUrl ?? localGame.iconUrl ?? null,
+          downloadSources: [],
+        })
+      );
+      setIsLoading(false);
+    } else {
+      setShopDetails(null);
+    }
     setStats(null);
     setHowLongToBeat(null);
     setProtonDBData(null);
-    refreshGameDetails({ showLoadingState: true }).catch(() => {});
+    refreshGameDetails({ showLoadingState: !localGame }).catch(() => {});
 
-    if (IS_DESKTOP && catalogueShop !== "custom") {
+    if (
+      IS_DESKTOP &&
+      catalogueShop !== "custom" &&
+      catalogueShop !== "switch1" &&
+      catalogueShop !== "switch2" &&
+      catalogueShop !== "mac_native"
+    ) {
       globalThis.window.electron.hydraApi
         .get<HowLongToBeatCategory[] | null>(
           `/games/${catalogueShop}/${catalogueObjectId}/how-long-to-beat`,

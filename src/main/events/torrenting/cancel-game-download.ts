@@ -8,6 +8,17 @@ const cancelGameDownload = async (
   objectId: string
 ) => {
   logger.log(`[Downloads] Cancel requested for ${shop}:${objectId}`);
+  if (shop === "steam") {
+    const { DepotDownloaderService } = await import(
+      "@main/services/stores/depot-downloader-service"
+    );
+    await DepotDownloaderService.cancelDownload(objectId);
+  } else if (shop === "epic") {
+    const { EpicDownloadService } = await import(
+      "@main/services/stores/epic-download-service"
+    );
+    await EpicDownloadService.cancelDownload(objectId);
+  }
   GameFilesManager.cancelPs4Extraction(shop, objectId);
   return DownloadOrchestrator.cancelDownloadById(shop, objectId);
 };

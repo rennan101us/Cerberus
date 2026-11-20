@@ -34,6 +34,7 @@ import {
   GofileApi,
   DatanodesApi,
   MediafireApi,
+  MailRuApi,
   PixelDrainApi,
   FuckingFastApi,
   VikingFileApi,
@@ -64,6 +65,7 @@ import { TorBoxClient } from "./torbox";
 import { TorBoxBatchDownloader } from "./torbox-batch-downloader";
 import { selectTorBoxFiles } from "./torbox-files";
 import { GameFilesManager } from "../game-files-manager";
+import { sanitizeExtractedDirectoryTree } from "@main/helpers/sanitize-extracted-paths";
 import { PremiumizeClient } from "./premiumize";
 import { AllDebridClient } from "./all-debrid";
 import { getDebridRootFolderName, isZipDownloadUrl } from "./debrid-files";
@@ -121,6 +123,7 @@ const DEFAULT_REAL_DEBRID_CONNECTIONS = 4;
 
 interface JsDownloadOptions {
   url: string;
+  refreshUrl?: () => Promise<string>;
   savePath: string;
   filename?: string;
   headers?: Record<string, string>;
@@ -1071,6 +1074,18 @@ export class DownloadManager {
       });
     }
 
+    const isSwitchGame = game.shop === "switch1" || game.shop === "switch2";
+    const syncSwitchLibraryAfterDownload = () => {
+      void import("../nxnative/nx-scanner-service")
+        .then(({ NxScannerService }) => NxScannerService.scanAndSyncToLibrary())
+        .catch((error) => {
+          logger.error(
+            "[DownloadManager] Failed to scan Switch ROM after download",
+            error
+          );
+        });
+    };
+
     if (download.automaticallyExtract) {
       const shouldPauseSeedingForExtraction =
         shouldSeed && download.downloader === Downloader.Torrent;
@@ -1079,6 +1094,7 @@ export class DownloadManager {
         await this.cancelDownload(gameId);
 
         void this.handleExtraction(download, game).finally(() => {
+          if (isSwitchGame) syncSwitchLibraryAfterDownload();
           this.resumeSeeding(download).catch((error) => {
             logger.error(
               "[DownloadManager] Failed to resume seeding after extraction",
@@ -1087,8 +1103,12 @@ export class DownloadManager {
           });
         });
       } else {
-        void this.handleExtraction(download, game);
+        void this.handleExtraction(download, game).finally(() => {
+          if (isSwitchGame) syncSwitchLibraryAfterDownload();
+        });
       }
+    } else if (isSwitchGame) {
+      syncSwitchLibraryAfterDownload();
     } else {
       const gameFilesManager = new GameFilesManager(game.shop, game.objectId);
       gameFilesManager.searchAndBindExecutable();
@@ -1141,6 +1161,41 @@ export class DownloadManager {
     }
   }
 
+  private static async sanitizeDownloadedFolder(
+    download: Download,
+    extractionPath: string
+  ) {
+    // Never rename folders still being seeded or Switch/Mac-native payloads
+    if (
+      download.shouldSeed ||
+      download.shop === "switch1" ||
+      download.shop === "switch2" ||
+      download.shop === "mac_native"
+    ) {
+      return;
+    }
+    try {
+      const result = await sanitizeExtractedDirectoryTree(extractionPath);
+      if (result.finalRootDir !== extractionPath && download.folderName) {
+        const key = levelKeys.game(download.shop, download.objectId);
+        const current = await downloadsSublevel.get(key);
+        if (current) {
+          await downloadsSublevel.put(key, {
+            ...current,
+            folderName: path.basename(result.finalRootDir),
+          });
+        }
+      }
+      if (result.renamedCount > 0) {
+        logger.log(
+          `[DownloadManager] Sanitized ${result.renamedCount} folder name(s) for Wine compatibility`
+        );
+      }
+    } catch (error) {
+      logger.warn("[DownloadManager] Folder name sanitization failed", error);
+    }
+  }
+
   private static async handleExtraction(download: Download, game: Game) {
     const gameFilesManager = new GameFilesManager(game.shop, game.objectId);
     const extractionPath = download.folderName
@@ -1184,6 +1239,7 @@ export class DownloadManager {
         .extractFilesInDirectory(extractionPath)
         .then(async (success) => {
           if (success) {
+            await this.sanitizeDownloadedFolder(download, extractionPath);
             await gameFilesManager.setExtractionComplete();
           }
         })
@@ -1713,6 +1769,8 @@ export class DownloadManager {
         return this.getFileKeeperDownloadOptions(download, resumingFilename);
       case Downloader.ArchiveOrg:
         return this.getArchiveOrgDownloadOptions(download, resumingFilename);
+      case Downloader.DirectHttp:
+        return this.getDirectHttpDownloadOptions(download, resumingFilename);
       default:
         return null;
     }
@@ -2168,18 +2226,27 @@ export class DownloadManager {
   private static async getMediafireDownloadOptions(
     download: Download,
     resumingFilename?: string
-  ) {
+  ): Promise<JsDownloadOptions> {
     const downloadUrl = await MediafireApi.getDownloadUrl(download.uri);
     const filename = this.resolveFilename(
       resumingFilename,
       download.uri,
       downloadUrl
     );
-    return this.buildDownloadOptions(
-      downloadUrl,
-      download.downloadPath,
-      filename
-    );
+    return {
+      ...this.buildDownloadOptions(
+        downloadUrl,
+        download.downloadPath,
+        filename,
+        {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          Referer: "https://www.mediafire.com/",
+        }
+      ),
+      refreshUrl: () =>
+        MediafireApi.getDownloadUrl(download.uri, { bypassCache: true }),
+    };
   }
 
   private static async getRealDebridDownloadOptions(
@@ -2387,11 +2454,60 @@ export class DownloadManager {
     );
   }
 
+  private static async getDirectHttpDownloadOptions(
+    download: Download,
+    resumingFilename?: string
+  ): Promise<JsDownloadOptions> {
+    const browserHeaders = {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    };
+
+    if (MailRuApi.isMailRuPublicUrl(download.uri)) {
+      const resolved = await MailRuApi.resolveDownload(download.uri);
+      const filename =
+        resumingFilename ||
+        (resolved.fileName
+          ? this.sanitizeFilename(resolved.fileName)
+          : undefined) ||
+        this.resolveFilename(resumingFilename, download.uri, resolved.directUrl);
+      return {
+        ...this.buildDownloadOptions(
+          resolved.directUrl,
+          download.downloadPath,
+          filename,
+          {
+            ...browserHeaders,
+            Referer: "https://cloud.mail.ru/",
+          }
+        ),
+        totalSize: resolved.fileSize,
+        refreshUrl: async () =>
+          (await MailRuApi.resolveDownload(download.uri, { bypassCache: true }))
+            .directUrl,
+      };
+    }
+
+    const filename = this.resolveFilename(
+      resumingFilename,
+      download.uri,
+      download.uri
+    );
+    return this.buildDownloadOptions(
+      download.uri,
+      download.downloadPath,
+      filename,
+      browserHeaders
+    );
+  }
+
   private static async getFileKeeperDownloadOptions(
     download: Download,
     resumingFilename?: string
   ) {
-    await assertMultipartHosterDownloadsEnabled();
+    if (Array.isArray(download.parts) && download.parts.length > 1) {
+      await assertMultipartHosterDownloadsEnabled();
+    }
     const downloadUrl = await FileKeeperApi.getDownloadUrl(download.uri);
     const filename = this.resolveFilename(
       resumingFilename,
@@ -2568,6 +2684,26 @@ export class DownloadManager {
           action: "start",
           game_id: downloadId,
           url: downloadUrl,
+          save_path: download.downloadPath,
+        };
+      }
+      case Downloader.DirectHttp: {
+        if (MailRuApi.isMailRuPublicUrl(download.uri)) {
+          const resolved = await MailRuApi.resolveDownload(download.uri);
+          return {
+            action: "start",
+            game_id: downloadId,
+            url: resolved.directUrl,
+            save_path: download.downloadPath,
+            out: resolved.fileName
+              ? this.sanitizeFilename(resolved.fileName)
+              : undefined,
+          };
+        }
+        return {
+          action: "start",
+          game_id: downloadId,
+          url: download.uri,
           save_path: download.downloadPath,
         };
       }

@@ -35,7 +35,6 @@ export * from "./vertical-focus-group";
 export * from "./grid-focus-group";
 export * from "./navigation-layer";
 export * from "./focus-item";
-export * from "./diagnostics";
 export * from "./dropdown-select";
 export * from "./download-source-card";
 export * from "./empty-state";

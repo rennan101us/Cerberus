@@ -6,6 +6,8 @@ export interface GameContextMenuGame {
   shop: GameShop;
   title: string;
   executablePath?: string | null;
+  switchPortedAppPath?: string | null;
+  switchPortedIpaPath?: string | null;
   download?: {
     downloadPath?: string | null;
     status?: string | null;

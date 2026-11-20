@@ -1,0 +1,160 @@
+.library-shelves-view {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 16px 24px 64px;
+  width: 100%;
+  box-sizing: border-box;
+
+  &__top-bar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: -16px;
+  }
+
+  &__config-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-color-muted, #9ca3af);
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    color: #9ca3af;
+    text-align: center;
+    gap: 12px;
+  }
+}
+
+.library-shelf-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  &__count {
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  &__track-container {
+    position: relative;
+    width: 100%;
+
+    &:hover {
+      .library-shelf-row__nav-btn {
+        opacity: 1;
+      }
+    }
+  }
+
+  &__track {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 4px 16px;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+
+    &::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+  }
+
+  &__card-wrapper {
+    flex: 0 0 170px;
+    max-width: 170px;
+    transition: transform 0.2s ease;
+
+    &:hover {
+      transform: translateY(-4px);
+    }
+
+    .library-game-card {
+      width: 100% !important;
+      height: 100% !important;
+    }
+  }
+
+  &__nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 38px;
+    height: 72px;
+    background: rgba(15, 15, 19, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(8px);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 5;
+    opacity: 0;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(30, 30, 38, 0.95);
+      border-color: rgba(255, 255, 255, 0.35);
+      transform: translateY(-50%) scale(1.05);
+    }
+
+    &--left {
+      left: 0;
+    }
+
+    &--right {
+      right: 0;
+    }
+  }
+}

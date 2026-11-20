@@ -41,9 +41,11 @@ export function useGameActions(requestedGame: GameContextMenuGame) {
   } | null>(null);
 
   const isClassics = game.shop === "launchbox";
+  const isSwitchGame = game.shop === "switch1" || game.shop === "switch2";
   const hasClassicsDiscs = (game.discs?.length ?? 0) > 0;
-  const canPlay =
-    Boolean(game.executablePath) || (isClassics && hasClassicsDiscs);
+  const canPlay = isSwitchGame
+    ? Boolean(game.switchPortedAppPath || game.executablePath)
+    : Boolean(game.executablePath) || (isClassics && hasClassicsDiscs);
   const isDeleting = isGameDeleting(game.objectId);
   const isDownloadDeleting = isGameDeleting(downloadGame.objectId);
   const isGameDownloading = isLibraryGameDownloading(downloadGame);
@@ -133,11 +135,15 @@ export function useGameActions(requestedGame: GameContextMenuGame) {
       return;
     }
 
+    const executableToLaunch = isSwitchGame
+      ? game.switchPortedAppPath || game.executablePath
+      : game.executablePath;
+
     try {
       await window.electron.openGame(
         game.shop,
         game.objectId,
-        game.executablePath!,
+        executableToLaunch!,
         game.launchOptions
       );
     } catch (error) {
@@ -258,6 +264,25 @@ export function useGameActions(requestedGame: GameContextMenuGame) {
       window.dispatchEvent(
         new CustomEvent("hydra:openRepacks", {
           detail: { objectId: game.objectId },
+        })
+      );
+    } catch (e) {
+      void e;
+    }
+  };
+
+  const handleOpenSwitchPortModal = () => {
+    const detailsPath = buildGameDetailsPath({
+      ...game,
+      objectId: game.objectId,
+    });
+    if (location.pathname !== detailsPath) {
+      navigate(detailsPath, { state: { openSwitchPort: true } });
+    }
+    try {
+      globalThis.dispatchEvent(
+        new CustomEvent("cerberus:openSwitchPortModal", {
+          detail: { shop: game.shop, objectId: game.objectId },
         })
       );
     } catch (e) {
@@ -414,6 +439,7 @@ export function useGameActions(requestedGame: GameContextMenuGame) {
     handleCreateSteamShortcut,
     handleOpenFolder,
     handleOpenDownloadOptions,
+    handleOpenSwitchPortModal,
     handleOpenDownloadLocation,
     handleTogglePin,
     handleRemoveFromLibrary,

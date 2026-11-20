@@ -6,12 +6,11 @@ import { JSDOM } from "jsdom";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import ts from "typescript";
-import type { EpicConnectionState } from "@types";
-import * as presentation from "./settings-epic-state.js";
+import type { StoreAccountsState } from "@types";
 
 const requireModule = createRequire(import.meta.url);
 
-it("shows Epic disconnect progress immediately, blocks repeat actions and recovers after failure", async (t) => {
+it("SettingsEpic loads connected account, syncs library, and disconnects cleanly", async (t) => {
   const dom = new JSDOM("<div id='root'></div>");
   const previous = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({
@@ -26,46 +25,49 @@ it("shows Epic disconnect progress immediately, blocks repeat actions and recove
       configurable: true,
     });
   }
-  const state: EpicConnectionState = {
-    hydraLoggedIn: true,
-    hydraUserId: "owner",
-    availability: { available: true },
-    verification: "confirmed",
-    sessionState: "ready",
-    operation: null,
-    connection: {
+
+  let currentAccounts: StoreAccountsState = {
+    steam: { provider: "steam", connected: false },
+    gog: { provider: "gog", connected: false },
+    epic: {
+      provider: "epic",
       connected: true,
-      connectionId: "HashId",
-      epicAccountId: "a".repeat(32),
-      displayName: "Epic",
-      connectedAt: "2026-10-15T00:00:00Z",
+      accountId: "epic-user-123",
+      displayName: "EpicPlayer",
+      lastSyncAt: "2026-11-20T00:00:00.000Z",
+      syncedGamesCount: 12,
     },
   };
-  let finish!: (result: { ok: boolean; error?: "network" }) => void;
-  let calls = 0;
-  let connectionChanged: (value: EpicConnectionState) => void = () => {};
+
+  let syncCalls = 0;
+  let disconnectCalls = 0;
+  let accountsListener: () => void = () => {};
+
   const bridge = {
-    getEpicConnection: async () => state,
-    onEpicConnectionChanged: (listener: typeof connectionChanged) => {
-      connectionChanged = listener;
-      return () => {};
+    storesGetAccounts: async () => currentAccounts,
+    storesStartEpicLogin: async () => ({ ok: true }),
+    storesSyncEpicLibrary: async () => {
+      syncCalls++;
+      return { syncedGamesCount: 15 };
     },
-    onSignIn: () => () => {},
-    onSignOut: () => () => {},
-    disconnectEpic: () => {
-      calls++;
-      return new Promise<{ ok: boolean; error?: "network" }>((resolve) => {
-        finish = resolve;
-      });
+    storesDisconnectEpic: async () => {
+      disconnectCalls++;
+      currentAccounts = {
+        ...currentAccounts,
+        epic: { provider: "epic", connected: false },
+      };
+    },
+    onStoreAccountsUpdated: (cb: () => void) => {
+      accountsListener = cb;
+      return () => {};
     },
   };
   Object.assign(dom.window, { electron: bridge });
-  const translate = (key: string) => key;
-  const noop = () => {};
+
   const icon = () => null;
+  const noop = () => {};
   const stubs: Record<string, unknown> = {
-    "@shared": { AuthPage: { SignIn: "signin" } },
-    "react-i18next": { useTranslation: () => ({ t: translate }) },
+    "react-i18next": { useTranslation: () => ({ t: (k: string) => k }) },
     "@primer/octicons-react": {
       LinkExternalIcon: icon,
       PersonIcon: icon,
@@ -73,10 +75,15 @@ it("shows Epic disconnect progress immediately, blocks repeat actions and recove
     },
     "@renderer/assets/epic-integration-logo.svg?react": icon,
     "@renderer/hooks": {
-      useUserDetails: () => ({ userDetails: { id: "owner" } }),
       useToast: () => ({ showSuccessToast: noop, showErrorToast: noop }),
     },
-    "./settings-epic-state": presentation,
+    "@renderer/components": {
+      Button: ({
+        theme: _theme,
+        ...props
+      }: React.ButtonHTMLAttributes<HTMLButtonElement> & { theme: string }) =>
+        React.createElement("button", props),
+    },
     "./settings-integration-card": {
       SettingsIntegrationCard: ({
         children,
@@ -96,24 +103,8 @@ it("shows Epic disconnect progress immediately, blocks repeat actions and recove
         ),
       SettingsIntegrationLastSynced: icon,
     },
-    "@renderer/components": {
-      Button: ({
-        theme: _theme,
-        ...props
-      }: React.ButtonHTMLAttributes<HTMLButtonElement> & { theme: string }) =>
-        React.createElement("button", props),
-      ConfirmationModal: ({
-        visible,
-        onConfirm,
-      }: {
-        visible: boolean;
-        onConfirm: () => void;
-      }) =>
-        visible
-          ? React.createElement("button", { onClick: onConfirm }, "confirm")
-          : null,
-    },
   };
+
   const filename = "src/renderer/src/pages/settings/settings-epic.tsx";
   const { outputText } = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
     fileName: filename,
@@ -124,11 +115,13 @@ it("shows Epic disconnect progress immediately, blocks repeat actions and recove
       esModuleInterop: true,
     },
   });
+
   const exports: Record<string, React.ElementType> = {};
   new Function("exports", "require", outputText)(
     exports,
     (name: string) => stubs[name] ?? requireModule(name)
   );
+
   const root = createRoot(dom.window.document.getElementById("root")!);
   t.after(async () => {
     await React.act(async () => root.unmount());
@@ -138,35 +131,47 @@ it("shows Epic disconnect progress immediately, blocks repeat actions and recove
       else Reflect.deleteProperty(globalThis, key);
     }
   });
-  const button = (label: string) =>
-    [...dom.window.document.querySelectorAll("button")].find(
-      (item) => item.textContent === label
+
+  const button = (text: string) =>
+    [...dom.window.document.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes(text)
     );
-  await React.act(async () =>
-    root.render(React.createElement(exports.SettingsEpic))
-  );
-  await React.act(async () => button("integration_disconnect")!.click());
-  await React.act(async () => button("confirm")!.click());
-  assert.equal(calls, 1);
-  assert.equal(button("integration_disconnect"), undefined);
-  assert.ok(
-    dom.window.document.querySelector(
-      "output .settings-integration-card__progress-fill--indeterminate"
-    )
-  );
+
+  await React.act(async () => {
+    root.render(React.createElement(exports.SettingsEpic));
+  });
+
   assert.equal(
     dom.window.document.querySelector("[data-status]")?.textContent,
-    "epic_status_disconnecting"
+    "connected"
   );
-  await React.act(async () => finish({ ok: false, error: "network" }));
-  assert.equal(dom.window.document.querySelector("output"), null);
-  assert.ok(button("integration_disconnect"));
-  await React.act(async () =>
-    connectionChanged({
-      ...state,
-      operation: { id: "remote-disconnect", status: "disconnecting" },
-    })
+  assert.ok(dom.window.document.body.textContent?.includes("EpicPlayer"));
+
+  await React.act(async () => {
+    button("Sincronizar")!.click();
+  });
+  assert.equal(syncCalls, 1);
+
+  await React.act(async () => {
+    button("Desconectar")!.click();
+  });
+  assert.equal(disconnectCalls, 1);
+  assert.equal(
+    dom.window.document.querySelector("[data-status]")?.textContent,
+    "disconnected"
   );
-  assert.ok(dom.window.document.querySelector("output"));
-  assert.equal(button("integration_disconnect"), undefined);
+
+  currentAccounts = {
+    ...currentAccounts,
+    epic: {
+      provider: "epic",
+      connected: true,
+      accountId: "epic-reconnected",
+      displayName: "BackOnline",
+    },
+  };
+  await React.act(async () => {
+    accountsListener();
+  });
+  assert.ok(dom.window.document.body.textContent?.includes("BackOnline"));
 });

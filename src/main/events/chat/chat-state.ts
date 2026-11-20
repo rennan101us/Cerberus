@@ -1,13 +1,14 @@
-import { HydraApi, WindowManager } from "@main/services";
+import { WindowManager } from "@main/services";
 import { ChatOfficialMessages } from "@main/services/chat/chat-official-messages";
 import { ChatUnreadStore } from "@main/services/chat/chat-unread-store";
+import { SocialHubService } from "@main/services/social/social-hub-service";
 import { OFFICIAL_CHAT_FRIEND_ID } from "@shared";
-import { logger } from "@main/services/logger";
 import type { ChatWindowState } from "@types";
 import { ipcMain } from "electron";
 
-// Friend ids are interpolated into an API path, so only hashids get through.
-const FRIEND_ID_PATTERN = /^[A-Za-z0-9]{8}$/;
+// Accept provider-prefixed Steam/Epic IDs as well as legacy 8-char IDs.
+const FRIEND_ID_PATTERN =
+  /^(?:steam|epic):[A-Za-z0-9_-]{3,128}$|^[A-Za-z0-9]{8}$/;
 
 const isFriendId = (value: unknown): value is string =>
   typeof value === "string" && FRIEND_ID_PATTERN.test(value);
@@ -32,7 +33,7 @@ ipcMain.handle("setChatWindowState", (_event, state: ChatWindowState) => {
   });
 });
 
-ipcMain.handle("getChatUnreadState", () => ChatUnreadStore.getState());
+ipcMain.handle("getChatUnreadState", () => SocialHubService.getUnreadState());
 
 ipcMain.handle("refreshOfficialChat", () => ChatOfficialMessages.refresh());
 
@@ -47,18 +48,12 @@ ipcMain.handle(
       return seq > 0 && ChatOfficialMessages.markRead(seq);
     }
 
-    const generation = ChatUnreadStore.getGeneration();
-
-    try {
-      const { unreadCount } = await HydraApi.post<{ unreadCount: number }>(
-        `/profile/chats/${friendId}/read`,
-        { seq }
-      );
-      ChatUnreadStore.setUnread(friendId, unreadCount, seq, generation);
+    if (friendId.startsWith("steam:") || friendId.startsWith("epic:")) {
+      await SocialHubService.markRead(friendId);
       return true;
-    } catch (error) {
-      logger.error("Failed to mark chat as read", error);
-      return false;
     }
+
+    ChatUnreadStore.setUnread(friendId, 0, seq);
+    return true;
   }
 );

@@ -146,9 +146,6 @@ function fixture(records = [pending()]) {
     "../logger": {
       achievementsLogger: { info: noop, warn: noop, error: noop },
     },
-    "../screenshot": {
-      ScreenshotService: { cleanupOldScreenshots: async () => {} },
-    },
     "../window-manager": { WindowManager: { sendToAppWindows: noop } },
     "./achievement-image-service": {
       AchievementImageService: {

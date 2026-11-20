@@ -11,7 +11,6 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
-  AuthPage,
   getCloudSaveAccessAction,
   discCloudSaveWrongGameErrorCode,
   getCloudSaveEmulatorProvider,
@@ -471,7 +470,7 @@ export function CloudSaveV2Provider({
     setSearchParams(nextSearchParams, { replace: true });
 
     if (cloudSaveAccessAction === "sign-in") {
-      window.electron.openAuthWindow(AuthPage.SignIn);
+      void 0;
       return;
     }
     if (cloudSaveAccessAction === "paywall") {
@@ -656,7 +655,7 @@ export function CloudSaveV2Provider({
 
   const openManager = useCallback(() => {
     if (cloudSaveAccessAction === "sign-in") {
-      window.electron.openAuthWindow(AuthPage.SignIn);
+      void 0;
       return;
     }
     if (cloudSaveAccessAction === "paywall") {
@@ -814,7 +813,7 @@ export function CloudSaveV2Provider({
       }
       if (cloudSaveAccessAction !== "open") {
         if (cloudSaveAccessAction === "sign-in") {
-          window.electron.openAuthWindow(AuthPage.SignIn);
+          void 0;
         } else {
           showHydraCloudModal("backup");
         }
@@ -1087,7 +1086,7 @@ export function CloudSaveV2Provider({
     if (cloudSaveAccessAction === "open") {
       setIsFileBrowserVisible(true);
     } else if (cloudSaveAccessAction === "sign-in") {
-      window.electron.openAuthWindow(AuthPage.SignIn);
+      void 0;
     } else {
       showHydraCloudModal("backup");
     }

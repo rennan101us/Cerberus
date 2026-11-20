@@ -1,5 +1,4 @@
 import type { GameShop } from "@types";
-import { getCloudSaveEmulatorProvider } from "../../../../shared/cloud-save-emulator-provider.js";
 
 export type CloudSaveUiMode = "legacy" | "v2";
 export type LegacyCloudSavePurpose = "active" | "archive";
@@ -26,57 +25,16 @@ export const isLegacyCloudSaveSettingsAvailable = (
 
 export const getCloudSaveVisibility = (
   shop: GameShop,
-  platform?: string | null
+  _platform?: string | null
 ): CloudSaveVisibility => {
-  if (shop === "steam") {
-    return {
-      hero: "v2",
-      settings: {
-        showV2: true,
-        showLegacy: true,
-        legacyPurpose: "archive",
-      },
-    };
-  }
-
-  if (shop === "epic") {
-    return {
-      hero: "v2",
-      settings: {
-        showV2: true,
-        showLegacy: false,
-        legacyPurpose: "archive",
-      },
-    };
-  }
-
-  if (shop === "launchbox") {
-    if (getCloudSaveEmulatorProvider(shop, platform)) {
-      return {
-        hero: "v2",
-        settings: {
-          showV2: true,
-          showLegacy: true,
-          legacyPurpose: "archive",
-        },
-      };
-    }
-    return {
-      hero: "legacy",
-      settings: {
-        showV2: false,
-        showLegacy: true,
-        legacyPurpose: "active",
-      },
-    };
-  }
-
+  // Windows games use native iCloud Drive saves; Hydra Cloud is disabled across Cerberus.
+  void shop;
   return {
     hero: null,
     settings: {
       showV2: false,
-      showLegacy: true,
-      legacyPurpose: "active",
+      showLegacy: false,
+      legacyPurpose: "archive",
     },
   };
 };

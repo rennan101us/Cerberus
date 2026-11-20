@@ -43,6 +43,7 @@
   // The traffic lights sit over the start of the bar.
   &--darwin &__brand {
     padding-left: 80px;
+    min-width: 215px;
   }
 
   &__cloud-text {
@@ -89,6 +90,105 @@
     padding: 0 calc(globals.$spacing-unit * 2);
   }
 
+  &__notifications-anchor {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+  }
+
+  &__notifications {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    gap: 4px;
+    padding: 5px 8px;
+    margin-right: 4px;
+    border-radius: 4px;
+    background: transparent;
+    border: none;
+    color: globals.$muted-color;
+    opacity: 0.65;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    transition:
+      opacity ease 0.1s,
+      background-color ease 0.1s;
+
+    &:hover,
+    &--active {
+      opacity: 1;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  &__notifications-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 4px;
+    width: 480px;
+    max-width: calc(100vw - 32px);
+    background-color: globals.$dark-background-color;
+    border: 1px solid globals.$border-color;
+    border-radius: 10px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.65);
+    z-index: 1200;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__notifications-popover-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.02);
+
+    strong {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: globals.$muted-color;
+    }
+  }
+
+  &__notifications-popover-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: globals.$body-color;
+    cursor: pointer;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+      color: globals.$muted-color;
+    }
+  }
+
+  &__notifications-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background-color: globals.$error-color;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
   &__big-picture {
     display: flex;
     align-items: center;
@@ -109,6 +209,39 @@
     &:hover {
       opacity: 1;
       background-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  &__friends {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 8px;
+    margin-right: 4px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: globals.$body-color;
+    font-size: globals.$small-font-size;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    transition:
+      opacity ease 0.1s,
+      background-color ease 0.1s;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    &-online {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: rgba(52, 211, 153, 0.16);
+      color: #6ee7b7;
     }
   }
 

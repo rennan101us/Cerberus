@@ -1,4 +1,3 @@
-import type { ScreenshotCommentsPolicy } from "./screenshot.types";
 import type { Cracker, DownloadSourceStatus, Downloader } from "@shared";
 import type { SteamAppDetails } from "./steam.types";
 import type {
@@ -17,6 +16,7 @@ import type {
 import type { ArtworkAssetType } from "./artwork.types";
 import type { GameContentWarning } from "./souvenir.types";
 import type { RecompilationSummary } from "./recompilation.types";
+import type { StoreProvider } from "./stores.types";
 
 export type FriendRequestAction = "ACCEPTED" | "REFUSED" | "CANCEL";
 export * from "./download-contract";
@@ -56,6 +56,11 @@ export interface DownloadSource {
   fingerprint?: string;
   isRemote?: true;
   createdAt: string;
+  sourceKind?: "hydra" | "switch";
+  isEnabled?: boolean;
+  lastSyncAt?: string;
+  lastError?: string | null;
+  matchedTitleIds?: string[];
 }
 
 export interface ProtonVersion {
@@ -91,13 +96,77 @@ export interface ShopAssets {
   images?: CatalogueImages;
 }
 
+export interface IgdbSimilarGameSummary {
+  id: number;
+  name: string;
+  coverUrl: string | null;
+}
+
 export type ShopDetails = SteamAppDetails & {
   objectId: string;
   platform?: string;
   skus?: string[];
   retroAchievementsGameId?: number | null;
   descriptionLanguage?: string;
+  igdbId?: number | null;
+  igdbRating?: number | null;
+  igdbSimilarGames?: IgdbSimilarGameSummary[];
 };
+
+export interface ICloudSaveStatus {
+  available: boolean;
+  rootPath: string;
+  writable: boolean;
+  error?: string;
+}
+
+export interface ICloudGameSaveInfo {
+  available: boolean;
+  writable: boolean;
+  icloudBackupExists: boolean;
+  icloudFolderPath: string;
+  lastSyncedAt: string | null;
+  backupFileCount: number;
+  backupTotalBytes: number;
+  localFileCount: number;
+  localTotalBytes: number;
+  localSavePaths: string[];
+  customSavePath: string | null;
+  autoSyncEnabled: boolean;
+  winePrefixUsed: string | null;
+}
+
+export interface MacNativeDownloadOption {
+  id: string;
+  title: string;
+  source: "appstorrent" | "torrentmac";
+  sourceLabel: string;
+  url: string;
+  hoster: string;
+  fileSize: string | null;
+  isTorrent: boolean;
+  detailUrl: string;
+}
+
+export interface MacNativeCatalogueItem {
+  id: string;
+  objectId: string;
+  title: string;
+  normalizedTitle: string;
+  version: string | null;
+  coverUrl: string | null;
+  iconUrl: string | null;
+  summary: string | null;
+  fileSize: string | null;
+  publishedAt: string | null;
+  sources: Array<{
+    source: "appstorrent" | "torrentmac";
+    sourceLabel: string;
+    detailUrl: string;
+    fileSize: string | null;
+    version: string | null;
+  }>;
+}
 
 export type ShopDetailsWithAssets = ShopDetails & {
   assets: ShopAssets | null;
@@ -209,6 +278,23 @@ export interface UserFriend {
   isOnline?: boolean;
   /* The Hydra team's account: it messages users, nobody messages it. */
   isOfficial?: boolean;
+  provider?: StoreProvider;
+  externalId?: string;
+  personaState?:
+    | "online"
+    | "in-game"
+    | "away"
+    | "busy"
+    | "snooze"
+    | "offline";
+  richPresence?: string | null;
+  gameLobby?: {
+    appId?: string;
+    lobbyId?: string;
+    connectString?: string;
+    partyId?: string;
+    joinable?: boolean;
+  } | null;
 }
 
 export interface UserFriends {
@@ -242,6 +328,10 @@ export interface FriendRequestSync {
 export interface FriendPresenceSync {
   friendId: string;
   isOnline: boolean;
+  personaState?: UserFriend["personaState"];
+  currentGame?: UserFriend["currentGame"];
+  richPresence?: string | null;
+  gameLobby?: UserFriend["gameLobby"];
 }
 
 export interface ChatReplyDto {
@@ -287,6 +377,7 @@ export interface ChatMessageDto {
   reactions?: ChatReactionDto[];
   /* In the order they were sent. */
   attachments?: ChatAttachmentDto[];
+  invite?: import("./stores.types").SocialGameInvite;
 }
 
 export type ChatPendingMessageStatus = "checking" | "blocked" | "failed";
@@ -351,6 +442,8 @@ export interface ChatConversationDto {
     displayName: string;
     profileImageUrl: string | null;
     isOfficial?: boolean;
+    provider?: StoreProvider;
+    externalId?: string;
   };
   lastMessage: ChatReplyDto & {
     seq: number;
@@ -493,6 +586,8 @@ export interface FriendRequest {
   displayName: string;
   profileImageUrl: string | null;
   type: "SENT" | "RECEIVED";
+  provider?: "steam" | "epic";
+  externalId?: string;
 }
 
 export interface UserRelation {
@@ -531,8 +626,6 @@ export interface UserDetails {
   allowCloudGifts: boolean;
   allowLeaderboardNotifications?: boolean;
   souvenirsVisibility: ProfileVisibility;
-  screenshotsVisibility?: ProfileVisibility;
-  screenshotCommentsPolicy?: ScreenshotCommentsPolicy;
   bio: string;
   workwondersJwt: string;
   subscription: Subscription | null;
@@ -610,9 +703,6 @@ export interface UserProfile {
   backgroundImageUrl: string | null;
   profileVisibility: ProfileVisibility;
   souvenirsVisibility: ProfileVisibility;
-  screenshotsVisibility?: ProfileVisibility;
-  screenshotCommentsPolicy?: ScreenshotCommentsPolicy;
-  screenshotCount?: number;
   libraryGames: UserGame[];
   recentGames: UserGame[];
   friends: UserFriend[];
@@ -750,8 +840,6 @@ export interface UpdateProfileRequest {
   displayName?: string;
   profileVisibility?: ProfileVisibility;
   souvenirsVisibility?: ProfileVisibility;
-  screenshotsVisibility?: ProfileVisibility;
-  screenshotCommentsPolicy?: ScreenshotCommentsPolicy;
   profileImageUrl?: string | null;
   backgroundImageUrl?: string | null;
   bio?: string;
@@ -902,7 +990,6 @@ export interface AchievementNotificationInfo {
   isRare: boolean;
   isPlatinum: boolean;
   points?: number;
-  variant?: "screenshot" | "screenshot-error";
 }
 
 export type AchievementNotificationRequest = {
@@ -918,10 +1005,6 @@ export type AchievementNotificationRequest = {
       type: "combined";
       gameCount: number;
       achievementCount: number;
-    }
-  | {
-      type: "screenshot";
-      achievement: AchievementNotificationInfo;
     }
 );
 
@@ -960,9 +1043,6 @@ export type NotificationType =
   | "REVIEW_ANSWER"
   | "REVIEW_ANSWER_UPVOTE"
   | "SOUVENIR_LIKE"
-  | "SCREENSHOT_LIKE"
-  | "SCREENSHOT_COMMENT"
-  | "SCREENSHOT_COMMENT_UPVOTE"
   | "RETROACHIEVEMENTS_CREDENTIALS_RESTORED"
   | "RETROACHIEVEMENTS_CREDENTIALS_INVALID"
   | "RETROACHIEVEMENTS_SYNC_FAILED"
@@ -1166,12 +1246,13 @@ export * from "./retroarch.types";
 export * from "./artwork.types";
 export * from "./cloud-save.types";
 export * from "./souvenir.types";
-export * from "./screenshot.types";
 export * from "./recompilation.types";
 export * from "./crossover.types";
+export * from "./nxnative.types";
 
 export type ExtractionFailure =
   | { reason: "unsupported-format"; format: string }
   | { reason: "file-not-found" }
   | { reason: "pkg-keys-unavailable" };
 export type { SystemPowerAction } from "./system-power";
+export * from "./stores.types";

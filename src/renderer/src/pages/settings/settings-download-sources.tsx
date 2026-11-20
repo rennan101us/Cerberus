@@ -4,6 +4,7 @@ import {
   TextField,
   Button,
   Badge,
+  CheckboxField,
   ConfirmationModal,
 } from "@renderer/components";
 import { useTranslation } from "react-i18next";
@@ -176,16 +177,33 @@ export function SettingsDownloadSources() {
     setShowAddDownloadSourceModal(false);
   };
 
-  const navigateToCatalogue = (fingerprint?: string) => {
-    if (!fingerprint) {
+  const navigateToCatalogue = (source: DownloadSource) => {
+    if (source.sourceKind === "switch") {
+      const targetTab = source.url.toLowerCase().includes("switch2")
+        ? "switch2"
+        : "switch1";
+      navigate(`/catalogue?tab=${targetTab}`);
+      return;
+    }
+
+    if (!source.fingerprint) {
       logger.error("Cannot navigate: fingerprint is undefined");
       return;
     }
 
     dispatch(clearFilters());
-    dispatch(setFilters({ downloadSourceFingerprints: [fingerprint] }));
+    dispatch(setFilters({ downloadSourceFingerprints: [source.fingerprint] }));
 
     navigate("/catalogue");
+  };
+
+  const handleToggleSourceEnabled = async (source: DownloadSource) => {
+    const nextEnabled = source.isEnabled === false;
+    await window.electron.toggleDownloadSourceEnabled(source.id, nextEnabled);
+    const sources = (await levelDBService.values(
+      "downloadSources"
+    )) as DownloadSource[];
+    setDownloadSources(orderBy(sources, "createdAt", "desc"));
   };
 
   return (
@@ -265,7 +283,10 @@ export function SettingsDownloadSources() {
               <div className="settings-download-sources__item-header">
                 <h2>{downloadSource.name}</h2>
 
-                <div style={{ display: "flex" }}>
+                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  {downloadSource.sourceKind === "switch" && (
+                    <Badge>Switch 1 &amp; 2</Badge>
+                  )}
                   <Badge>
                     {isPendingOrMatching && (
                       <SyncIcon className="settings-download-sources__spinner" />
@@ -277,22 +298,33 @@ export function SettingsDownloadSources() {
                 <button
                   type="button"
                   className="settings-download-sources__navigate-button"
-                  disabled={!downloadSource.fingerprint}
-                  onClick={() =>
-                    navigateToCatalogue(downloadSource.fingerprint)
+                  disabled={
+                    downloadSource.sourceKind !== "switch" &&
+                    !downloadSource.fingerprint
                   }
+                  onClick={() => navigateToCatalogue(downloadSource)}
                 >
                   <small>
                     {isPendingOrMatching
                       ? t("download_source_no_information")
-                      : t("download_count", {
-                          count: downloadSource.downloadCount,
-                          countFormatted: numberFormatter.format(
-                            downloadSource.downloadCount
-                          ),
-                        })}
+                      : downloadSource.sourceKind === "switch"
+                        ? `${numberFormatter.format(downloadSource.downloadCount)} compatíveis`
+                        : t("download_count", {
+                            count: downloadSource.downloadCount,
+                            countFormatted: numberFormatter.format(
+                              downloadSource.downloadCount
+                            ),
+                          })}
                   </small>
                 </button>
+
+                {downloadSource.sourceKind === "switch" && (
+                  <CheckboxField
+                    label="Ativa"
+                    checked={downloadSource.isEnabled !== false}
+                    onChange={() => handleToggleSourceEnabled(downloadSource)}
+                  />
+                )}
               </div>
 
               <TextField

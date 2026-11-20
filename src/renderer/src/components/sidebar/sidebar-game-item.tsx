@@ -13,6 +13,7 @@ import {
   useGameActions,
 } from "..";
 import { HeartFillIcon } from "@primer/octicons-react";
+import { Gamepad2 } from "lucide-react";
 import { useAppSelector, useToast } from "@renderer/hooks";
 import { useCollectionContextMenu } from "@renderer/context";
 import { getLibraryPresentationBadgeSource } from "@renderer/pages/library/library-category";
@@ -23,12 +24,14 @@ interface SidebarGameItemProps {
   game: LibraryGame;
   handleSidebarGameClick: (game: LibraryGame) => void;
   getGameTitle: (game: LibraryGame) => string;
+  isCollapsed?: boolean;
 }
 
 export const SidebarGameItem = memo(function SidebarGameItem({
   game,
   handleSidebarGameClick,
   getGameTitle,
+  isCollapsed = false,
 }: Readonly<SidebarGameItemProps>) {
   const location = useLocation();
   const { t } = useTranslation("game_details");
@@ -85,6 +88,9 @@ export const SidebarGameItem = memo(function SidebarGameItem({
     if (isCustomGame) {
       return null;
     }
+    if (game.shop === "switch1" || game.shop === "switch2") {
+      return <Gamepad2 className="sidebar__game-icon" size={18} />;
+    }
     if (game.shop === "epic") {
       return <EpicLogo className="sidebar__game-icon" />;
     }
@@ -100,16 +106,22 @@ export const SidebarGameItem = memo(function SidebarGameItem({
             location.pathname ===
             `/game/${catalogueIdentity.shop}/${catalogueIdentity.objectId}`,
           "sidebar__menu-item--muted": game.download?.status === "removed",
+          "sidebar__menu-item--collapsed": isCollapsed,
         })}
       >
         <button
           type="button"
           className="sidebar__menu-item-button"
+          data-tooltip-id={isCollapsed ? "sidebar-collapsed-tooltip" : undefined}
+          data-tooltip-content={isCollapsed ? getGameTitle(game) : undefined}
           onClick={(event) => {
             handleSidebarGameClick(game);
             if (event.detail === 2) {
               if (canPlay) {
                 void handlePlayGame();
+              } else if (game.shop === "switch1" || game.shop === "switch2") {
+                // Unported Switch game: navigation already opens details page with "Portar Jogo"
+                return;
               } else {
                 showWarningToast(
                   game.shop === "launchbox"
@@ -163,19 +175,26 @@ export const SidebarGameItem = memo(function SidebarGameItem({
               )}
           </span>
 
-          <span className="sidebar__menu-item-button-label">
-            {getGameTitle(game)}
-          </span>
-
-          {userPreferences?.enableNewDownloadOptionsBadges !== false &&
-            (game.newDownloadOptionsCount ?? 0) > 0 && (
-              <span className="sidebar__game-badge">
-                +{game.newDownloadOptionsCount}
+          {!isCollapsed && (
+            <>
+              <span className="sidebar__menu-item-button-label">
+                {getGameTitle(game)}
               </span>
-            )}
 
-          {game.favorite && (
-            <HeartFillIcon size={12} className="sidebar__game-favorite-icon" />
+              {userPreferences?.enableNewDownloadOptionsBadges !== false &&
+                (game.newDownloadOptionsCount ?? 0) > 0 && (
+                  <span className="sidebar__game-badge">
+                    +{game.newDownloadOptionsCount}
+                  </span>
+                )}
+
+              {game.favorite && (
+                <HeartFillIcon
+                  size={12}
+                  className="sidebar__game-favorite-icon"
+                />
+              )}
+            </>
           )}
         </button>
       </li>

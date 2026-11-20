@@ -3,12 +3,10 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@renderer/components";
 import { MAX_MINUTES_TO_SHOW_IN_PLAYTIME } from "@renderer/constants";
-import { useFeature, useFormat } from "@renderer/hooks";
+import { useFormat } from "@renderer/hooks";
 import { getDisplayedPlayTimeInMilliseconds } from "@shared";
 import type { RemoveFilesTarget } from "@shared";
 import type { LibraryGame, UserDetails } from "@types";
-
-import { MyScreenshotsDangerZone } from "./my-screenshots-danger-zone";
 
 interface DangerZoneSectionProps {
   game: LibraryGame;
@@ -16,6 +14,7 @@ interface DangerZoneSectionProps {
   isDeletingAchievements?: boolean;
   hasAchievements?: boolean;
   isGameDownloading: boolean;
+  canUninstallGame?: boolean;
   removeFilesTarget: RemoveFilesTarget | null;
   userDetails: UserDetails | null;
   onOpenRemoveFromLibrary: () => void;
@@ -23,6 +22,7 @@ interface DangerZoneSectionProps {
   onOpenChangePlaytime: () => void;
   onOpenResetPlaytime: () => void;
   onOpenRemoveFiles: (target: RemoveFilesTarget) => void;
+  onOpenUninstallGame: () => void;
 }
 
 interface DangerRowProps {
@@ -58,16 +58,17 @@ export function DangerZoneSection({
   game,
   deleting,
   isGameDownloading,
+  canUninstallGame = false,
   removeFilesTarget,
   userDetails: _userDetails,
   onOpenRemoveFromLibrary,
   onOpenChangePlaytime,
   onOpenResetPlaytime,
   onOpenRemoveFiles,
+  onOpenUninstallGame,
 }: Readonly<DangerZoneSectionProps>) {
   const { t } = useTranslation("game_details");
   const { numberFormatter } = useFormat();
-  const { isFeatureEnabled, Feature } = useFeature();
 
   const minutes = getDisplayedPlayTimeInMilliseconds(game) / 60_000;
   const playTime =
@@ -133,6 +134,20 @@ export function DangerZoneSection({
         )}
 
         <DangerRow
+          label={t("danger_uninstall_label")}
+          description={t("danger_uninstall_description")}
+          disabled={deleting || isGameDownloading || !canUninstallGame}
+        >
+          <Button
+            onClick={onOpenUninstallGame}
+            theme="danger"
+            disabled={deleting || isGameDownloading || !canUninstallGame}
+          >
+            {t("danger_uninstall")}
+          </Button>
+        </DangerRow>
+
+        <DangerRow
           label={t("danger_library_label")}
           description={t("danger_library_description")}
           disabled={deleting}
@@ -146,10 +161,6 @@ export function DangerZoneSection({
           </Button>
         </DangerRow>
       </div>
-
-      {isFeatureEnabled(Feature.Screenshots) ? (
-        <MyScreenshotsDangerZone shop={game.shop} objectId={game.objectId} />
-      ) : null}
     </div>
   );
 }

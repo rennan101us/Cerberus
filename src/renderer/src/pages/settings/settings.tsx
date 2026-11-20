@@ -3,34 +3,30 @@ import {
   SettingsContextConsumer,
   SettingsContextProvider,
 } from "@renderer/context";
-import { SettingsAccount } from "./settings-account";
-import { useFeature, useUserDetails } from "@renderer/hooks";
 import { Fragment, useMemo } from "react";
 import "./settings.scss";
 import {
   BellIcon,
+  CloudIcon,
   DownloadIcon,
   GearIcon,
   LinkIcon,
   PlayIcon,
   VideoIcon,
-  ShieldCheckIcon,
 } from "@primer/octicons-react";
-import { Camera } from "lucide-react";
+import { Gamepad2, Wine } from "lucide-react";
 import { SettingsContextGeneral } from "./settings-context-general";
+import { SettingsNxNativePanel } from "./nxnative/settings-nxnative-panel";
+import { SettingsRedWinePanel } from "./nxnative/settings-red-wine-panel";
+import { SettingsContextIntegrations } from "./settings-context-integrations";
 import { SettingsContextDownloads } from "./settings-context-downloads";
 import { SettingsContextDownloadSources } from "./settings-context-download-sources";
 import { SettingsContextNotifications } from "./settings-context-notifications";
 import { SettingsContextContentGameplay } from "./settings-context-content-gameplay";
-import { SettingsContextScreenshots } from "./settings-context-screenshots";
 import { SettingsContextBigPicture } from "./settings-context-big-picture";
 
 export default function Settings() {
   const { t } = useTranslation("settings");
-
-  const { userDetails } = useUserDetails();
-  const { isFeatureEnabled, Feature } = useFeature();
-  const isScreenshotsEnabled = isFeatureEnabled(Feature.Screenshots);
 
   const categories = useMemo(
     () => [
@@ -38,6 +34,21 @@ export default function Settings() {
         id: "general" as const,
         label: t("general"),
         icon: <GearIcon size={16} />,
+      },
+      {
+        id: "switch" as const,
+        label: "Switch 1 & 2",
+        icon: <Gamepad2 size={16} />,
+      },
+      {
+        id: "red_wine" as const,
+        label: "Red Wine",
+        icon: <Wine size={16} />,
+      },
+      {
+        id: "integrations" as const,
+        label: t("integrations"),
+        icon: <CloudIcon size={16} />,
       },
       {
         id: "downloads" as const,
@@ -59,31 +70,13 @@ export default function Settings() {
         label: t("content_gameplay"),
         icon: <PlayIcon size={16} />,
       },
-      ...(isScreenshotsEnabled
-        ? [
-            {
-              id: "screenshots" as const,
-              label: t("screenshots_category"),
-              icon: <Camera size={16} />,
-            },
-          ]
-        : []),
-      ...(userDetails
-        ? [
-            {
-              id: "account_privacy" as const,
-              label: `${t("account")} & ${t("privacy")}`,
-              icon: <ShieldCheckIcon size={16} />,
-            },
-          ]
-        : []),
       {
         id: "big_picture" as const,
         label: t("big_picture"),
         icon: <VideoIcon size={16} />,
       },
     ],
-    [t, userDetails, isScreenshotsEnabled]
+    [t]
   );
 
   return (
@@ -98,6 +91,18 @@ export default function Settings() {
           const renderCategory = () => {
             if (selectedCategoryId === "general") {
               return <SettingsContextGeneral appearance={appearance} />;
+            }
+
+            if (selectedCategoryId === "switch") {
+              return <SettingsNxNativePanel />;
+            }
+
+            if (selectedCategoryId === "red_wine") {
+              return <SettingsRedWinePanel />;
+            }
+
+            if (selectedCategoryId === "integrations") {
+              return <SettingsContextIntegrations />;
             }
 
             if (selectedCategoryId === "downloads") {
@@ -116,15 +121,11 @@ export default function Settings() {
               return <SettingsContextContentGameplay />;
             }
 
-            if (selectedCategoryId === "screenshots") {
-              return <SettingsContextScreenshots />;
-            }
-
             if (selectedCategoryId === "big_picture") {
               return <SettingsContextBigPicture />;
             }
 
-            return <SettingsAccount />;
+            return <SettingsContextGeneral appearance={appearance} />;
           };
 
           return (

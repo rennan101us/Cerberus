@@ -132,4 +132,35 @@ describe("getFinishedDownloadStep", () => {
       "select-executable"
     );
   });
+
+  it("returns port for unported Switch 1 and Switch 2 ROM downloads", () => {
+    const switch1Unported = makeGame(
+      { downloader: Downloader.DirectHttp, folderName: "Game.nsp" },
+      { shop: "switch1", executablePath: null, switchPortedAppPath: null }
+    );
+    const switch2Unported = makeGame(
+      { downloader: Downloader.DirectHttp, folderName: "Game.nup" },
+      { shop: "switch2", executablePath: null, switchPortedAppPath: null }
+    );
+    const switch1Ported = makeGame(
+      { downloader: Downloader.DirectHttp, folderName: "Game.nsp" },
+      {
+        shop: "switch1",
+        executablePath: "/Applications/NxPorts/Game.app",
+        switchPortedAppPath: "/Applications/NxPorts/Game.app",
+      }
+    );
+    const switchExtracting = makeGame(
+      { extracting: true, downloader: Downloader.DirectHttp },
+      { shop: "switch1", executablePath: null }
+    );
+
+    assert.equal(getFinishedDownloadStep(switch1Unported, false), "port");
+    assert.equal(getFinishedDownloadStep(switch2Unported, false), "port");
+    assert.equal(getFinishedDownloadStep(switch1Ported, false), "play");
+    assert.equal(
+      getFinishedDownloadStep(switchExtracting, false),
+      "extracting"
+    );
+  });
 });

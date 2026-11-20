@@ -2,6 +2,7 @@ import cn from "classnames";
 import { getLibraryPresentationImportSources } from "./library-category";
 
 import { LibraryGame } from "@types";
+import { extractSteamAppId, getSteamCoverFallbacks } from "@shared";
 import {
   isAnimatedCoverCandidate,
   useAppSelector,
@@ -22,6 +23,7 @@ import {
 } from "@renderer/helpers";
 import { SteamLibraryBadge } from "@renderer/components";
 import { GameVisibilityBadge } from "@renderer/components/game-visibility-badge/game-visibility-badge";
+import { SwitchPortBadges } from "@renderer/components/switch-port-badges/switch-port-badges";
 import { formatBytes, getDisplayedPlayTimeInMilliseconds } from "@shared";
 import {
   ClockIcon,
@@ -180,6 +182,17 @@ export const LibraryGameCardLarge = memo(function LibraryGameCardLarge({
       { url: game.libraryImageUrl, isChosen: false },
       { url: game.iconUrl, isChosen: false }
     );
+
+    const steamAppId =
+      game.shop === "steam" || importSources.steam
+        ? game.objectId
+        : (extractSteamAppId(game.coverImageUrl) ||
+           extractSteamAppId(game.libraryImageUrl));
+    if (steamAppId) {
+      for (const fallback of getSteamCoverFallbacks(steamAppId)) {
+        candidates.push({ url: fallback, isChosen: false });
+      }
+    }
 
     return candidates.filter(
       (candidate): candidate is { url: string; isChosen: boolean } =>
@@ -400,6 +413,10 @@ export const LibraryGameCardLarge = memo(function LibraryGameCardLarge({
                   {classicsPlatformLabel}
                 </span>
               </div>
+            )}
+
+            {!hideReadySizeBadges && (
+              <SwitchPortBadges game={game} variant="cover" />
             )}
 
             {installedBadge}

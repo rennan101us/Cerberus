@@ -38,15 +38,10 @@ import {
 } from "./rpcs3-trophy-watcher";
 import { launchedGamePids } from "../launched-game-pids";
 import { NativeAddon } from "../native-addon";
-import { stopLinuxGameCaptureSession } from "../linux-game-capture-session";
 import {
   cleanupEmulatorSouvenirSession,
   type EmulatorSouvenirSession,
 } from "./emulator-souvenir-config";
-import {
-  onScreenshotGameClosed,
-  onScreenshotGameStarted,
-} from "../screenshots";
 
 export type EmulatorSessionSystem = EmulatorSystem | RetroArchPlatform;
 
@@ -247,7 +242,6 @@ export const startEmulatorSession = async ({
     launchedGamePids.set(gameKey, launcherPid);
   }
   setEmulatorGameRunning(gameKey);
-  void onScreenshotGameStarted(gameKey);
 
   if (game.shop !== "custom") {
     void sendPresencePing(gameKey);
@@ -297,7 +291,6 @@ export const closeEmulatorSession = (gameKey: string): boolean => {
   if (!session) return false;
 
   const { pid } = session.child;
-  stopLinuxGameCaptureSession(gameKey);
 
   if (session.relaunchWatch && session.corePid) {
     killRelaunchedProcess(session.corePid);
@@ -419,8 +412,6 @@ const finalizeEmulatorSession = async (gameKey: string): Promise<void> => {
   if (!session) return;
   emulatorSessions.delete(gameKey);
   deleteEmulatorGameRunning(gameKey);
-  stopLinuxGameCaptureSession(gameKey);
-  onScreenshotGameClosed(gameKey);
   if (session.heartbeat) clearInterval(session.heartbeat);
   if (session.coreWatch) clearInterval(session.coreWatch);
   if (session.relaunchWatch) clearInterval(session.relaunchWatch);

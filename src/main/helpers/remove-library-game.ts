@@ -1,4 +1,4 @@
-import { HydraApi, logger } from "@main/services";
+import { logger } from "@main/services";
 import {
   gamesSublevel,
   gamesShopAssetsSublevel,
@@ -109,10 +109,6 @@ export const removeLibraryGame = async (shop: GameShop, objectId: string) => {
   }
 
   await gamesArtworkSelectionSublevel.del(gameKey).catch(() => {});
-
-  if (game.remoteId) {
-    HydraApi.delete(`/profile/games/${game.remoteId}`).catch(() => {});
-  }
 
   await deleteAssetFiles(assetPathsToDelete);
 };

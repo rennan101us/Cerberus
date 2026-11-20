@@ -1,289 +1,93 @@
-import { useNavigate } from "react-router-dom";
-import {
-  BellIcon,
-  ChevronDownIcon,
-  CommentDiscussionIcon,
-  PeopleIcon,
-  PersonIcon,
-  SignOutIcon,
-} from "@primer/octicons-react";
-import { useAppSelector, useToast, useUserDetails } from "@renderer/hooks";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { PencilIcon } from "@primer/octicons-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useAppDispatch, useAppSelector, useToast } from "@renderer/hooks";
+import { useEffect, useRef, useState } from "react";
+import { Tooltip } from "react-tooltip";
 import SteamLogo from "@renderer/assets/steam-logo.svg?react";
 import { Avatar } from "../avatar/avatar";
-import { ConfirmationModal } from "../confirmation-modal/confirmation-modal";
 import { logger } from "@renderer/logger";
-import type {
-  ChatUnreadState,
-  NotificationCountResponse,
-  NotificationsChangedDetail,
-  ProfileFriends,
-} from "@types";
-import { useDispatch } from "react-redux";
-import { setFriendRequestCount } from "@renderer/features/user-details-slice";
+import { setUserPreferences } from "@renderer/features";
 import "./sidebar-profile.scss";
 
-const MAX_UNREAD_BADGE_COUNT = 99;
+export interface SidebarProfileProps {
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
 
-export function SidebarProfile() {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-
-  const { t } = useTranslation(["sidebar", "user_profile"]);
-
-  const { userDetails, hasActiveSubscription, signOut } = useUserDetails();
+export function SidebarProfile({
+  isCollapsed = false,
+  onToggleCollapse,
+}: Readonly<SidebarProfileProps>) {
+  const dispatch = useAppDispatch();
   const { showSuccessToast } = useToast();
 
   const { gameRunning } = useAppSelector((state) => state.gameRunning);
+  const userPreferences = useAppSelector(
+    (state) => state.userPreferences.value
+  );
 
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [onlineFriendsCount, setOnlineFriendsCount] = useState(0);
-  const [chatUnreadCount, setChatUnreadCount] = useState(0);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [isDropdownClosing, setIsDropdownClosing] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [systemUsername, setSystemUsername] = useState<string>("");
 
-  const apiNotificationCountRef = useRef(0);
-  const hasFetchedInitialCount = useRef(false);
-  const onlineFriendsRequestIdRef = useRef(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const fetchLocalNotificationCount = useCallback(async () => {
-    try {
-      const localCount = await window.electron.getLocalNotificationsCount();
-      setNotificationCount(localCount + apiNotificationCountRef.current);
-    } catch (error) {
-      logger.error("Failed to fetch local notification count", error);
-    }
+  useEffect(() => {
+    window.electron
+      .getSystemUsername?.()
+      .then((name) => {
+        if (name) setSystemUsername(name);
+      })
+      .catch(() => {});
   }, []);
 
-  const fetchApiNotificationCount = useCallback(async () => {
-    try {
-      const response =
-        await window.electron.hydraApi.get<NotificationCountResponse>(
-          "/profile/notifications/count",
-          { needsAuth: true }
-        );
-      apiNotificationCountRef.current = response.count;
-    } catch {
-      // Ignore API errors
+  const effectivePlayerName =
+    userPreferences?.playerName?.trim() || systemUsername || "Jogador";
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(effectivePlayerName);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isEditingName) {
+      setNameInput(effectivePlayerName);
     }
-    fetchLocalNotificationCount();
-  }, [fetchLocalNotificationCount]);
+  }, [effectivePlayerName, isEditingName]);
 
   useEffect(() => {
-    fetchLocalNotificationCount();
-  }, [fetchLocalNotificationCount]);
-
-  useEffect(() => {
-    if (userDetails && !hasFetchedInitialCount.current) {
-      hasFetchedInitialCount.current = true;
-      fetchApiNotificationCount();
-    } else if (!userDetails) {
-      hasFetchedInitialCount.current = false;
-      apiNotificationCountRef.current = 0;
-      fetchLocalNotificationCount();
+    if (isEditingName) {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
     }
-  }, [userDetails, fetchApiNotificationCount, fetchLocalNotificationCount]);
+  }, [isEditingName]);
 
-  useEffect(() => {
-    const unsubscribe = window.electron.onLocalNotificationCreated(() => {
-      fetchLocalNotificationCount();
-    });
-    return () => unsubscribe();
-  }, [fetchLocalNotificationCount]);
+  const savePlayerName = async () => {
+    const trimmed = nameInput.trim() || systemUsername || "Jogador";
+    setIsEditingName(false);
+    setNameInput(trimmed);
 
-  useEffect(() => {
-    const handleNotificationsChange = (event: Event) => {
-      const detail = (event as CustomEvent<NotificationsChangedDetail>).detail;
-
-      if (detail?.resetApiUnread) {
-        apiNotificationCountRef.current = 0;
-      } else if (typeof detail?.apiUnreadDelta === "number") {
-        apiNotificationCountRef.current = Math.max(
-          0,
-          apiNotificationCountRef.current + detail.apiUnreadDelta
-        );
-      }
-
-      fetchLocalNotificationCount();
-    };
-    window.addEventListener("notificationsChanged", handleNotificationsChange);
-    return () => {
-      window.removeEventListener(
-        "notificationsChanged",
-        handleNotificationsChange
-      );
-    };
-  }, [fetchLocalNotificationCount]);
-
-  useEffect(() => {
-    const unsubscribe = window.electron.onSyncNotificationCount(
-      (notification) => {
-        apiNotificationCountRef.current = notification.notificationCount;
-        fetchLocalNotificationCount();
-      }
-    );
-    return () => unsubscribe();
-  }, [fetchLocalNotificationCount]);
-
-  const updateOnlineFriendsCount = useCallback(async () => {
-    // Presence bursts fire overlapping refetches; only the latest may write.
-    const requestId = ++onlineFriendsRequestIdRef.current;
-
-    if (!userDetails) {
-      setOnlineFriendsCount(0);
+    if (trimmed === (userPreferences?.playerName?.trim() || "")) {
       return;
     }
+
     try {
-      const response =
-        await globalThis.window.electron.hydraApi.get<ProfileFriends>(
-          "/profile/friends",
-          { params: { take: 5, skip: 0 } }
-        );
-      if (requestId === onlineFriendsRequestIdRef.current) {
-        setOnlineFriendsCount(response.onlineFriends);
+      await window.electron.updateUserPreferences({ playerName: trimmed });
+      if (userPreferences) {
+        dispatch(setUserPreferences({ ...userPreferences, playerName: trimmed }));
       }
-    } catch {
-      // ignore transient errors
+      showSuccessToast(`Nome do jogador alterado para "${trimmed}"`);
+    } catch (error) {
+      logger.error("Failed to save player name", error);
     }
-  }, [userDetails]);
-
-  useEffect(() => {
-    updateOnlineFriendsCount();
-
-    const unsubscribeFriends = globalThis.window.electron.onFriendsUpdated(
-      () => {
-        updateOnlineFriendsCount();
-      }
-    );
-
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const unsubscribePresence =
-      typeof globalThis.window.electron.onFriendPresence === "function"
-        ? globalThis.window.electron.onFriendPresence(() => {
-            updateOnlineFriendsCount();
-          })
-        : () => {
-            if (interval) clearInterval(interval);
-          };
-
-    if (typeof globalThis.window.electron.onFriendPresence !== "function") {
-      interval = setInterval(updateOnlineFriendsCount, 30_000);
-    }
-
-    return () => {
-      unsubscribeFriends();
-      unsubscribePresence();
-    };
-  }, [updateOnlineFriendsCount]);
-
-  useEffect(() => {
-    const unsubscribe = globalThis.window.electron.onSyncFriendRequests(
-      (result) => {
-        dispatch(setFriendRequestCount(result.friendRequestCount));
-      }
-    );
-    return () => unsubscribe();
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        closeDropdown();
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [dropdownOpen]);
-
-  const closeDropdown = () => {
-    setIsDropdownClosing(true);
-    setTimeout(() => {
-      setDropdownOpen(false);
-      setIsDropdownClosing(false);
-    }, 150);
   };
 
   const handleProfileClick = () => {
-    if (userDetails === null) {
-      return;
+    if (isEditingName) return;
+    if (isCollapsed && onToggleCollapse) {
+      onToggleCollapse();
     }
-    if (dropdownOpen) {
-      closeDropdown();
-    } else {
-      setDropdownOpen(true);
-      // Warm the friends cache now so the friends window opens populated.
-      void globalThis.window.electron.prefetchFriends();
-    }
+    setIsEditingName(true);
   };
 
-  useEffect(() => {
-    if (!userDetails) {
-      setChatUnreadCount(0);
-      return;
-    }
-
-    let cancelled = false;
-    const applyState = (state: ChatUnreadState) => {
-      if (!cancelled) setChatUnreadCount(state.totalUnread);
-    };
-
-    globalThis.window.electron
-      .getChatUnreadState()
-      .then(applyState)
-      .catch(() => {});
-    const unsubscribe =
-      globalThis.window.electron.onChatUnreadUpdated(applyState);
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [userDetails]);
-
-  const formatBadgeCount = (count: number) =>
-    count > MAX_UNREAD_BADGE_COUNT
-      ? `${MAX_UNREAD_BADGE_COUNT}+`
-      : String(count);
-
-  const handleViewProfile = () => {
-    if (!userDetails) return;
-    closeDropdown();
-    navigate(`/profile/${userDetails.id}`);
-  };
-
-  const handleNotificationsClick = () => {
-    closeDropdown();
-    navigate("/notifications");
-  };
-
-  const handleFriendsClick = () => {
-    closeDropdown();
-    globalThis.window.electron.openFriendsWindow();
-  };
-
-  const handleSignOutClick = () => {
-    closeDropdown();
-    setShowSignOutModal(true);
-  };
-
-  const handleSignOut = async () => {
-    setIsSigningOut(true);
-    try {
-      await signOut();
-      showSuccessToast(t("user_profile:successfully_signed_out"));
-    } finally {
-      setIsSigningOut(false);
-      setShowSignOutModal(false);
-    }
-    navigate("/");
+  const handleTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditingName(true);
   };
 
   const gameRunningDetails = () => {
@@ -304,137 +108,123 @@ export function SidebarProfile() {
   };
 
   return (
-    <div className="sidebar-profile" ref={containerRef}>
-      <button
-        type="button"
-        className={`sidebar-profile__button${dropdownOpen ? " sidebar-profile__button--active" : ""}`}
+    <div
+      className={`sidebar-profile${isCollapsed ? " sidebar-profile--collapsed" : ""}`}
+    >
+      {isCollapsed && onToggleCollapse && (
+        <button
+          type="button"
+          className="sidebar-profile__drawer-toggle"
+          onClick={onToggleCollapse}
+          data-tooltip-id="sidebar-drawer-toggle-tooltip"
+          data-tooltip-content="Expandir menu lateral"
+          aria-label="Expandir menu lateral"
+        >
+          <PanelLeftOpen size={18} />
+        </button>
+      )}
+
+      <div
+        role="button"
+        tabIndex={0}
+        className={`sidebar-profile__button${isCollapsed ? " sidebar-profile__button--collapsed" : ""}`}
         onClick={handleProfileClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !isEditingName) {
+            handleProfileClick();
+          }
+        }}
+        data-tooltip-id={isCollapsed ? "sidebar-profile-tooltip" : undefined}
+        data-tooltip-content={
+          isCollapsed
+            ? gameRunning
+              ? `${effectivePlayerName} — Jogando ${gameRunning.title}`
+              : `${effectivePlayerName} (Clique para editar)`
+            : undefined
+        }
       >
         <div className="sidebar-profile__button-content">
           <span className="sidebar-profile__avatar">
             <Avatar
-              size={35}
-              src={userDetails?.profileImageUrl}
-              alt={userDetails?.displayName}
+              size={isCollapsed ? 32 : 35}
+              src={null}
+              alt={effectivePlayerName}
             />
-            {userDetails && chatUnreadCount > 0 && (
-              <output
-                className="sidebar-profile__unread-dot"
-                aria-label={t("unread_messages", { count: chatUnreadCount })}
+            {isCollapsed && gameRunning && (
+              <span
+                className="sidebar-profile__running-dot"
+                title={gameRunning.title}
               />
             )}
           </span>
 
-          <div className="sidebar-profile__button-information">
-            <p className="sidebar-profile__button-title">
-              {userDetails ? userDetails.displayName : "Jogador"}
-            </p>
+          {!isCollapsed && (
+            <>
+              <div className="sidebar-profile__button-information">
+                {isEditingName ? (
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    className="sidebar-profile__name-input"
+                    value={nameInput}
+                    maxLength={32}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    onBlur={() => void savePlayerName()}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Enter") {
+                        void savePlayerName();
+                      } else if (e.key === "Escape") {
+                        setIsEditingName(false);
+                        setNameInput(effectivePlayerName);
+                      }
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="sidebar-profile__title-row"
+                    onClick={handleTitleClick}
+                    title="Clique para alterar seu nome de jogador"
+                  >
+                    <p className="sidebar-profile__button-title">
+                      {effectivePlayerName}
+                    </p>
+                    <PencilIcon
+                      size={12}
+                      className="sidebar-profile__edit-icon"
+                    />
+                  </div>
+                )}
 
-            {gameRunning && (
-              <div className="sidebar-profile__button-game-running-title">
-                <small>{gameRunning.title}</small>
+                {gameRunning && (
+                  <div className="sidebar-profile__button-game-running-title">
+                    <small>{gameRunning.title}</small>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {gameRunningDetails()}
-
-          {userDetails && (
-            <ChevronDownIcon
-              size={12}
-              className={`sidebar-profile__chevron${dropdownOpen ? " sidebar-profile__chevron--open" : ""}`}
-            />
+              {gameRunningDetails()}
+            </>
           )}
         </div>
-      </button>
+      </div>
 
-      {dropdownOpen && userDetails && (
-        <div
-          className={`sidebar-profile__dropdown${isDropdownClosing ? " sidebar-profile__dropdown--closing" : ""}`}
+      {!isCollapsed && onToggleCollapse && (
+        <button
+          type="button"
+          className="sidebar-profile__drawer-toggle"
+          onClick={onToggleCollapse}
+          data-tooltip-id="sidebar-drawer-toggle-tooltip"
+          data-tooltip-content="Recolher menu lateral"
+          aria-label="Recolher menu lateral"
         >
-          <button
-            type="button"
-            className="sidebar-profile__dropdown-item"
-            onClick={handleViewProfile}
-          >
-            <PersonIcon size={16} />
-            <span>{t("user_profile:see_profile")}</span>
-          </button>
-
-          <button
-            type="button"
-            className="sidebar-profile__dropdown-item"
-            onClick={handleNotificationsClick}
-          >
-            <BellIcon size={16} />
-            <span>{t("notifications")}</span>
-            {notificationCount > 0 && (
-              <small className="sidebar-profile__dropdown-badge">
-                {notificationCount > 99 ? "99+" : notificationCount}
-              </small>
-            )}
-          </button>
-
-          <button
-            type="button"
-            className="sidebar-profile__dropdown-item"
-            onClick={handleFriendsClick}
-          >
-            <PeopleIcon size={16} />
-            <span>{t("friends")}</span>
-            {onlineFriendsCount > 0 && (
-              <small className="sidebar-profile__dropdown-badge sidebar-profile__dropdown-badge--online">
-                {onlineFriendsCount}
-              </small>
-            )}
-            {chatUnreadCount > 0 && (
-              <small
-                className="sidebar-profile__dropdown-badge sidebar-profile__dropdown-badge--unread"
-                title={t("unread_messages", { count: chatUnreadCount })}
-                aria-label={t("unread_messages", { count: chatUnreadCount })}
-              >
-                {formatBadgeCount(chatUnreadCount)}
-              </small>
-            )}
-          </button>
-
-          {hasActiveSubscription && (
-            <button
-              type="button"
-              className="sidebar-profile__dropdown-item"
-              data-open-support-chat
-              onClick={closeDropdown}
-            >
-              <CommentDiscussionIcon size={16} />
-              <span>{t("need_help")}</span>
-            </button>
-          )}
-
-          <div className="sidebar-profile__dropdown-separator" />
-
-          <button
-            type="button"
-            className="sidebar-profile__dropdown-item sidebar-profile__dropdown-item--danger"
-            onClick={handleSignOutClick}
-            disabled={isSigningOut}
-          >
-            <SignOutIcon size={16} />
-            <span>{t("user_profile:sign_out")}</span>
-          </button>
-        </div>
+          <PanelLeftClose size={18} />
+        </button>
       )}
 
-      <ConfirmationModal
-        visible={showSignOutModal}
-        title={t("user_profile:sign_out_modal_title")}
-        descriptionText={t("user_profile:sign_out_modal_text")}
-        confirmButtonLabel={t("user_profile:sign_out")}
-        cancelButtonLabel={t("user_profile:cancel")}
-        confirmButtonTheme="danger"
-        buttonsIsDisabled={isSigningOut}
-        onConfirm={() => void handleSignOut()}
-        onClose={() => setShowSignOutModal(false)}
-      />
+      <Tooltip id="sidebar-drawer-toggle-tooltip" place="right" />
+      <Tooltip id="sidebar-profile-tooltip" place="right" />
     </div>
   );
 }

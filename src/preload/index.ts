@@ -8,7 +8,6 @@ import type {
   GameShop,
   DownloadProgress,
   UserPreferences,
-  ScreenshotInputStatus,
   AppUpdaterEvent,
   StartGameDownloadPayload,
   GameRunning,
@@ -111,15 +110,16 @@ import type {
   ResolveEpicCloudSaveConflictPayload,
   EpicLaunchOptions,
   EpicLinuxCompatibility,
-  LocalScreenshot,
-  LocalScreenshotDraft,
-  LocalScreenshotUploadOptions,
-  ScreenshotUploadProgress,
   CrossOverStatus,
   MacOSCompatibilityOptions,
   CrossOverProvisionProgress,
+  CrossOverToolWithStatus,
+  CrossOverToolDownloadProgress,
+  HeadBottleDependenciesStatus,
+  MacCompatibilityReport,
+  MacHardwareSpecs,
 } from "@types";
-import type { AuthPage, Downloader } from "@shared";
+import type { Downloader } from "@shared";
 import { NATIVE_WINDOW_DECORATIONS_ARGUMENT } from "../shared/window-layout";
 import type { AxiosProgressEvent } from "axios";
 
@@ -1041,19 +1041,6 @@ contextBridge.exposeInMainWorld("electron", {
     return () =>
       ipcRenderer.removeListener("on-user-preferences-updated", listener);
   },
-  getScreenshotInputStatus: (): Promise<ScreenshotInputStatus> =>
-    ipcRenderer.invoke("getScreenshotInputStatus"),
-  onScreenshotInputStatusChange: (
-    cb: (status: ScreenshotInputStatus) => void
-  ) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      status: ScreenshotInputStatus
-    ) => cb(status);
-    ipcRenderer.on("on-screenshot-input-status-change", listener);
-    return () =>
-      ipcRenderer.removeListener("on-screenshot-input-status-change", listener);
-  },
   autoLaunch: (autoLaunchProps: { enabled: boolean; minimized: boolean }) =>
     ipcRenderer.invoke("autoLaunch", autoLaunchProps),
   authenticateRealDebrid: (apiToken: string) =>
@@ -1066,8 +1053,16 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.invoke("authenticateTorBox", apiToken),
 
   /* Download sources */
-  addDownloadSource: (url: string) =>
-    ipcRenderer.invoke("addDownloadSource", url),
+  addDownloadSource: (
+    url: string,
+    options?: { name?: string; kind?: "auto" | "hydra" | "switch" }
+  ) => ipcRenderer.invoke("addDownloadSource", url, options),
+  toggleDownloadSourceEnabled: (downloadSourceId: string, enabled: boolean) =>
+    ipcRenderer.invoke(
+      "toggleDownloadSourceEnabled",
+      downloadSourceId,
+      enabled
+    ),
   removeDownloadSource: (url: string, removeAll?: boolean) =>
     ipcRenderer.invoke("removeDownloadSource", url, removeAll),
   getDownloadSources: () => ipcRenderer.invoke("getDownloadSources"),
@@ -1289,6 +1284,17 @@ contextBridge.exposeInMainWorld("electron", {
       appPath?: string;
       status?: CrossOverStatus;
     }>,
+  getHeadBottleDependenciesStatus: () =>
+    ipcRenderer.invoke(
+      "getHeadBottleDependenciesStatus"
+    ) as Promise<HeadBottleDependenciesStatus>,
+  provisionHeadBottleDependencies: () =>
+    ipcRenderer.invoke("provisionHeadBottleDependencies") as Promise<{
+      success: boolean;
+      error?: string;
+      status?: CrossOverStatus;
+      dependencies?: HeadBottleDependenciesStatus;
+    }>,
   onCrossOverProvisionProgress: (
     cb: (progress: CrossOverProvisionProgress) => void
   ) => {
@@ -1301,6 +1307,52 @@ contextBridge.exposeInMainWorld("electron", {
       ipcRenderer.removeListener("on-crossover-provision-progress", listener);
     };
   },
+  getCrossOverTools: () =>
+    ipcRenderer.invoke("getCrossOverTools") as Promise<
+      CrossOverToolWithStatus[]
+    >,
+  installCrossOverTool: (toolId: string) =>
+    ipcRenderer.invoke("installCrossOverTool", toolId) as Promise<{
+      success: boolean;
+      error?: string;
+    }>,
+  launchRedWineControlPanelTool: (
+    tool: "winecfg" | "joy" | "reboot" | "taskmgr" | "inetcpl"
+  ) =>
+    ipcRenderer.invoke("launchRedWineControlPanelTool", tool) as Promise<{
+      success: boolean;
+      error?: string;
+    }>,
+  launchCrossOverTool: (toolId: string) =>
+    ipcRenderer.invoke("launchCrossOverTool", toolId) as Promise<{
+      success: boolean;
+      error?: string;
+    }>,
+  onCrossOverToolProgress: (
+    cb: (progress: CrossOverToolDownloadProgress) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      progress: CrossOverToolDownloadProgress
+    ) => cb(progress);
+    ipcRenderer.on("on-crossover-tool-progress", listener);
+    return () => {
+      ipcRenderer.removeListener("on-crossover-tool-progress", listener);
+    };
+  },
+  getMacCompatibility: (
+    gameTitle: string,
+    steamAppId?: string | null,
+    forceRefresh = false
+  ) =>
+    ipcRenderer.invoke(
+      "getMacCompatibility",
+      gameTitle,
+      steamAppId,
+      forceRefresh
+    ) as Promise<MacCompatibilityReport>,
+  getMacHardwareSpecs: () =>
+    ipcRenderer.invoke("getMacHardwareSpecs") as Promise<MacHardwareSpecs>,
   getInstalledProtonVersions: () =>
     ipcRenderer.invoke("getInstalledProtonVersions") as Promise<
       ProtonVersion[]
@@ -1657,68 +1709,12 @@ contextBridge.exposeInMainWorld("electron", {
   clipboard: {
     writeText: (text: string) =>
       ipcRenderer.invoke("clipboardWriteText", text) as Promise<void>,
-    writeImage: (ownerId: string, screenshotId: string) =>
-      ipcRenderer.invoke(
-        "clipboardWriteImage",
-        ownerId,
-        screenshotId
-      ) as Promise<boolean>,
   },
 
   /* Misc */
   ping: () => ipcRenderer.invoke("ping"),
   getVersion: () => ipcRenderer.invoke("getVersion"),
   getDefaultDownloadsPath: () => ipcRenderer.invoke("getDefaultDownloadsPath"),
-  getScreenshotsPath: () => ipcRenderer.invoke("getScreenshotsPath"),
-  getScreenshotsFolderPath: () =>
-    ipcRenderer.invoke("getScreenshotsFolderPath"),
-  getLocalScreenshots: () => ipcRenderer.invoke("getLocalScreenshots"),
-  getLocalScreenshotsForGame: (shop: GameShop, objectId: string) =>
-    ipcRenderer.invoke("getLocalScreenshotsForGame", shop, objectId),
-  deleteLocalScreenshotsForGame: (shop: GameShop, objectId: string) =>
-    ipcRenderer.invoke("deleteLocalScreenshotsForGame", shop, objectId),
-  countLocalScreenshotFilesForGame: (shop: GameShop, objectId: string) =>
-    ipcRenderer.invoke("countLocalScreenshotFilesForGame", shop, objectId),
-  getPublishedScreenshotIdsForGame: (shop: GameShop, objectId: string) =>
-    ipcRenderer.invoke("getPublishedScreenshotIdsForGame", shop, objectId),
-  forgetPublishedScreenshots: (screenshotIds: string[]) =>
-    ipcRenderer.invoke("forgetPublishedScreenshots", screenshotIds),
-  uploadLocalScreenshot: (
-    clientId: string,
-    options: LocalScreenshotUploadOptions
-  ) => ipcRenderer.invoke("uploadLocalScreenshot", clientId, options),
-  updateLocalScreenshotDraft: (clientId: string, draft: LocalScreenshotDraft) =>
-    ipcRenderer.invoke("updateLocalScreenshotDraft", clientId, draft),
-  deleteLocalScreenshot: (clientId: string) =>
-    ipcRenderer.invoke("deleteLocalScreenshot", clientId),
-  openScreenshotsFolder: () => ipcRenderer.invoke("openScreenshotsFolder"),
-  onLocalScreenshotsChange: (cb: (screenshots: LocalScreenshot[]) => void) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      screenshots: LocalScreenshot[]
-    ) => cb(screenshots);
-    ipcRenderer.on("on-local-screenshots-change", listener);
-    return () =>
-      ipcRenderer.removeListener("on-local-screenshots-change", listener);
-  },
-  onLocalScreenshotsMissing: (cb: (count: number) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, count: number) =>
-      cb(count);
-    ipcRenderer.on("on-local-screenshots-missing", listener);
-    return () =>
-      ipcRenderer.removeListener("on-local-screenshots-missing", listener);
-  },
-  onScreenshotUploadProgress: (
-    cb: (progress: ScreenshotUploadProgress) => void
-  ) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      progress: ScreenshotUploadProgress
-    ) => cb(progress);
-    ipcRenderer.on("on-screenshot-upload-progress", listener);
-    return () =>
-      ipcRenderer.removeListener("on-screenshot-upload-progress", listener);
-  },
 
   getAchievementSouvenirSyncStatus: () =>
     ipcRenderer.invoke("getAchievementSouvenirSyncStatus"),
@@ -1749,16 +1745,6 @@ contextBridge.exposeInMainWorld("electron", {
     return () =>
       ipcRenderer.removeListener(
         "on-achievement-souvenir-sync-completed",
-        listener
-      );
-  },
-  onAchievementSouvenirScreenshotsMissing: (cb: (count: number) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, count: number) =>
-      cb(count);
-    ipcRenderer.on("on-achievement-souvenir-screenshots-missing", listener);
-    return () =>
-      ipcRenderer.removeListener(
-        "on-achievement-souvenir-screenshots-missing",
         listener
       );
   },
@@ -2231,8 +2217,6 @@ contextBridge.exposeInMainWorld("electron", {
   /* Auth */
   getAuth: () => ipcRenderer.invoke("getAuth"),
   signOut: () => ipcRenderer.invoke("signOut"),
-  openAuthWindow: (page: AuthPage) =>
-    ipcRenderer.invoke("openAuthWindow", page),
   minimizeAuthWindow: () => ipcRenderer.invoke("minimizeAuthWindow"),
   closeAuthWindow: () => ipcRenderer.invoke("closeAuthWindow"),
   onSignIn: (cb: () => void) => {
@@ -2654,6 +2638,359 @@ contextBridge.exposeInMainWorld("electron", {
   getAvailableDrives: () => ipcRenderer.invoke("getAvailableDrives"),
   transferGameFiles: (shop: GameShop, objectId: string, destParent: string) =>
     ipcRenderer.invoke("transferGameFiles", shop, objectId, destParent),
+
+  /* NxNative & Nx2Android Backend */
+  nxGetRepoStatus: (fetchRemote?: boolean) =>
+    ipcRenderer.invoke("nxGetRepoStatus", fetchRemote),
+  nxCloneRepo: (destinationPath?: string) =>
+    ipcRenderer.invoke("nxCloneRepo", destinationPath),
+  nxSyncUpstreamNxnative: () => ipcRenderer.invoke("nxSyncUpstreamNxnative"),
+  nxSyncUpstreamNx2Android: () =>
+    ipcRenderer.invoke("nxSyncUpstreamNx2Android"),
+  nxGetResolvedPaths: () => ipcRenderer.invoke("nxGetResolvedPaths"),
+  nxApplyCacheRootPreset: (
+    mode: "app-adjacent" | "custom",
+    customRoot?: string,
+    includeOutput?: boolean
+  ) =>
+    ipcRenderer.invoke(
+      "nxApplyCacheRootPreset",
+      mode,
+      customRoot,
+      includeOutput
+    ),
+  nxCheckAndroidProfileSupport: (titleId: string) =>
+    ipcRenderer.invoke("nxCheckAndroidProfileSupport", titleId),
+  nxMigrateAppSupportFolder: (sourceDir: string, targetDir: string) =>
+    ipcRenderer.invoke("nxMigrateAppSupportFolder", sourceDir, targetDir),
+  nxGetSystemHardwareInfo: () => ipcRenderer.invoke("nxGetSystemHardwareInfo"),
+  nxRevealInFinder: (targetPath: string) =>
+    ipcRenderer.invoke("nxRevealInFinder", targetPath),
+  nxGetCompatibleGames: (forceRefresh?: boolean) =>
+    ipcRenderer.invoke("nxGetCompatibleGames", forceRefresh),
+  nxRefreshCompatibleGames: () =>
+    ipcRenderer.invoke("nxRefreshCompatibleGames"),
+  nxSyncSwitchSources: () => ipcRenderer.invoke("nxSyncSwitchSources"),
+  nxResolveGameStreams: (titleId: string) =>
+    ipcRenderer.invoke("nxResolveGameStreams", titleId),
+  nxResolveLiveGameStreams: (
+    titleId: string,
+    title: string,
+    generation: "switch1" | "switch2"
+  ) =>
+    ipcRenderer.invoke("nxResolveLiveGameStreams", titleId, title, generation),
+  nxStartSwitchGameDownload: (params: Record<string, unknown>) =>
+    ipcRenderer.invoke("nxStartSwitchGameDownload", params),
+  nxOpenExternalUrl: (url: string) =>
+    ipcRenderer.invoke("nxOpenExternalUrl", url),
+  nxScanLibraryAndRoms: () => ipcRenderer.invoke("nxScanLibraryAndRoms"),
+  nxGetRomDetailsForGame: (shop: "switch1" | "switch2", objectId: string) =>
+    ipcRenderer.invoke("nxGetRomDetailsForGame", shop, objectId),
+  nxSelectRomForGameDialog: (shop: "switch1" | "switch2", objectId: string) =>
+    ipcRenderer.invoke("nxSelectRomForGameDialog", shop, objectId),
+  nxGetHubStatus: () => ipcRenderer.invoke("nxGetHubStatus"),
+  nxDeployToIosHub: (params: Record<string, unknown>) =>
+    ipcRenderer.invoke("nxDeployToIosHub", params),
+  nxOpenXcodeAccounts: () => ipcRenderer.invoke("nxOpenXcodeAccounts"),
+  nxGetBuildEstimate: (params: Record<string, unknown>) =>
+    ipcRenderer.invoke("nxGetBuildEstimate", params),
+  nxGetMetalToolchainInfo: () => ipcRenderer.invoke("nxGetMetalToolchainInfo"),
+  nxListIosDevicesAndTeams: (force?: boolean) =>
+    ipcRenderer.invoke("nxListIosDevicesAndTeams", force),
+  nxStartPortBuild: (options: Record<string, unknown>) =>
+    ipcRenderer.invoke("nxStartPortBuild", options),
+  nxCancelPortBuild: () => ipcRenderer.invoke("nxCancelPortBuild"),
+  nxGetActiveBuildJob: () => ipcRenderer.invoke("nxGetActiveBuildJob"),
+  nxGetGameRuntimeConfig: (shop: "switch1" | "switch2", objectId: string) =>
+    ipcRenderer.invoke("nxGetGameRuntimeConfig", shop, objectId),
+  nxSaveGameRuntimeConfig: (
+    shop: "switch1" | "switch2",
+    objectId: string,
+    config: Record<string, unknown>
+  ) => ipcRenderer.invoke("nxSaveGameRuntimeConfig", shop, objectId, config),
+  nxGetGameLanguages: (appPath: string) =>
+    ipcRenderer.invoke("nxGetGameLanguages", appPath),
+  nxLaunchSwitchGame: (shop: "switch1" | "switch2", objectId: string) =>
+    ipcRenderer.invoke("nxLaunchSwitchGame", shop, objectId),
+  nxListPresets: (titleId: string, gameTitle?: string) =>
+    ipcRenderer.invoke("nxListPresets", titleId, gameTitle),
+  nxSavePreset: (
+    titleId: string,
+    name: string,
+    config: Record<string, unknown>,
+    gameTitle?: string
+  ) => ipcRenderer.invoke("nxSavePreset", titleId, name, config, gameTitle),
+  nxDeletePreset: (titleId: string, presetName: string) =>
+    ipcRenderer.invoke("nxDeletePreset", titleId, presetName),
+  nxExportPresetDialog: (preset: Record<string, unknown>, gameTitle?: string) =>
+    ipcRenderer.invoke("nxExportPresetDialog", preset, gameTitle),
+  nxImportPresetDialog: (titleId: string, gameTitle?: string) =>
+    ipcRenderer.invoke("nxImportPresetDialog", titleId, gameTitle),
+  nxListMods: (titleId: string, appPath?: string | null) =>
+    ipcRenderer.invoke("nxListMods", titleId, appPath),
+  nxInstallModDialog: (titleId: string) =>
+    ipcRenderer.invoke("nxInstallModDialog", titleId),
+  nxToggleMod: (titleId: string, folderPath: string) =>
+    ipcRenderer.invoke("nxToggleMod", titleId, folderPath),
+  nxDeleteMod: (titleId: string, folderPath: string) =>
+    ipcRenderer.invoke("nxDeleteMod", titleId, folderPath),
+  nxOpenModsFolder: (titleId: string) =>
+    ipcRenderer.invoke("nxOpenModsFolder", titleId),
+  nxGetGameICloudStatus: (titleId: string) =>
+    ipcRenderer.invoke("nxGetGameICloudStatus", titleId),
+  nxSetGameICloudSync: (titleId: string, enabled: boolean) =>
+    ipcRenderer.invoke("nxSetGameICloudSync", titleId, enabled),
+  nxOpenSaveFolder: (titleId: string) =>
+    ipcRenderer.invoke("nxOpenSaveFolder", titleId),
+  nxCheckPrerequisites: () => ipcRenderer.invoke("nxCheckPrerequisites"),
+  nxGetMissingDependenciesForPlatform: (platform: string) =>
+    ipcRenderer.invoke("nxGetMissingDependenciesForPlatform", platform),
+  nxInstallDependency: (dependencyId: string) =>
+    ipcRenderer.invoke("nxInstallDependency", dependencyId),
+  nxRepairDependency: (dependencyId: string) =>
+    ipcRenderer.invoke("nxRepairDependency", dependencyId),
+  nxUninstallDependency: (dependencyId: string) =>
+    ipcRenderer.invoke("nxUninstallDependency", dependencyId),
+  nxInstallMissingDependencies: (platform?: string) =>
+    ipcRenderer.invoke("nxInstallMissingDependencies", platform),
+  nxDetectProdKeys: () => ipcRenderer.invoke("nxDetectProdKeys"),
+  nxSelectProdKeysDialog: () => ipcRenderer.invoke("nxSelectProdKeysDialog"),
+  nxGetStorageStats: () => ipcRenderer.invoke("nxGetStorageStats"),
+  nxCleanBuildCache: () => ipcRenderer.invoke("nxCleanBuildCache"),
+  nxCleanArtworkCache: () => ipcRenderer.invoke("nxCleanArtworkCache"),
+  nxPurgeICloudBackups: () => ipcRenderer.invoke("nxPurgeICloudBackups"),
+  nxSetGlobalICloudSync: (enabled: boolean) =>
+    ipcRenderer.invoke("nxSetGlobalICloudSync", enabled),
+
+  /* Controllers & Keyboard Profiles (P1-P8) */
+  controllersGetState: () => ipcRenderer.invoke("controllersGetState"),
+  controllersSaveProfile: (
+    profile: Record<string, unknown>,
+    syncKeyboardGlobally?: boolean
+  ) =>
+    ipcRenderer.invoke("controllersSaveProfile", profile, syncKeyboardGlobally),
+  controllersCreateProfile: (name: string, templateId?: string) =>
+    ipcRenderer.invoke("controllersCreateProfile", name, templateId),
+  controllersDuplicateProfile: (profileId: string) =>
+    ipcRenderer.invoke("controllersDuplicateProfile", profileId),
+  controllersDeleteProfile: (profileId: string) =>
+    ipcRenderer.invoke("controllersDeleteProfile", profileId),
+  controllersSetPlayerProfile: (playerSlot: number, profileId: string) =>
+    ipcRenderer.invoke("controllersSetPlayerProfile", playerSlot, profileId),
+  controllersExportMappings: () =>
+    ipcRenderer.invoke("controllersExportMappings"),
+  controllersSetGameProfiles: (
+    shop: GameShop,
+    objectId: string,
+    controllerProfileId: string | null,
+    playerProfileIds: Record<string, string> | null
+  ) =>
+    ipcRenderer.invoke(
+      "controllersSetGameProfiles",
+      shop,
+      objectId,
+      controllerProfileId,
+      playerProfileIds
+    ),
+
+  /* Console Logs */
+  logsGetAll: () => ipcRenderer.invoke("logsGetAll"),
+  logsClear: () => ipcRenderer.invoke("logsClear"),
+
+  /* IGDB Metadata API */
+  igdbGetStatus: () => ipcRenderer.invoke("igdbGetStatus"),
+  igdbSaveCredentials: (clientId: string, clientSecret: string) =>
+    ipcRenderer.invoke("igdbSaveCredentials", clientId, clientSecret),
+  igdbTestConnection: () => ipcRenderer.invoke("igdbTestConnection"),
+  igdbClearCache: () => ipcRenderer.invoke("igdbClearCache"),
+
+  /* Mac Native Catalogue & Downloads */
+  macNativeGetCatalogue: (forceRefresh?: boolean) =>
+    ipcRenderer.invoke("macNativeGetCatalogue", forceRefresh),
+  macNativeSearchCatalogue: (query: string) =>
+    ipcRenderer.invoke("macNativeSearchCatalogue", query),
+  macNativeGetDownloadOptions: (objectId: string, fallbackTitle?: string) =>
+    ipcRenderer.invoke("macNativeGetDownloadOptions", objectId, fallbackTitle),
+  macNativeStartDownload: (params: any) =>
+    ipcRenderer.invoke("macNativeStartDownload", params),
+
+  /* Windows iCloud Drive Save Sync */
+  icloudGetStatus: () => ipcRenderer.invoke("icloudGetStatus"),
+  icloudGetGameSaveInfo: (shop: GameShop, objectId: string) =>
+    ipcRenderer.invoke("icloudGetGameSaveInfo", shop, objectId),
+  icloudBackupGameSave: (shop: GameShop, objectId: string) =>
+    ipcRenderer.invoke("icloudBackupGameSave", shop, objectId),
+  icloudRestoreGameSave: (shop: GameShop, objectId: string) =>
+    ipcRenderer.invoke("icloudRestoreGameSave", shop, objectId),
+  icloudSetCustomSavePath: (
+    shop: GameShop,
+    objectId: string,
+    customPath: string | null
+  ) =>
+    ipcRenderer.invoke("icloudSetCustomSavePath", shop, objectId, customPath),
+  icloudSetAutoSync: (shop: GameShop, objectId: string, enabled: boolean) =>
+    ipcRenderer.invoke("icloudSetAutoSync", shop, objectId, enabled),
+  icloudOpenSaveFolder: (shop: GameShop, objectId: string) =>
+    ipcRenderer.invoke("icloudOpenSaveFolder", shop, objectId),
+
+  /* NxNative & Logs Push Listeners */
+  onNxBuildProgress: (cb: (event: any) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, event: any) => cb(event);
+    ipcRenderer.on("on-nx-build-progress", listener);
+    return () => ipcRenderer.removeListener("on-nx-build-progress", listener);
+  },
+  onNxInstallerProgress: (cb: (event: any) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, event: any) => cb(event);
+    ipcRenderer.on("on-nx-installer-progress", listener);
+    return () =>
+      ipcRenderer.removeListener("on-nx-installer-progress", listener);
+  },
+  onNxLog: (cb: (entry: any) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, entry: any) => cb(entry);
+    ipcRenderer.on("on-nx-log", listener);
+    return () => ipcRenderer.removeListener("on-nx-log", listener);
+  },
+  onNxLibraryUpdated: (cb: (payload: any) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, payload: any) =>
+      cb(payload);
+    ipcRenderer.on("on-nx-library-updated", listener);
+    return () => ipcRenderer.removeListener("on-nx-library-updated", listener);
+  },
+  getSystemUsername: () =>
+    ipcRenderer.invoke("getSystemUsername") as Promise<string>,
+  getGameUninstallPreview: (shop: GameShop, objectId: string) =>
+    ipcRenderer.invoke("getGameUninstallPreview", shop, objectId),
+  uninstallGame: (
+    shop: GameShop,
+    objectId: string,
+    options: import("@types").GameUninstallOptions
+  ) => ipcRenderer.invoke("uninstallGame", shop, objectId, options),
+  getRedWineBottleConfig: (bottleName?: string) =>
+    ipcRenderer.invoke("getRedWineBottleConfig", bottleName),
+  saveRedWineBottleConfig: (
+    config: Partial<import("@types").RedWineBottleConfig>,
+    bottleName?: string
+  ) => ipcRenderer.invoke("saveRedWineBottleConfig", config, bottleName),
+
+  /* Store Accounts & Direct Downloads (Steam & Epic) */
+  storesGetAccounts: () => ipcRenderer.invoke("storesGetAccounts"),
+  storesGetSteamAuthState: () => ipcRenderer.invoke("storesGetSteamAuthState"),
+  storesStartSteamQrLogin: () => ipcRenderer.invoke("storesStartSteamQrLogin"),
+  storesStartSteamCredentialsLogin: (
+    input: import("@types").SteamDepotLoginInput
+  ) => ipcRenderer.invoke("storesStartSteamCredentialsLogin", input),
+  storesSubmitSteamGuardCode: (code: string) =>
+    ipcRenderer.invoke("storesSubmitSteamGuardCode", code),
+  storesCancelSteamLogin: () => ipcRenderer.invoke("storesCancelSteamLogin"),
+  storesDisconnectSteam: () => ipcRenderer.invoke("storesDisconnectSteam"),
+  storesSyncSteamLibrary: () => ipcRenderer.invoke("storesSyncSteamLibrary"),
+  storesStartEpicLogin: () => ipcRenderer.invoke("storesStartEpicLogin"),
+  storesDisconnectEpic: () => ipcRenderer.invoke("storesDisconnectEpic"),
+  storesSyncEpicLibrary: () => ipcRenderer.invoke("storesSyncEpicLibrary"),
+  storesStartGogLogin: () => ipcRenderer.invoke("storesStartGogLogin"),
+  storesDisconnectGog: () => ipcRenderer.invoke("storesDisconnectGog"),
+  storesSyncGogLibrary: () => ipcRenderer.invoke("storesSyncGogLibrary"),
+  storesGetGogDownloads: (gameId: string) =>
+    ipcRenderer.invoke("storesGetGogDownloads", gameId),
+  storesResolveGogDownlink: (downlink: string) =>
+    ipcRenderer.invoke("storesResolveGogDownlink", downlink),
+  storesGetOwnedGames: (provider?: import("@types").StoreProvider) =>
+    ipcRenderer.invoke("storesGetOwnedGames", provider),
+  storesStartGameDownload: (payload: {
+    provider: import("@types").StoreProvider;
+    storeId: string;
+    title: string;
+    username?: string;
+    password?: string;
+    useQr?: boolean;
+    installBaseDir?: string;
+  }) => ipcRenderer.invoke("storesStartGameDownload", payload),
+  storesCancelGameDownload: (payload: {
+    provider: import("@types").StoreProvider;
+    storeId: string;
+  }) => ipcRenderer.invoke("storesCancelGameDownload", payload),
+  storesSubmitDownloadInput: (payload: {
+    provider: import("@types").StoreProvider;
+    storeId: string;
+    value: string;
+  }) => ipcRenderer.invoke("storesSubmitDownloadInput", payload),
+  storesGetActiveDownloads: () =>
+    ipcRenderer.invoke("storesGetActiveDownloads"),
+  getSteamAppReviews: (appId: string, language?: string) =>
+    ipcRenderer.invoke("getSteamAppReviews", appId, language),
+  onSteamAuthState: (
+    cb: (state: import("@types").SteamLoginSessionStatus) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      state: import("@types").SteamLoginSessionStatus
+    ) => cb(state);
+    ipcRenderer.on("on-steam-auth-state", listener);
+    return () => ipcRenderer.removeListener("on-steam-auth-state", listener);
+  },
+  onStoreAccountsUpdated: (cb: () => void) => {
+    const listener = () => cb();
+    ipcRenderer.on("on-store-accounts-updated", listener);
+    return () =>
+      ipcRenderer.removeListener("on-store-accounts-updated", listener);
+  },
+  onStoreDownloadProgress: (
+    cb: (progress: import("@types").StoreDownloadProgress) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      progress: import("@types").StoreDownloadProgress
+    ) => cb(progress);
+    ipcRenderer.on("on-store-download-progress", listener);
+    return () =>
+      ipcRenderer.removeListener("on-store-download-progress", listener);
+  },
+
+  /* Unified Social (Steam + Epic Friends, Chat & Invites) */
+  socialGetFriends: () => ipcRenderer.invoke("socialGetFriends"),
+  socialGetConversations: () => ipcRenderer.invoke("socialGetConversations"),
+  socialGetMessages: (
+    friendId: string,
+    params?: { before?: number; take?: number }
+  ) => ipcRenderer.invoke("socialGetMessages", friendId, params),
+  socialSendMessage: (friendId: string, body: string) =>
+    ipcRenderer.invoke("socialSendMessage", friendId, body),
+  socialSendTyping: (friendId: string) =>
+    ipcRenderer.invoke("socialSendTyping", friendId),
+  socialMarkRead: (friendId: string) =>
+    ipcRenderer.invoke("socialMarkRead", friendId),
+  socialAddFriend: (
+    provider: import("@types").StoreProvider,
+    query: string
+  ) => ipcRenderer.invoke("socialAddFriend", provider, query),
+  socialRespondFriendRequest: (friendId: string, accept: boolean) =>
+    ipcRenderer.invoke("socialRespondFriendRequest", friendId, accept),
+  socialRemoveFriend: (friendId: string) =>
+    ipcRenderer.invoke("socialRemoveFriend", friendId),
+  socialSendGameInvite: (payload: import("@types").SocialSendInvitePayload) =>
+    ipcRenderer.invoke("socialSendGameInvite", payload),
+  socialAcceptGameInvite: (invite: import("@types").SocialGameInvite) =>
+    ipcRenderer.invoke("socialAcceptGameInvite", invite),
+  socialGetInvitableGames: (provider: import("@types").StoreProvider) =>
+    ipcRenderer.invoke("socialGetInvitableGames", provider),
+  onSocialGameInvite: (
+    cb: (payload: {
+      friend: UserFriend;
+      invite: import("@types").SocialGameInvite;
+      message: import("@types").ChatMessageDto;
+    }) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: {
+        friend: UserFriend;
+        invite: import("@types").SocialGameInvite;
+        message: import("@types").ChatMessageDto;
+      }
+    ) => cb(payload);
+    ipcRenderer.on("on-social-game-invite", listener);
+    return () => ipcRenderer.removeListener("on-social-game-invite", listener);
+  },
 });
 
 const reportNetworkStatus = (online: boolean, switched = false) => {

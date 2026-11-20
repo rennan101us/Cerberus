@@ -1,4 +1,11 @@
-import { AppsIcon, GearIcon, HomeIcon, BookIcon } from "@primer/octicons-react";
+import {
+  AppsIcon,
+  GearIcon,
+  HomeIcon,
+  BookIcon,
+  TerminalIcon,
+} from "@primer/octicons-react";
+import { Gamepad2 } from "lucide-react";
 
 import { SidebarDownloadIcon } from "./sidebar-download-icon";
 
@@ -19,6 +26,11 @@ export const routes = [
     render: () => <BookIcon />,
   },
   {
+    path: "/controllers",
+    nameKey: "controllers",
+    render: () => <Gamepad2 size={16} strokeWidth={2} />,
+  },
+  {
     path: "/downloads",
     nameKey: "downloads",
     render: () => <SidebarDownloadIcon />,
@@ -27,5 +39,10 @@ export const routes = [
     path: "/settings",
     nameKey: "settings",
     render: () => <GearIcon />,
+  },
+  {
+    path: "/logs",
+    nameKey: "logs",
+    render: () => <TerminalIcon />,
   },
 ];

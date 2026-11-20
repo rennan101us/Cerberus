@@ -88,13 +88,22 @@ export function GameDetailsContextProvider({
   syncHeaderTitle = true,
   lockAchievementIdentity = false,
 }: Readonly<GameDetailsContextProps>) {
+  const cachedLibraryGame = useAppSelector(
+    (state) =>
+      state.library.value.find(
+        (item) => item.shop === shop && item.objectId === objectId
+      ) ?? null
+  );
+  const cachedLibraryGameRef = useRef<LibraryGame | null>(cachedLibraryGame);
+  cachedLibraryGameRef.current = cachedLibraryGame;
+
   const [shopDetails, setShopDetails] = useState<ShopDetailsWithAssets | null>(
     null
   );
   const [achievements, setAchievements] = useState<UserAchievement[] | null>(
     null
   );
-  const [game, setGame] = useState<LibraryGame | null>(null);
+  const [game, setGame] = useState<LibraryGame | null>(() => cachedLibraryGame);
   const [hasNSFWContentBlocked, setHasNSFWContentBlocked] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const achievementUpdateCountRef = useRef(0);
@@ -103,7 +112,7 @@ export function GameDetailsContextProvider({
 
   const [stats, setStats] = useState<GameStats | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !cachedLibraryGame);
   const [isGameRunning, setIsGameRunning] = useState(false);
   const [showRepacksModal, setShowRepacksModal] = useState(false);
   const [showGameOptionsModal, setShowGameOptionsModal] = useState(false);
@@ -147,6 +156,7 @@ export function GameDetailsContextProvider({
   const pageSyncKey = useRef("");
 
   useEffect(() => {
+    if (!syncHeaderTitle) return;
     const members = presentation?.members ?? (game ? [game] : []);
     const eligible = members.filter(
       (member) =>
@@ -212,42 +222,38 @@ export function GameDetailsContextProvider({
           setIsLoading(false);
         }
 
-        if (userDetails && shop !== "custom") {
-          const achievementUpdateCount = achievementUpdateCountRef.current;
-          const isStaleAchievementResult = () =>
-            abortController.signal.aborted ||
-            achievementUpdateCount !== achievementUpdateCountRef.current;
-          const useRetroAchievements =
-            shop === "launchbox" &&
-            Boolean(userPreferences?.retroAchievementsWebApiKey);
-
-          if (useRetroAchievements) {
-            globalThis.window.electron
-              .getRetroAchievementsAchievements(
-                objectId,
-                shop,
-                result?.retroAchievementsGameId ?? undefined
-              )
-              .then((achievements) => {
-                if (isStaleAchievementResult()) return;
-                setAchievements(achievements ?? []);
-              })
-              .catch(() => {
-                if (!isStaleAchievementResult()) setAchievements([]);
-              });
-          } else {
-            globalThis.window.electron
-              .getUnlockedAchievements(achievementObjectId, achievementShop)
-              .then((achievements) => {
-                if (isStaleAchievementResult()) return;
-                if (achievements) setAchievements(achievements);
-              })
-              .catch(() => void 0);
-          }
+        if (
+          (shop === "switch1" || shop === "switch2" || shop === "mac_native") &&
+          result?.steam_appid &&
+          result.steam_appid > 0
+        ) {
+          void window.electron
+            .getGameStats(String(result.steam_appid), "steam")
+            .then((statsRes) => {
+              if (abortController.signal.aborted) return;
+              setStats(statsRes);
+            })
+            .catch(() => {
+              if (abortController.signal.aborted) return;
+              setStats(null);
+            });
+        } else if (
+          shop === "switch1" ||
+          shop === "switch2" ||
+          shop === "mac_native"
+        ) {
+          setStats(null);
         }
+
+        // Achievements removed platform-wide
       });
 
-    if (shop !== "custom") {
+    if (
+      shop !== "custom" &&
+      shop !== "switch1" &&
+      shop !== "switch2" &&
+      shop !== "mac_native"
+    ) {
       void window.electron
         .getGameStats(catalogueObjectId, catalogueShop)
         .then((result) => {
@@ -304,8 +310,12 @@ export function GameDetailsContextProvider({
   ]);
 
   const refreshGameDetails = useCallback(async () => {
+    if (!syncHeaderTitle) {
+      await updateGame();
+      return;
+    }
     await Promise.all([updateGame(), fetchGameDetails()]);
-  }, [fetchGameDetails, updateGame]);
+  }, [fetchGameDetails, syncHeaderTitle, updateGame]);
 
   const isGameDownloading =
     lastPacket?.gameId === downloadGame?.id &&
@@ -372,9 +382,10 @@ export function GameDetailsContextProvider({
 
   useEffect(() => {
     gameRequestId.current += 1;
+    const initialLibraryGame = cachedLibraryGameRef.current;
     setShopDetails(null);
-    setGame(null);
-    setIsLoading(true);
+    setGame(initialLibraryGame);
+    setIsLoading(!initialLibraryGame);
     setIsGameRunning(false);
     setAchievements(null);
     setGameOptionsInitialCategory("general");
@@ -430,9 +441,13 @@ export function GameDetailsContextProvider({
     const unsubscribe = window.electron.onLibraryBatchComplete(() => {
       refreshGameDetails().catch(() => {});
     });
+    const unsubscribeNx = window.electron.onNxLibraryUpdated?.(() => {
+      refreshGameDetails().catch(() => {});
+    });
 
     return () => {
       unsubscribe();
+      unsubscribeNx?.();
     };
   }, [refreshGameDetails]);
 
@@ -537,7 +552,15 @@ export function GameDetailsContextProvider({
   }, [achievementObjectId, achievementShop, userDetails, presentation]);
 
   useEffect(() => {
-    if (shop === "custom") return;
+    if (
+      shop === "custom" ||
+      shop === "switch1" ||
+      shop === "switch2" ||
+      shop === "mac_native"
+    ) {
+      setRepacks([]);
+      return;
+    }
 
     let cancelled = false;
 
@@ -631,13 +654,23 @@ export function GameDetailsContextProvider({
     setTransferProgress(0);
   };
 
+  const effectiveCatalogueGame =
+    (shop === "switch1" || shop === "switch2" || shop === "mac_native") &&
+    shopDetails?.steam_appid &&
+    shopDetails.steam_appid > 0
+      ? {
+          shop: "steam" as GameShop,
+          objectId: String(shopDetails.steam_appid),
+        }
+      : { shop: catalogueShop, objectId: catalogueObjectId };
+
   return (
     <Provider
       value={{
         game,
         downloadGame,
         presentation: presentation ?? null,
-        catalogueGame: { shop: catalogueShop, objectId: catalogueObjectId },
+        catalogueGame: effectiveCatalogueGame,
         shopDetails,
         shop: lockAchievementIdentity ? achievementShop : operationalShop,
         repacks,

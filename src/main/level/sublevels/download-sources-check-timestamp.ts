@@ -10,6 +10,9 @@ export const getDownloadSourcesCheckBaseline = async (): Promise<
     const timestamp = await db.get(levelKeys.downloadSourcesCheckBaseline, {
       valueEncoding: "utf8",
     });
+    if (!timestamp || typeof timestamp !== "string") {
+      return null;
+    }
 
     // Value was wrapped in quotes for some reason, remove them if they exist
     const baseline = new Date(timestamp.replaceAll('"', ""));

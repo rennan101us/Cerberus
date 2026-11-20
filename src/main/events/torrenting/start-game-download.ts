@@ -3,7 +3,6 @@ import type { Download, StartGameDownloadPayload } from "@types";
 import {
   DownloadManager,
   DownloadOrchestrator,
-  HydraApi,
   logger,
 } from "@main/services";
 import { createGame } from "@main/services/library-sync";
@@ -89,12 +88,7 @@ const startGameDownload = async (
 
     const updatedGame = await gamesSublevel.get(gameKey);
 
-    await Promise.all([
-      createGame(updatedGame!).catch(() => {}),
-      HydraApi.post(`/games/${shop}/${objectId}/download`, null, {
-        needsAuth: false,
-      }).catch(() => {}),
-    ]);
+    await createGame(updatedGame!).catch(() => {});
 
     return { ok: true };
   } catch (err: unknown) {

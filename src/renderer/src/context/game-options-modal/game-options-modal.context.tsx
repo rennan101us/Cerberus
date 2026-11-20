@@ -54,13 +54,14 @@ function GameOptionsModalHost({
   onNavigateHome,
 }: Readonly<GameOptionsModalHostProps>) {
   const { game } = useContext(gameDetailsContext);
+  const effectiveGame = game ?? target.game;
 
-  if (!game) return null;
+  if (!effectiveGame) return null;
 
   return (
     <GameOptionsModal
       visible
-      game={game}
+      game={effectiveGame}
       initialCategory={target.initialCategory}
       onClose={onClose}
       onNavigateHome={onNavigateHome}

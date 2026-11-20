@@ -1,24 +1,22 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useToast, useUserDetails } from "@renderer/hooks";
-import {
-  FRIEND_CODE_LENGTH,
-  getAddFriendErrorKey,
-  isUserNotFoundError,
-  normalizeFriendCode,
-} from "./add-friend-errors";
+import { useToast } from "@renderer/hooks";
+import type { StoreProvider } from "@types";
 
 interface UseAddFriendOptions {
+  provider: StoreProvider;
   isFriend: (userId: string) => boolean;
-  onOpenProfile: (userId: string) => void;
+  onSuccess?: () => void;
 }
 
-export function useAddFriend({ isFriend, onOpenProfile }: UseAddFriendOptions) {
+export function useAddFriend({
+  provider,
+  isFriend,
+  onSuccess,
+}: UseAddFriendOptions) {
   const { t } = useTranslation("friends_window");
   const { t: tProfile } = useTranslation("user_profile");
-  const { userDetails, sendFriendRequest, updateFriendRequestState } =
-    useUserDetails();
   const toast = useToast();
 
   const showToastPreferringMainWindow = (
@@ -43,62 +41,51 @@ export function useAddFriend({ isFriend, onOpenProfile }: UseAddFriendOptions) {
   const [isSending, setIsSending] = useState(false);
 
   const changeFriendCode = useCallback((value: string) => {
-    setFriendCode(normalizeFriendCode(value));
+    setFriendCode(value);
   }, []);
 
-  const hasCompleteCode = () => {
-    if (friendCode.length === FRIEND_CODE_LENGTH) return true;
-
-    showErrorToast(tProfile("friend_code_length_error"));
-    return false;
-  };
-
   const sendRequest = async () => {
-    if (isSending || !hasCompleteCode()) return;
+    const query = friendCode.trim();
+    if (isSending) return;
 
-    if (userDetails?.id === friendCode) {
-      showErrorToast(t("cannot_add_yourself"));
+    if (!query) {
+      showErrorToast(
+        provider === "steam"
+          ? "Informe um SteamID64, Código de Amigo Steam ou link de perfil."
+          : "Informe o nome de exibição da Epic Games."
+      );
       return;
     }
 
-    if (isFriend(friendCode)) {
+    const prefixedId = `${provider}:${query}`;
+    if (isFriend(prefixedId)) {
       showErrorToast(t("already_friends"));
       return;
     }
 
     setIsSending(true);
     try {
-      await sendFriendRequest(friendCode);
+      await globalThis.window.electron.socialAddFriend(provider, query);
       setFriendCode("");
       showSuccessToast(tProfile("request_sent"));
+      onSuccess?.();
     } catch (error) {
-      const errorKey = getAddFriendErrorKey(error);
-      showErrorToast(errorKey ? t(errorKey) : tProfile("error_adding_friend"));
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : tProfile("error_adding_friend");
+      showErrorToast(message);
     } finally {
       setIsSending(false);
     }
   };
 
-  const openProfile = async () => {
-    if (!hasCompleteCode()) return;
-
-    const exists = await globalThis.window.electron.hydraApi
-      .get(`/users/${friendCode}`)
-      .then(() => true)
-      .catch((error: unknown) => !isUserNotFoundError(error));
-
-    if (!exists) {
-      showErrorToast(t("friend_code_not_found"));
-      return;
-    }
-
-    onOpenProfile(friendCode);
-  };
-
   const cancelSentRequest = (userId: string) => {
-    updateFriendRequestState(userId, "CANCEL").catch(() => {
-      showErrorToast(tProfile("try_again"));
-    });
+    void globalThis.window.electron
+      .socialRespondFriendRequest(userId, false)
+      .catch(() => {
+        showErrorToast(tProfile("try_again"));
+      });
   };
 
   return {
@@ -106,7 +93,6 @@ export function useAddFriend({ isFriend, onOpenProfile }: UseAddFriendOptions) {
     changeFriendCode,
     isSending,
     sendRequest,
-    openProfile,
     cancelSentRequest,
   };
 }

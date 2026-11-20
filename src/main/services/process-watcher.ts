@@ -60,12 +60,7 @@ import {
   recompilationGameSessions,
   setGamePlaytime,
 } from "./game-running-state";
-import {
-  prepareLinuxGameCaptureSession,
-  stopLinuxGameCaptureSession,
-} from "./linux-game-capture-session";
 import { updateGameRecord } from "./game-record-updater";
-import { onScreenshotGameClosed, onScreenshotGameStarted } from "./screenshots";
 import { GameExecutables } from "./game-executables";
 import {
   onManagedEpicClosed,
@@ -398,6 +393,18 @@ export const watchProcesses = async () => {
     let matchPaths: string[];
     if (isWindowsBatchFile(executablePath)) {
       matchPaths = trackingPaths.length ? trackingPaths : [executablePath];
+    } else if (
+      platform === "darwin" &&
+      executablePath.toLowerCase().endsWith(".app")
+    ) {
+      matchPaths = Array.from(
+        new Set([
+          executablePath,
+          path.join(executablePath, "Contents", "MacOS", "nxnative"),
+          path.join(executablePath, "Contents", "MacOS", "dmhost"),
+          ...trackingPaths,
+        ])
+      );
     } else {
       matchPaths = [executablePath, ...trackingPaths];
     }
@@ -533,10 +540,6 @@ async function onOpenGame(game: Game, matchedPath: string) {
 
   if (authContext && !HydraApi.isAuthContextCurrent(authContext)) return;
 
-  if (game.remoteId) {
-    void prepareLinuxGameCaptureSession(gameKey);
-  }
-
   setGamePlaytime(gameKey, {
     lastTick: now,
     firstTick: now,
@@ -551,8 +554,6 @@ async function onOpenGame(game: Game, matchedPath: string) {
     performanceNow: now,
     matchedPath,
   });
-
-  void onScreenshotGameStarted(gameKey);
 
   // On Linux, keep the launcher visible briefly and let it auto-close itself.
   if (process.platform !== "linux") {
@@ -734,7 +735,7 @@ function onTickGame(game: Game) {
   }
 }
 
-const onCloseGame = (game: Game, options: { isShutdown?: boolean } = {}) => {
+const onCloseGame = (game: Game, _options: { isShutdown?: boolean } = {}) => {
   const authContext = HydraApi.getAuthContext();
   const hydraRevision = getHydraPlaytimeRevision(
     levelKeys.game(game.shop, game.objectId)
@@ -745,7 +746,6 @@ const onCloseGame = (game: Game, options: { isShutdown?: boolean } = {}) => {
   if (!gamePlaytime) return;
   deleteGamePlaytime(gameKey);
   launchedGamePids.delete(gameKey);
-  stopLinuxGameCaptureSession(gameKey);
   PowerSaveBlockerManager.markGameClosed(gameKey);
   abortAchievementMetadataExport(gameKey);
 
@@ -784,7 +784,24 @@ const onCloseGame = (game: Game, options: { isShutdown?: boolean } = {}) => {
 
   void persistGamePlaytime(gameKey, updatedGame, authContext, delta);
 
-  if (!options.isShutdown) onScreenshotGameClosed(gameKey);
+  if (
+    process.platform === "darwin" &&
+    (game.shop === "steam" ||
+      game.shop === "epic" ||
+      game.shop === "custom") &&
+    game.automaticCloudSync !== false
+  ) {
+    import("./icloud-save-service")
+      .then(({ ICloudSaveService }) => {
+        if (ICloudSaveService.getStatus().writable) {
+          return ICloudSaveService.backupGameToICloud(game.shop, game.objectId);
+        }
+        return null;
+      })
+      .catch((error: unknown) => {
+        logger.warn("[iCloudSave] Auto-backup on close failed:", error);
+      });
+  }
 
   if (game.shop === "custom") return;
 

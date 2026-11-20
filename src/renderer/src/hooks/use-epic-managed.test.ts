@@ -711,6 +711,10 @@ describe("Epic managed UI lifecycle", () => {
           useAppSelector: () => ({}),
           useIsNonSteamExecutable: () => false,
           useLibrary: () => ({ updateLibrary: async () => {} }),
+          useToast: () => ({
+            showSuccessToast: () => {},
+            showErrorToast: () => {},
+          }),
         },
         "@shared": { getOfficialStoreMembers, isEpicMemberInCurrentScope },
         "@renderer/components": Object.fromEntries(
@@ -746,6 +750,7 @@ describe("Epic managed UI lifecycle", () => {
         "./download-settings-modal": { DownloadSettingsModal: () => null },
         "./epic-install-modal": { EpicInstallModal: () => null },
         "@renderer/assets/epic-integration-logo.svg?react": () => null,
+        "@renderer/assets/gog-integration-logo.svg?react": () => null,
         "./repacks-modal.scss": {},
         "./repack-availability": loadModule(
           "../pages/game-details/modals/repack-availability.ts"
@@ -858,6 +863,10 @@ describe("Epic managed UI lifecycle", () => {
           useAppSelector: () => ({}),
           useIsNonSteamExecutable: () => false,
           useLibrary: () => ({ updateLibrary: async () => {} }),
+          useToast: () => ({
+            showSuccessToast: () => {},
+            showErrorToast: () => {},
+          }),
         },
         "@shared": { getOfficialStoreMembers, isEpicMemberInCurrentScope },
         "@renderer/components": {
@@ -903,6 +912,7 @@ describe("Epic managed UI lifecycle", () => {
         "./download-settings-modal": { DownloadSettingsModal: () => null },
         "./epic-install-modal": { EpicInstallModal: Install },
         "@renderer/assets/epic-integration-logo.svg?react": () => null,
+        "@renderer/assets/gog-integration-logo.svg?react": () => null,
         "./repacks-modal.scss": {},
         "./repack-availability": loadModule(
           "../pages/game-details/modals/repack-availability.ts"
@@ -2346,7 +2356,10 @@ describe("Epic managed UI lifecycle", () => {
       }) => (visible ? React.createElement("section", null, children) : null);
       const hooks = {
         useAppSelector: (select: (state: unknown) => unknown) =>
-          select({ ps4PkgJob: { job: null } }),
+          select({
+            ps4PkgJob: { job: null },
+            nxBuildJob: { activeJob: null },
+          }),
         useDownload: () => ({ isGameDeleting: () => false }),
         useGameExecutablePicker: () => async () => false,
         useInstallerAvailability: () => ({}),
@@ -2408,6 +2421,9 @@ describe("Epic managed UI lifecycle", () => {
             getFinishedDownloadStep: () => null,
           },
           "../modals/disc-selection-modal": { DiscSelectionModal: () => null },
+          "../modals/switch-port-modal/switch-port-modal": {
+            SwitchPortModal: () => null,
+          },
           "../modals/epic-cloud-save-conflict-modal": {
             EpicCloudSaveConflictModal: ({
               game: conflictGame,

@@ -42,6 +42,24 @@
     padding: calc(globals.$spacing-unit * 2);
     padding-right: calc(globals.$spacing-unit * 4);
     position: relative;
+
+    &--official {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0.015) 100%
+      );
+
+      &:hover {
+        border-color: rgba(255, 255, 255, 0.32);
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.09) 0%,
+          rgba(255, 255, 255, 0.035) 100%
+        );
+      }
+    }
   }
 
   &__availability-orb {
@@ -90,10 +108,37 @@
 
   &__steam-title {
     color: globals.$body-color;
+    width: 100%;
 
     svg {
       flex-shrink: 0;
     }
+  }
+
+  &__section-header {
+    display: flex;
+    align-items: center;
+    gap: calc(globals.$spacing-unit * 1);
+    font-size: globals.$tiny-font-size;
+    font-weight: 700;
+    color: var(--color-text-secondary, globals.$muted-color);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding-top: calc(globals.$spacing-unit * 1);
+    padding-bottom: calc(globals.$spacing-unit * 0.25);
+  }
+
+  &__store-badge {
+    background-color: rgba(59, 130, 246, 0.16);
+    color: rgb(147, 197, 253);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: globals.$tiny-font-size;
+    font-weight: 600;
+    text-align: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    margin-left: auto;
   }
 
   &__new-badge {

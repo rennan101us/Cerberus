@@ -2,27 +2,42 @@ import { HydraApi } from "@main/services";
 import { registerEvent } from "../register-event";
 import { downloadSourcesSublevel } from "@main/level";
 import type { DownloadSource } from "@types";
+import { NxCloudScraperService } from "@main/services/nxnative/nx-cloud-scraper-service";
 
 const syncDownloadSources = async (_event: Electron.IpcMainInvokeEvent) => {
   const downloadSources = await downloadSourcesSublevel.values().all();
 
-  const response = await HydraApi.post<DownloadSource[]>(
-    "/download-sources/sync",
-    {
-      ids: downloadSources.map((downloadSource) => downloadSource.id),
-    },
-    { needsAuth: false }
+  const hydraSources = downloadSources.filter(
+    (s) => s.sourceKind !== "switch"
+  );
+  const hasSwitchSources = downloadSources.some(
+    (s) => s.sourceKind === "switch"
   );
 
-  for (const downloadSource of response) {
-    const existingDownloadSource = downloadSources.find(
-      (source) => source.id === downloadSource.id
+  if (hydraSources.length > 0) {
+    const response = await HydraApi.post<DownloadSource[]>(
+      "/download-sources/sync",
+      {
+        ids: hydraSources.map((downloadSource) => downloadSource.id),
+      },
+      { needsAuth: false }
     );
 
-    await downloadSourcesSublevel.put(downloadSource.id, {
-      ...existingDownloadSource,
-      ...downloadSource,
-    });
+    for (const downloadSource of response) {
+      const existingDownloadSource = hydraSources.find(
+        (source) => source.id === downloadSource.id
+      );
+
+      await downloadSourcesSublevel.put(downloadSource.id, {
+        ...existingDownloadSource,
+        ...downloadSource,
+        sourceKind: "hydra",
+      });
+    }
+  }
+
+  if (hasSwitchSources) {
+    await NxCloudScraperService.syncAllSwitchSources();
   }
 };
 

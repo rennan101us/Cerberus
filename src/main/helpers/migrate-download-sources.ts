@@ -10,7 +10,11 @@ export const migrateDownloadSources = async () => {
   const downloadSources = downloadSourcesSublevel.iterator();
 
   for await (const [key, value] of downloadSources) {
-    if (!value.isRemote) {
+    if (
+      !value.isRemote &&
+      value.sourceKind !== "switch" &&
+      !key.startsWith("switch_")
+    ) {
       try {
         const downloadSource = await HydraApi.post<DownloadSource>(
           "/download-sources",

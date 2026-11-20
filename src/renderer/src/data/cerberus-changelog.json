@@ -1,0 +1,30 @@
+[
+  {
+    "version": "0.0.1",
+    "releaseDate": "2026-11-18",
+    "title": "Cerberus Standalone",
+    "summary": "Lançamento inaugural do Cerberus como plataforma de jogos standalone, local-first e otimizada para macOS Apple Silicon com Red Wine.",
+    "changes": [
+      {
+        "type": "feature",
+        "text": "Identidade Cerberus totalmente independente: sem dependência de autenticação em nuvem, rankings externos ou changelogs legados."
+      },
+      {
+        "type": "feature",
+        "text": "Relatórios de Compatibilidade macOS & Red Wine integrados diretamente na página do jogo, reunindo dados e comentários do MacGamingDB, AppleGamingWiki e Base Red Wine."
+      },
+      {
+        "type": "feature",
+        "text": "Catálogo de Ferramentas Red Wine na nova aba do Catálogo para baixar e instalar Steam (Windows), Epic Games, GOG Galaxy, Battle.net, EA App, Ubisoft Connect e Rockstar Games Launcher na Head Bottle (Default)."
+      },
+      {
+        "type": "improvement",
+        "text": "Descoberta automática de jogos instalados na Head Bottle (Default) do Red Wine, roteamento universal de execução com D3DMetal/DXMT/MSync e enriquecimento automático de capas."
+      },
+      {
+        "type": "improvement",
+        "text": "Interface padronizada exclusivamente com ícones vetoriais SVG profissionais, removendo emojis e GIFs da plataforma."
+      }
+    ]
+  }
+]

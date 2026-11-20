@@ -14,6 +14,8 @@ import {
   retroarchScanSlice,
   gamificationSlice,
   ps4PkgJobSlice,
+  nxBuildJobSlice,
+  logsSlice,
 } from "@renderer/features";
 
 export const store = configureStore({
@@ -32,6 +34,8 @@ export const store = configureStore({
     retroarchScan: retroarchScanSlice.reducer,
     gamification: gamificationSlice.reducer,
     ps4PkgJob: ps4PkgJobSlice.reducer,
+    nxBuildJob: nxBuildJobSlice.reducer,
+    logs: logsSlice.reducer,
   },
 });
 

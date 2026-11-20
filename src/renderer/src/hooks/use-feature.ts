@@ -13,8 +13,6 @@ export enum Feature {
   ChatImages = "CHAT_IMAGES",
   Gamification = "GAMIFICATION",
   GamificationShop = "GAMIFICATION_SHOP",
-  Screenshots = "SCREENSHOTS",
-  ScreenshotComments = "SCREENSHOT_COMMENTS",
   GameLeaderboardsExtended = "GAME_LEADERBOARDS_EXTENDED",
   GlobalLeaderboards = "GLOBAL_LEADERBOARDS",
   LeaderboardReports = "LEADERBOARD_REPORTS",

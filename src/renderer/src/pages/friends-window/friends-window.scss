@@ -613,7 +613,8 @@
 
   &__friend {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     flex-shrink: 0;
     border-radius: 8px;
     transition: background-color 0.2s ease;
@@ -622,6 +623,11 @@
     content-visibility: auto;
     contain-intrinsic-size: auto 56px;
     position: relative;
+
+    &--invite-open {
+      background-color: globals.$dark-background-color;
+      border: 1px solid globals.$border-color;
+    }
 
     &:hover {
       background-color: globals.$dark-background-color;
@@ -879,6 +885,298 @@
     padding: globals.$spacing-unit;
     font-size: globals.$small-font-size;
     color: globals.$subtle-color;
+  }
+
+  &__store-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  &__store-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.04);
+    color: globals.$body-color;
+    font-size: 11px;
+    line-height: 1.2;
+
+    &--connected {
+      border-color: rgba(28, 175, 114, 0.45);
+      background-color: rgba(28, 175, 114, 0.14);
+      color: #c6f6de;
+    }
+  }
+
+  &__filters {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 calc(globals.$spacing-unit * 2);
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &__filter-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid globals.$border-color;
+    background-color: globals.$dark-background-color;
+    color: globals.$body-color;
+    font-size: globals.$small-font-size;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease,
+      border-color 0.15s ease;
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      color: globals.$muted-color;
+    }
+
+    &--active {
+      background-color: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.45);
+      color: #ffffff;
+      font-weight: 600;
+    }
+  }
+
+  &__filter-count {
+    font-size: 11px;
+    opacity: 0.75;
+  }
+
+  &__add-panel {
+    display: flex;
+    flex-direction: column;
+    gap: globals.$spacing-unit;
+    margin-top: calc(globals.$spacing-unit * -1);
+  }
+
+  &__add-providers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 calc(globals.$spacing-unit * 2);
+  }
+
+  &__friend-row {
+    display: flex;
+    align-items: center;
+    position: relative;
+    width: 100%;
+  }
+
+  &__provider-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    opacity: 0.85;
+
+    &--steam {
+      background-color: rgba(102, 192, 244, 0.14);
+      color: #66c0f4;
+    }
+
+    &--epic {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #e4e6eb;
+    }
+  }
+
+  &__status-orb--away {
+    background-color: #f59e0b;
+  }
+
+  &__friend-actions {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: globals.$spacing-unit;
+    flex-shrink: 0;
+
+    .friends-window__message-button {
+      margin-right: 0;
+    }
+  }
+
+  &__join-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(28, 175, 114, 0.5);
+    background-color: rgba(28, 175, 114, 0.18);
+    color: #c6f6de;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+
+    &:hover {
+      background-color: rgba(28, 175, 114, 0.3);
+      border-color: rgba(28, 175, 114, 0.75);
+      color: #ffffff;
+    }
+  }
+
+  &__invite-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: globals.$body-color;
+    opacity: 0.7;
+    cursor: pointer;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      opacity 0.2s ease;
+
+    &:hover,
+    &--active {
+      background-color: rgba(255, 255, 255, 0.08);
+      color: globals.$muted-color;
+      opacity: 1;
+    }
+  }
+
+  &__invite-picker {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px 10px;
+    border-top: 1px solid globals.$border-color;
+    background-color: rgba(0, 0, 0, 0.28);
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+  }
+
+  &__invite-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: globals.$small-font-size;
+    font-weight: 600;
+    color: globals.$muted-color;
+
+    button {
+      background: none;
+      border: none;
+      color: globals.$body-color;
+      cursor: pointer;
+      padding: 2px;
+
+      &:hover {
+        color: #ffffff;
+      }
+    }
+  }
+
+  &__invite-picker-empty {
+    margin: 0;
+    font-size: globals.$small-font-size;
+    color: globals.$subtle-color;
+  }
+
+  &__invite-game-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 170px;
+    overflow-y: auto;
+  }
+
+  &__invite-game-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.04);
+    color: globals.$muted-color;
+    font-size: globals.$small-font-size;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+
+  &__invite-game-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__invite-game-tag {
+    flex-shrink: 0;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: globals.$body-color;
+  }
+
+  &__connect-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: globals.$spacing-unit;
+    margin: globals.$spacing-unit 0;
+    padding: calc(globals.$spacing-unit * 1.5);
+    border-radius: 8px;
+    border: 1px solid globals.$border-color;
+    background-color: globals.$dark-background-color;
+
+    p {
+      margin: 0;
+      font-size: globals.$small-font-size;
+      color: globals.$body-color;
+      line-height: 1.5;
+    }
   }
 }
 

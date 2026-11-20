@@ -1102,7 +1102,12 @@ export default function Downloads() {
       run: () => void;
       disabled?: boolean;
     } | null => {
-      if (!game.executablePath && !(game.id in installerAvailability)) {
+      const isSwitchGame = game.shop === "switch1" || game.shop === "switch2";
+      if (
+        !game.executablePath &&
+        !isSwitchGame &&
+        !(game.id in installerAvailability)
+      ) {
         return null;
       }
 
@@ -1110,6 +1115,15 @@ export default function Downloads() {
         game,
         installerAvailability[game.id] === true
       );
+
+      if (step === "port") {
+        return {
+          label: "Portar Jogo",
+          icon: <DownloadSimpleIcon size={22} />,
+          run: () =>
+            navigate(`/game/${game.shop}/${encodeURIComponent(game.objectId)}`),
+        };
+      }
 
       if (step === "play" && runningGamesById[game.id]) {
         return {
@@ -1173,7 +1187,14 @@ export default function Downloads() {
 
       return null;
     },
-    [installerAvailability, launchGame, runInstaller, runningGamesById, t]
+    [
+      installerAvailability,
+      launchGame,
+      navigate,
+      runInstaller,
+      runningGamesById,
+      t,
+    ]
   );
   const previewLayoutState =
     moveMode ?? dragPreviewState ?? optimisticCommitState?.layout ?? null;
@@ -2325,7 +2346,9 @@ export default function Downloads() {
 
     if (menuState.section === "paused") {
       return [
-        ...(item.game.download?.downloader === Downloader.Epic &&
+        ...((item.game.download?.downloader === Downloader.Epic ||
+          item.game.download?.downloader === Downloader.Steam ||
+          item.game.download?.downloader === Downloader.Gog) &&
         item.game.download.status === "error"
           ? [
               {
@@ -2352,7 +2375,10 @@ export default function Downloads() {
       installerAvailability[item.game.id] === true
     );
     const hasInstaller = installerAvailability[item.game.id] === true;
-    const isEpic = item.game.download?.downloader === Downloader.Epic;
+    const isEpic =
+      item.game.download?.downloader === Downloader.Epic ||
+      item.game.download?.downloader === Downloader.Steam ||
+      item.game.download?.downloader === Downloader.Gog;
 
     return [
       ...(hasInstaller &&

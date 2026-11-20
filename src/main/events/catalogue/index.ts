@@ -5,3 +5,5 @@ import "./get-catalogue-names";
 import "./get-random-game";
 import "./get-game-artwork";
 import "./get-cover-poster";
+import "./igdb-events";
+import "./get-steam-reviews";

@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  AuthPage,
   applyLibraryGroupAction,
   getRemoveFilesTarget,
   isLibraryGameDownloading,
@@ -27,6 +26,7 @@ import {
   EyeClosedIcon,
   LockIcon,
   SyncIcon,
+  PackageIcon,
 } from "@primer/octicons-react";
 import SteamLogo from "@renderer/assets/steam-logo.svg?react";
 import {
@@ -129,6 +129,7 @@ export function GameContextMenu({
     handleCreateSteamShortcut,
     handleOpenFolder,
     handleOpenDownloadOptions,
+    handleOpenSwitchPortModal,
     handleOpenDownloadLocation,
     handleTogglePin,
     handleRemoveFromLibrary,
@@ -339,7 +340,6 @@ export function GameContextMenu({
       separator: collections.length > 0,
       onClick: () => {
         if (!userDetails) {
-          window.electron.openAuthWindow(AuthPage.SignIn);
           return;
         }
 
@@ -350,14 +350,26 @@ export function GameContextMenu({
     },
   ];
 
+  const isSwitchGame = game.shop === "switch1" || game.shop === "switch2";
+  const hasMacPort = Boolean(game.switchPortedAppPath || game.executablePath);
+  const hasIosPort = Boolean(game.switchPortedIpaPath);
+
   const items: ContextMenuItemData[] = [
     {
       id: "play",
-      label: isGameRunning ? t("close") : canPlay ? t("play") : t("download"),
+      label: isGameRunning
+        ? t("close")
+        : canPlay
+          ? t("play")
+          : isSwitchGame
+            ? "Portar Jogo"
+            : t("download"),
       icon: isGameRunning ? (
         <XIcon size={16} />
       ) : canPlay ? (
         <PlayIcon size={16} />
+      ) : isSwitchGame ? (
+        <PackageIcon size={16} />
       ) : (
         <DownloadIcon size={16} />
       ),
@@ -366,6 +378,8 @@ export function GameContextMenu({
           void handleCloseGame();
         } else if (canPlay) {
           void handlePlayGame();
+        } else if (isSwitchGame) {
+          handleOpenSwitchPortModal();
         } else {
           handleOpenDownloadOptions();
         }
@@ -374,8 +388,20 @@ export function GameContextMenu({
         isDeleting ||
         (!canPlay &&
           !isGameRunning &&
+          !isSwitchGame &&
           (isDownloadDeleting || isGameDownloading)),
     },
+    ...(isSwitchGame && hasMacPort && !hasIosPort
+      ? [
+          {
+            id: "port-switch-mobile",
+            label: "Portar (iOS / Android)",
+            icon: <PackageIcon size={16} />,
+            onClick: handleOpenSwitchPortModal,
+            disabled: isDeleting,
+          },
+        ]
+      : []),
     {
       id: "collection",
       label: t("collection"),
@@ -394,7 +420,7 @@ export function GameContextMenu({
           ]
         : collectionSubmenu,
     },
-    ...(game.executablePath
+    ...(!isSwitchGame && game.executablePath
       ? [
           {
             id: "shortcuts",
@@ -498,7 +524,7 @@ export function GameContextMenu({
               },
             ]
           : []),
-        ...(game.executablePath
+        ...(!isSwitchGame && game.executablePath
           ? [
               {
                 id: "download-options",

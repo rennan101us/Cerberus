@@ -1,22 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import i18n from "i18next";
-import {
-  OFFICIAL_CHAT_FRIEND_ID,
-  OFFICIAL_MESSAGES_PAGE_MAXIMUM,
-  OFFICIAL_MESSAGES_PATH,
-} from "@shared";
+import { OFFICIAL_CHAT_FRIEND_ID } from "@shared";
 
 import type {
   ChatAttachmentContentType,
   ChatMessageDto,
   ChatMessageReactionsDto,
   ChatMessagesPage,
-  OfficialMessagesPage,
-  ChatPendingMessageDto,
 } from "@types";
 
 import { getUploadProgress } from "./chat-attachments";
-import { toChatMessagesPage } from "./chat-official";
 import {
   createSendCooldown,
   getRateLimitWindowStart,
@@ -40,12 +32,10 @@ import {
   mergeChatMessages,
   mergePendingMessages,
   removeUnsentMessage,
-  setMessageAttachmentIds,
   setMessageFailed,
   setMessageStatus,
   setMessageUploadProgress,
   setMessageVisibility,
-  settleSendingMessage,
   toChatMessage,
   toChatReactions,
   toPendingChatMessage,
@@ -103,40 +93,30 @@ const revokeLocalCopies = (attachments: ChatAttachment[] = []) => {
   }
 };
 
-const chatPath = (friendId: string, suffix: string) =>
-  `/profile/chats/${friendId}/${suffix}`;
-
 const fetchMessages = async (
   friendId: string,
   params: { before?: number; after?: number; take: number }
 ): Promise<ChatMessagesPage> => {
-  if (friendId !== OFFICIAL_CHAT_FRIEND_ID) {
-    return electron.hydraApi.get<ChatMessagesPage>(
-      chatPath(friendId, "messages"),
-      { params }
-    );
-  }
+  const page = await electron.socialGetMessages(friendId, {
+    before: params.before,
+    take: params.take,
+  });
 
-  const page = await electron.hydraApi.get<OfficialMessagesPage>(
-    OFFICIAL_MESSAGES_PATH,
-    {
-      params: {
-        language: i18n.language,
-        limit: Math.min(params.take, OFFICIAL_MESSAGES_PAGE_MAXIMUM),
-        ...(params.before === undefined ? {} : { beforeSeq: params.before }),
-      },
-    }
-  );
-  return toChatMessagesPage(page, params.after);
+  if (params.after === undefined) return page;
+  const after = params.after;
+  return {
+    ...page,
+    messages: page.messages.filter((message) => message.seq > after),
+  };
 };
 
 /** Sets the user's reaction on the message; null removes it. */
-const sendReaction = (friendId: string, seq: number, emoji: string | null) => {
-  const path = chatPath(friendId, `messages/${seq}/reaction`);
-
-  return emoji === null
-    ? electron.hydraApi.delete<ChatMessageReactionsDto>(path)
-    : electron.hydraApi.put<ChatMessageReactionsDto>(path, { data: { emoji } });
+const sendReaction = async (
+  _friendId: string,
+  _seq: number,
+  _emoji: string | null
+): Promise<ChatMessageReactionsDto> => {
+  throw new Error("Reações não suportadas nesta conversa.");
 };
 
 interface ReactionTargetsResult {
@@ -842,51 +822,8 @@ export function useChat({
         if (failedUpload) throw failedUpload.reason;
 
         const ids = outgoing.ids.filter((id): id is string => id !== null);
-        updateConversation(friendId, (conversation) => ({
-          ...conversation,
-          messages: setMessageAttachmentIds(
-            setMessageUploadProgress(conversation.messages, clientNonce, 1),
-            clientNonce,
-            ids
-          ),
-        }));
-
-        const response = await electron.hydraApi.postResponse<
-          ChatMessageDto | ChatPendingMessageDto
-        >(chatPath(friendId, "messages"), {
-          data: {
-            ...(outgoing.text ? { body: outgoing.text } : {}),
-            clientNonce,
-            ...(outgoing.replyToSeq ? { replyToSeq: outgoing.replyToSeq } : {}),
-            attachments: ids.map((id, index) => ({
-              id,
-              spoiler: outgoing.spoilers[index] ?? false,
-            })),
-          },
-          acceptedStatuses: [201, 202],
-        });
-
-        if (response.status === 201) {
-          outgoingRef.current.delete(clientNonce);
-          updateConversation(friendId, (conversation) => ({
-            ...conversation,
-            messages: mergeChatMessages(conversation.messages, [
-              toChatMessage(response.data as ChatMessageDto, friendId),
-            ]),
-          }));
-          return;
-        }
-
-        const { status } = response.data as ChatPendingMessageDto;
-        updateConversation(friendId, (conversation) => ({
-          ...conversation,
-          messages: settleSendingMessage(
-            conversation.messages,
-            clientNonce,
-            status
-          ),
-        }));
-        if (status === "checking") watchPending(friendId, clientNonce);
+        void ids;
+        throw new Error("Envio de imagens não suportado no chat Steam/Epic.");
       } catch (error) {
         // Reserved uploads that the server no longer has go up again on retry.
         if (isAttachmentNotFoundError(error) && outgoing.files.length > 0) {
@@ -896,7 +833,7 @@ export function useChat({
         failSend(friendId, clientNonce, error, windowStart);
       }
     },
-    [failSend, startRateLimitWindow, updateConversation, watchPending]
+    [failSend, startRateLimitWindow]
   );
 
   const deliver = useCallback(
@@ -904,27 +841,20 @@ export function useChat({
       friendId: string,
       text: string,
       clientNonce: string,
-      replyToSeq?: number
+      _replyToSeq?: number
     ) => {
       const windowStart = startRateLimitWindow();
 
       try {
-        const stored = await electron.hydraApi.post<ChatMessageDto>(
-          chatPath(friendId, "messages"),
-          {
-            data: {
-              body: text,
-              clientNonce,
-              ...(replyToSeq ? { replyToSeq } : {}),
-            },
-          }
-        );
+        const stored = await electron.socialSendMessage(friendId, text);
 
+        outgoingRef.current.delete(clientNonce);
         updateConversation(friendId, (conversation) => ({
           ...conversation,
-          messages: mergeChatMessages(conversation.messages, [
-            toChatMessage(stored, friendId),
-          ]),
+          messages: mergeChatMessages(
+            removeUnsentMessage(conversation.messages, clientNonce),
+            [toChatMessage(stored, friendId)]
+          ),
         }));
       } catch (error) {
         failSend(friendId, clientNonce, error, windowStart);
@@ -1094,19 +1024,15 @@ export function useChat({
         ...conversation,
         messages: removeUnsentMessage(conversation.messages, clientNonce),
       }));
-
-      // Not found means the server never stored it.
-      if (message.attachments?.length) {
-        electron.hydraApi
-          .delete(chatPath(friendId, `pending/${clientNonce}`))
-          .catch(() => {});
-      }
     },
     [findConversation, stopPendingCheck, updateConversation]
   );
 
   const react = useCallback(
     async (friendId: string, seq: number, emoji: string | null) => {
+      if (friendId.startsWith("steam:") || friendId.startsWith("epic:")) {
+        return;
+      }
       const message = findConversation(friendId)?.messages.find(
         (current) => current.seq === seq
       );
@@ -1184,7 +1110,7 @@ export function useChat({
       if (now - lastPing < TYPING_PING_INTERVAL_MS) return;
 
       lastTypingPingRef.current.set(friendId, now);
-      electron.hydraApi.post(chatPath(friendId, "typing")).catch(() => {});
+      electron.socialSendTyping(friendId).catch(() => {});
     },
     [findConversation]
   );
@@ -1449,15 +1375,16 @@ export function useChat({
     // Only a saved read is remembered; a failed one goes out again on
     // refocus or after the next resync.
     const timer = setTimeout(() => {
-      void electron.markChatRead(activeId, activeReadSeq).then((isMarked) => {
-        if (!isMarked) return;
-
-        const markedSeq = lastMarkedSeqRef.current.get(activeId) ?? 0;
-        lastMarkedSeqRef.current.set(
-          activeId,
-          Math.max(markedSeq, activeReadSeq)
-        );
-      });
+      void electron
+        .socialMarkRead(activeId)
+        .then(() => {
+          const markedSeq = lastMarkedSeqRef.current.get(activeId) ?? 0;
+          lastMarkedSeqRef.current.set(
+            activeId,
+            Math.max(markedSeq, activeReadSeq)
+          );
+        })
+        .catch(() => {});
     }, MARK_READ_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);

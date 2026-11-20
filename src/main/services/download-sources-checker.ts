@@ -144,6 +144,10 @@ export class DownloadSourcesChecker {
     logger.info("DownloadSourcesChecker.checkForChanges() called");
 
     try {
+      if (!HydraApi.isLoggedIn()) {
+        return;
+      }
+
       const userPreferences = await db.get<string, UserPreferences | null>(
         levelKeys.userPreferences,
         {

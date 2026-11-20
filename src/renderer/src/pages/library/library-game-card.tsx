@@ -1,5 +1,9 @@
 import { LibraryGame } from "@types";
-import { getDisplayedPlayTimeInMilliseconds } from "@shared";
+import {
+  getDisplayedPlayTimeInMilliseconds,
+  extractSteamAppId,
+  getSteamCoverFallbacks,
+} from "@shared";
 import cn from "classnames";
 import { getLibraryPresentationImportSources } from "./library-category";
 import {
@@ -21,6 +25,7 @@ import {
 } from "@renderer/helpers";
 import { SteamLibraryBadge } from "@renderer/components";
 import { GameVisibilityBadge } from "@renderer/components/game-visibility-badge/game-visibility-badge";
+import { SwitchPortBadges } from "@renderer/components/switch-port-badges/switch-port-badges";
 import { memo, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -69,8 +74,6 @@ export const LibraryGameCard = memo(function LibraryGameCard({
     importSources.epic && !userPreferences?.hideEpicLibraryBadges;
   const showSteamLibraryBadge =
     importSources.steam && !userPreferences?.hideSteamLibraryBadges;
-  const hideAchievementProgress =
-    userPreferences?.hideLibraryAchievementProgress ?? false;
   const autoplayAnimatedArtwork =
     userPreferences?.autoplayAnimatedArtwork ?? false;
 
@@ -78,14 +81,24 @@ export const LibraryGameCard = memo(function LibraryGameCard({
 
   const hasPickedCover = Boolean(game.selectedArtworkTypes?.includes("grid"));
 
+  const steamAppId =
+    game.shop === "steam" || importSources.steam
+      ? game.objectId
+      : (extractSteamAppId(game.coverImageUrl) ||
+         extractSteamAppId(game.libraryImageUrl));
+  const steamFallbacks = steamAppId ? getSteamCoverFallbacks(steamAppId) : [];
+
   const candidates = [
     { url: game.customCoverImageUrl, isChosenCover: true }, // Level 0
     { url: game.coverImageUrl, isChosenCover: hasPickedCover }, // Level 1
     { url: game.libraryImageUrl, isChosenCover: false }, // Level 2
+    ...steamFallbacks.map((url) => ({ url, isChosenCover: false })),
     { url: game.iconUrl, isChosenCover: false }, // Level 3
   ].filter(({ url }) => url && url.trim() !== "");
 
-  const sources = candidates.map(({ url }) => url);
+  const sources = candidates
+    .map(({ url }) => url)
+    .filter((u, i, arr) => arr.indexOf(u) === i);
 
   const [fallbackIndex, setFallbackIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
@@ -157,6 +170,14 @@ export const LibraryGameCard = memo(function LibraryGameCard({
   const showPlatformBadge =
     !hideClassicsBadges && Boolean(classicsPlatformLabel);
   const showReadyBadge = !hideReadySizeBadges && isInstalled;
+  const hasSwitchPortBadges =
+    !hideReadySizeBadges &&
+    (game.shop === "switch1" || game.shop === "switch2") &&
+    Boolean(
+      game.switchPortedAppPath ||
+        game.executablePath ||
+        game.switchPortedIpaPath
+    );
 
   const handleImageError = () => {
     if (catalogueImage.markFailed()) return;
@@ -256,10 +277,7 @@ export const LibraryGameCard = memo(function LibraryGameCard({
         className={cn("library-game-card__overlay", {
           "library-game-card__overlay--classics":
             game.shop === "launchbox" && !isChosenCoverActive,
-          "library-game-card__overlay--no-fade":
-            hideAchievementProgress ||
-            ((game.achievementCount ?? 0) === 0 &&
-              (game.unlockedAchievementCount ?? 0) === 0),
+          "library-game-card__overlay--no-fade": true,
         })}
       >
         <div className="library-game-card__top-section">
@@ -294,6 +312,7 @@ export const LibraryGameCard = memo(function LibraryGameCard({
           {(showSteamLibraryBadge ||
             showEpicLibraryBadge ||
             showPlatformBadge ||
+            hasSwitchPortBadges ||
             showReadyBadge) && (
             <div className="library-game-card__top-right">
               {(showSteamLibraryBadge || showEpicLibraryBadge) && (
@@ -316,6 +335,10 @@ export const LibraryGameCard = memo(function LibraryGameCard({
                     {classicsPlatformLabel}
                   </span>
                 </div>
+              )}
+
+              {hasSwitchPortBadges && (
+                <SwitchPortBadges game={game} variant="cover" />
               )}
 
               {showReadyBadge && (

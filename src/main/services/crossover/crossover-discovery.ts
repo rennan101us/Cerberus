@@ -4,7 +4,10 @@ import crypto from "node:crypto";
 import { gamesSublevel, gamesShopAssetsSublevel, levelKeys } from "@main/level";
 import { logger } from "@main/services/logger";
 import { CrossOverDetector, DEFAULT_BOTTLE_NAME } from "./crossover-detector";
+import { scoreSwitchTitleMatch } from "../nxnative/nx-core-parsers";
 import { GameExecutables } from "@main/services/game-executables";
+import { isInstallerExecutableName } from "@main/helpers/find-game-installer";
+import { isRedistributablePath } from "@main/helpers/game-executable-ranking";
 import { getGameAssets } from "@main/events/catalogue/get-game-assets";
 import { createGame } from "@main/services/library-sync";
 import { WindowManager } from "@main/services/window-manager";
@@ -185,7 +188,12 @@ export class CrossOverDiscovery {
           entry.isFile() &&
           entry.name.toLowerCase().endsWith(".exe")
         ) {
-          if (!IGNORE_EXECUTABLES.has(entry.name.toLowerCase())) {
+          const lowerName = entry.name.toLowerCase();
+          if (
+            !IGNORE_EXECUTABLES.has(lowerName) &&
+            !isInstallerExecutableName(lowerName) &&
+            !isRedistributablePath(fullPath)
+          ) {
             exes.push(fullPath);
           }
         }
@@ -310,13 +318,18 @@ export class CrossOverDiscovery {
         );
 
         if (suggestions && suggestions.length > 0) {
-          const top = suggestions[0];
-          if (top.objectId && top.shop === "steam") {
-            return {
-              appId: top.objectId,
-              title: top.title,
-              iconUrl: top.iconUrl,
-            };
+          for (const top of suggestions) {
+            if (
+              top.objectId &&
+              top.shop === "steam" &&
+              scoreSwitchTitleMatch(term, top.title) >= 0.8
+            ) {
+              return {
+                appId: top.objectId,
+                title: top.title,
+                iconUrl: top.iconUrl,
+              };
+            }
           }
         }
       } catch (error) {
@@ -341,12 +354,15 @@ export class CrossOverDiscovery {
             items?: { id: number; name: string }[];
           };
           if (data?.items && data.items.length > 0) {
-            const first = data.items[0];
-            return {
-              appId: String(first.id),
-              title: first.name,
-              iconUrl: null,
-            };
+            for (const first of data.items) {
+              if (scoreSwitchTitleMatch(term, first.name) >= 0.8) {
+                return {
+                  appId: String(first.id),
+                  title: first.name,
+                  iconUrl: null,
+                };
+              }
+            }
           }
         }
       } catch {
@@ -422,6 +438,22 @@ export class CrossOverDiscovery {
 
       for (const [key, game] of allEntries) {
         if (game.isDeleted) continue;
+        if (
+          game.shop === "switch1" ||
+          game.shop === "switch2" ||
+          game.shop === "launchbox" ||
+          game.shop === "epic"
+        ) {
+          continue;
+        }
+        const lowerExe = (game.executablePath || "").toLowerCase();
+        if (
+          lowerExe.endsWith(".app") ||
+          lowerExe.endsWith(".ipa") ||
+          lowerExe.endsWith(".apk")
+        ) {
+          continue;
+        }
 
         let needsSave = false;
         let updatedGame: Game = { ...game };
@@ -735,8 +767,8 @@ export class CrossOverDiscovery {
         WindowManager.sendToAppWindows("on-library-batch-complete");
         await LocalNotificationManager.createNotification(
           "SCAN_GAMES_COMPLETE",
-          "Fine Wine",
-          `${addedCount} jogo(s) encontrados no Fine Wine foram adicionados à sua biblioteca!`,
+          "Red Wine",
+          `${addedCount} jogo(s) encontrados no Red Wine foram adicionados à sua biblioteca!`,
           { url: "/library" }
         ).catch(() => {});
       }

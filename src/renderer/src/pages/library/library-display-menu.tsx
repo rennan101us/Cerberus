@@ -26,7 +26,7 @@ export type SortOption =
   | "title_desc"
   | "custom";
 
-export type ViewMode = "grid" | "compact" | "large";
+export type ViewMode = "shelves" | "grid" | "compact" | "large";
 
 interface LibraryDisplayMenuProps {
   sortBy: SortOption;
@@ -53,7 +53,6 @@ export function LibraryDisplayMenu({
     { value: "title_asc", label: t("sort_title_asc") },
     { value: "recently_played", label: t("recently_played") },
     { value: "most_played", label: t("sort_most_played") },
-    { value: "achievements", label: t("sort_achievements") },
     { value: "installed_first", label: t("sort_installed_first") },
     { value: "title_desc", label: t("sort_title_desc") },
     { value: "custom", label: t("sort_custom") },
@@ -64,6 +63,11 @@ export function LibraryDisplayMenu({
     label: string;
     icon: JSX.Element;
   }[] = [
+    {
+      value: "shelves",
+      label: "Sessões (Netflix)",
+      icon: <RowsIcon size={16} />,
+    },
     {
       value: "compact",
       label: t("view_compact"),

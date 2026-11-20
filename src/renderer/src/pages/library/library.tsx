@@ -36,7 +36,7 @@ import {
   SyncIcon,
 } from "@primer/octicons-react";
 import { useTranslation } from "react-i18next";
-import { AuthPage, groupLibraryGames, removeDiacritics } from "@shared";
+import { groupLibraryGames, removeDiacritics } from "@shared";
 import { GameCollection, LibraryGame } from "@types";
 import {
   Button,
@@ -54,6 +54,7 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { LibraryGameCard } from "./library-game-card";
 import { LibraryGameCardLarge } from "./library-game-card-large";
+import { LibraryShelvesView } from "./library-shelves-view";
 import {
   LibraryDisplayMenu,
   type SortOption,
@@ -136,6 +137,7 @@ const COLUMNS: Record<"grid" | "compact", readonly number[]> = {
 
 const getColumnsCount = (width: number, mode: ViewMode): number => {
   if (mode === "large") return width >= 900 ? 2 : 1;
+  if (mode === "shelves") return 6;
   const idx = COLUMN_BREAKPOINTS.findIndex((bp) => width >= bp);
   return COLUMNS[mode][idx === -1 ? COLUMN_BREAKPOINTS.length : idx];
 };
@@ -169,7 +171,6 @@ const SORT_OPTIONS: SortOption[] = [
   "title_asc",
   "recently_played",
   "most_played",
-  "achievements",
   "installed_first",
   "title_desc",
   "custom",
@@ -241,7 +242,7 @@ export default function Library() {
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const savedViewMode = localStorage.getItem("library-view-mode");
-    return (savedViewMode as ViewMode) || "compact";
+    return (savedViewMode as ViewMode) || "shelves";
   });
   const [sortBy, setSortBy] = useState<SortOption>(() => {
     const savedSortBy = localStorage.getItem("library-sort-by");
@@ -359,7 +360,7 @@ export default function Library() {
 
   useEffect(() => {
     if (
-      effectiveCategory === "classics" &&
+      (effectiveCategory as string) === "classics" &&
       !classicsOnboardingTriggeredRef.current &&
       !hasDismissedClassicsOnboarding()
     ) {
@@ -528,7 +529,6 @@ export default function Library() {
 
   const handleCreateCollectionButtonClick = useCallback(() => {
     if (!userDetails) {
-      window.electron.openAuthWindow(AuthPage.SignIn);
       return;
     }
 
@@ -1217,7 +1217,7 @@ export default function Library() {
     !isFavoritesCollectionSelected &&
     hasNoFilteredGames;
   const shouldShowClassicsImporting =
-    effectiveCategory === "classics" &&
+    (effectiveCategory as string) === "classics" &&
     isImportingClassics &&
     hasNoFilteredGames;
   const shouldShowNoResultsEmptyState =
@@ -1426,48 +1426,55 @@ export default function Library() {
           !shouldShowCollectionEmptyState &&
           !shouldShowClassicsImporting &&
           !shouldShowNoResultsEmptyState && (
-            <div
-              ref={gridRef}
-              style={{
-                height: `${rowVirtualizer.getTotalSize()}px`,
-                position: "relative",
-                marginRight: GAP,
-              }}
-            >
-              {renderedPlacements.map((placement) => {
-                const game = gamesByKey.get(placement.key);
-                if (!game) return null;
+            viewMode === "shelves" ? (
+              <LibraryShelvesView
+                games={filteredLibrary}
+                onContextMenu={handleOpenContextMenu}
+              />
+            ) : (
+              <div
+                ref={gridRef}
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  position: "relative",
+                  marginRight: GAP,
+                }}
+              >
+                {renderedPlacements.map((placement) => {
+                  const game = gamesByKey.get(placement.key);
+                  if (!game) return null;
 
-                const box = getLibraryPlacementBox(placement, gridMetrics);
+                  const box = getLibraryPlacementBox(placement, gridMetrics);
 
-                return (
-                  <LibrarySortableGame
-                    key={placement.key}
-                    orderKey={placement.key}
-                    enabled={isCustomOrder}
-                    animated={isReordering}
-                    isDragSource={dragPreview?.sourceKey === placement.key}
-                    style={{
-                      transform: `translate3d(${box.left}px, ${box.top}px, 0)`,
-                      width: box.width,
-                      height: box.height,
-                    }}
-                  >
-                    {viewMode === "large" ? (
-                      <LibraryGameCardLarge
-                        game={game}
-                        onContextMenu={handleOpenContextMenu}
-                      />
-                    ) : (
-                      <LibraryGameCard
-                        game={game}
-                        onContextMenu={handleOpenContextMenu}
-                      />
-                    )}
-                  </LibrarySortableGame>
-                );
-              })}
-            </div>
+                  return (
+                    <LibrarySortableGame
+                      key={placement.key}
+                      orderKey={placement.key}
+                      enabled={isCustomOrder}
+                      animated={isReordering}
+                      isDragSource={dragPreview?.sourceKey === placement.key}
+                      style={{
+                        transform: `translate3d(${box.left}px, ${box.top}px, 0)`,
+                        width: box.width,
+                        height: box.height,
+                      }}
+                    >
+                      {viewMode === "large" ? (
+                        <LibraryGameCardLarge
+                          game={game}
+                          onContextMenu={handleOpenContextMenu}
+                        />
+                      ) : (
+                        <LibraryGameCard
+                          game={game}
+                          onContextMenu={handleOpenContextMenu}
+                        />
+                      )}
+                    </LibrarySortableGame>
+                  );
+                })}
+              </div>
+            )
           )}
       </div>
 

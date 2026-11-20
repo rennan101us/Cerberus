@@ -5,6 +5,116 @@
   flex-direction: column;
   gap: 16px;
 
+  &__highlight-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  &__highlight-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: globals.$muted-color;
+    }
+
+    p {
+      font-size: 12px;
+      color: globals.$subtle-color;
+      margin-top: 2px;
+    }
+  }
+
+  &__custom-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: globals.$body-color;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid globals.$border-color;
+    cursor: pointer;
+
+    input[type="color"] {
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+    }
+  }
+
+  &__highlight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    gap: 8px;
+  }
+
+  &__highlight-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(0, 0, 0, 0.22);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    &--active {
+      border-color: var(--color-accent, globals.$brand-teal);
+      background-color: rgba(var(--color-accent-rgb, 22, 177, 149), 0.14);
+    }
+  }
+
+  &__highlight-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  &__highlight-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+
+    strong {
+      font-size: 12px;
+      font-weight: 600;
+      color: globals.$muted-color;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    small {
+      font-size: 10.5px;
+      color: globals.$subtle-color;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
   &__actions {
     display: flex;
     justify-content: space-between;

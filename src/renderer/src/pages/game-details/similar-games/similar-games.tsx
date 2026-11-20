@@ -5,10 +5,11 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Skeleton from "react-loading-skeleton";
 
-import type { GameShop } from "@types";
+import type { GameShop, IgdbSimilarGameSummary } from "@types";
 import { VerticalCoverCard } from "@renderer/components";
 import { buildGameDetailsPath } from "@renderer/helpers";
-import { useSimilarGames } from "@renderer/hooks";
+import { useAppDispatch, useSimilarGames } from "@renderer/hooks";
+import { setFilters } from "@renderer/features";
 import { getSimilarGamesSectionState } from "@renderer/hooks/similar-games";
 
 import "./similar-games.scss";
@@ -18,6 +19,7 @@ const GAMES_PER_PAGE = 3;
 interface SimilarGamesProps {
   objectId: string;
   shop: GameShop;
+  igdbSimilarGames?: IgdbSimilarGameSummary[];
 }
 
 function SimilarGamesSlide({ children }: Readonly<{ children: ReactNode }>) {
@@ -40,15 +42,21 @@ function SimilarGamesSkeleton() {
   );
 }
 
-export function SimilarGames({ objectId, shop }: Readonly<SimilarGamesProps>) {
+export function SimilarGames({
+  objectId,
+  shop,
+  igdbSimilarGames,
+}: Readonly<SimilarGamesProps>) {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { t } = useTranslation("game_details");
   const { games, isLoading, isEligible } = useSimilarGames({ objectId, shop });
-  const sectionState = getSimilarGamesSectionState(
-    isEligible,
-    isLoading,
-    games.length
-  );
+  const fallbackIgdb = igdbSimilarGames ?? [];
+  const useIgdbFallback =
+    fallbackIgdb.length > 0 && (!isEligible || (!isLoading && games.length === 0));
+  const sectionState = useIgdbFallback
+    ? "ready"
+    : getSimilarGamesSectionState(isEligible, isLoading, games.length);
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: "start",
     containScroll: "trimSnaps",
@@ -98,24 +106,42 @@ export function SimilarGames({ objectId, shop }: Readonly<SimilarGamesProps>) {
         <div className="similar-games__carousel">
           <div className="similar-games__viewport" ref={emblaRef}>
             <div className="similar-games__container">
-              {games.map((similarGame) => (
-                <SimilarGamesSlide
-                  key={`${similarGame.shop}:${similarGame.objectId}`}
-                >
-                  <VerticalCoverCard
-                    className="similar-games__card"
-                    gameTitle={similarGame.title}
-                    coverImageUrls={[
-                      similarGame.coverImageUrl,
-                      similarGame.libraryImageUrl,
-                      similarGame.iconUrl,
-                    ]}
-                    useClassicsLayout={similarGame.shop === "launchbox"}
-                    showTitleTooltip={false}
-                    onClick={() => navigate(buildGameDetailsPath(similarGame))}
-                  />
-                </SimilarGamesSlide>
-              ))}
+              {useIgdbFallback
+                ? fallbackIgdb.map((igdbGame) => (
+                    <SimilarGamesSlide key={`igdb:${igdbGame.id}`}>
+                      <VerticalCoverCard
+                        className="similar-games__card"
+                        gameTitle={igdbGame.name}
+                        coverImageUrls={[igdbGame.coverUrl]}
+                        useClassicsLayout={false}
+                        showTitleTooltip={false}
+                        onClick={() => {
+                          dispatch(setFilters({ title: igdbGame.name }));
+                          navigate("/catalogue");
+                        }}
+                      />
+                    </SimilarGamesSlide>
+                  ))
+                : games.map((similarGame) => (
+                    <SimilarGamesSlide
+                      key={`${similarGame.shop}:${similarGame.objectId}`}
+                    >
+                      <VerticalCoverCard
+                        className="similar-games__card"
+                        gameTitle={similarGame.title}
+                        coverImageUrls={[
+                          similarGame.coverImageUrl,
+                          similarGame.libraryImageUrl,
+                          similarGame.iconUrl,
+                        ]}
+                        useClassicsLayout={similarGame.shop === "launchbox"}
+                        showTitleTooltip={false}
+                        onClick={() =>
+                          navigate(buildGameDetailsPath(similarGame))
+                        }
+                      />
+                    </SimilarGamesSlide>
+                  ))}
             </div>
 
             <button

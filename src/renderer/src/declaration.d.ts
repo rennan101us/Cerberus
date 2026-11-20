@@ -1,9 +1,9 @@
-import type { AuthPage, Downloader } from "@shared";
+import type { Downloader } from "@shared";
 import type {
-  LocalScreenshot,
-  LocalScreenshotDraft,
-  LocalScreenshotUploadOptions,
-  ScreenshotUploadProgress,
+  ICloudGameSaveInfo,
+  ICloudSaveStatus,
+  MacNativeCatalogueItem,
+  MacNativeDownloadOption,
   SystemPowerAction,
   AppUpdaterEvent,
   GameShop,
@@ -11,7 +11,6 @@ import type {
   DownloadProgress,
   SeedingStatus,
   UserPreferences,
-  ScreenshotInputStatus,
   StartGameDownloadPayload,
   RealDebridUser,
   PremiumizeUser,
@@ -118,6 +117,30 @@ import type {
   ConfirmCloudSaveCustomPathRebindApprovalResult,
   LegacySaveExportProgress,
   LegacySaveExportResult,
+  AppLogEntry,
+  ControllerProfile,
+  ControllersState,
+  NxBuildEstimate,
+  NxBuildJobEvent,
+  NxCloudAvailableGame,
+  NxCompatibleGame,
+  NxDependencyStatus,
+  NxGameModItem,
+  NxGamePreset,
+  NxGameRuntimeConfig,
+  NxInstallerProgressEvent,
+  NxIosDevice,
+  NxMetalToolchainInfo,
+  NxPortBuildOptions,
+  NxPortedGame,
+  NxProdKeysInfo,
+  NxReposStatus,
+  NxResolvedPaths,
+  NxRomGame,
+  NxSigningTeam,
+  NxStorageStats,
+  NxSystemHardwareInfo,
+  NxTargetPlatform,
   SteamSyncState,
   SteamSyncFinishedPayload,
   SteamSyncRunStatus,
@@ -151,6 +174,11 @@ import type {
   CrossOverStatus,
   MacOSCompatibilityOptions,
   CrossOverProvisionProgress,
+  CrossOverToolWithStatus,
+  CrossOverToolDownloadProgress,
+  HeadBottleDependenciesStatus,
+  MacCompatibilityReport,
+  MacHardwareSpecs,
 } from "@types";
 import type { AxiosProgressEvent } from "axios";
 
@@ -565,9 +593,37 @@ declare global {
       appPath?: string;
       status?: CrossOverStatus;
     }>;
+    getHeadBottleDependenciesStatus: () => Promise<HeadBottleDependenciesStatus>;
+    provisionHeadBottleDependencies: () => Promise<{
+      success: boolean;
+      error?: string;
+      status?: CrossOverStatus;
+      dependencies?: HeadBottleDependenciesStatus;
+    }>;
     onCrossOverProvisionProgress: (
       cb: (progress: CrossOverProvisionProgress) => void
     ) => () => void;
+    getCrossOverTools: () => Promise<CrossOverToolWithStatus[]>;
+    installCrossOverTool: (toolId: string) => Promise<{
+      success: boolean;
+      error?: string;
+    }>;
+    launchRedWineControlPanelTool: (
+      tool: "winecfg" | "joy" | "reboot" | "taskmgr" | "inetcpl"
+    ) => Promise<{ success: boolean; error?: string }>;
+    launchCrossOverTool: (toolId: string) => Promise<{
+      success: boolean;
+      error?: string;
+    }>;
+    onCrossOverToolProgress: (
+      cb: (progress: CrossOverToolDownloadProgress) => void
+    ) => () => void;
+    getMacCompatibility: (
+      gameTitle: string,
+      steamAppId?: string | null,
+      forceRefresh?: boolean
+    ) => Promise<MacCompatibilityReport>;
+    getMacHardwareSpecs: () => Promise<MacHardwareSpecs>;
     getInstalledProtonVersions: () => Promise<ProtonVersion[]>;
     getGameLaunchProtonVersion: (
       shop: GameShop,
@@ -1102,10 +1158,6 @@ declare global {
     onUserPreferencesUpdated: (
       cb: (preferences: UserPreferences | null) => void
     ) => () => Electron.IpcRenderer;
-    getScreenshotInputStatus: () => Promise<ScreenshotInputStatus>;
-    onScreenshotInputStatusChange: (
-      cb: (status: ScreenshotInputStatus) => void
-    ) => () => Electron.IpcRenderer;
     autoLaunch: (autoLaunchProps: {
       enabled: boolean;
       minimized: boolean;
@@ -1179,7 +1231,14 @@ declare global {
     checkSteamShortcut: (shop: GameShop, objectId: string) => Promise<boolean>;
 
     /* Download sources */
-    addDownloadSource: (url: string) => Promise<DownloadSource>;
+    addDownloadSource: (
+      url: string,
+      options?: { name?: string; kind?: "auto" | "hydra" | "switch" }
+    ) => Promise<DownloadSource>;
+    toggleDownloadSourceEnabled: (
+      downloadSourceId: string,
+      enabled: boolean
+    ) => Promise<DownloadSource | null>;
     removeDownloadSource: (
       removeAll = false,
       downloadSourceId?: string
@@ -1243,7 +1302,6 @@ declare global {
     /* Clipboard */
     clipboard: {
       writeText: (text: string) => Promise<void>;
-      writeImage: (ownerId: string, screenshotId: string) => Promise<boolean>;
     };
 
     /* Misc */
@@ -1255,45 +1313,6 @@ declare global {
     isStaging: () => Promise<boolean>;
     ping: () => string;
     getDefaultDownloadsPath: () => Promise<string>;
-    getScreenshotsPath: () => Promise<string>;
-    getScreenshotsFolderPath: () => Promise<string>;
-    getLocalScreenshots: () => Promise<LocalScreenshot[]>;
-    getLocalScreenshotsForGame: (
-      shop: GameShop,
-      objectId: string
-    ) => Promise<LocalScreenshot[]>;
-    deleteLocalScreenshotsForGame: (
-      shop: GameShop,
-      objectId: string
-    ) => Promise<number>;
-    countLocalScreenshotFilesForGame: (
-      shop: GameShop,
-      objectId: string
-    ) => Promise<number>;
-    getPublishedScreenshotIdsForGame: (
-      shop: GameShop,
-      objectId: string
-    ) => Promise<string[]>;
-    forgetPublishedScreenshots: (screenshotIds: string[]) => Promise<number>;
-    uploadLocalScreenshot: (
-      clientId: string,
-      options: LocalScreenshotUploadOptions
-    ) => Promise<LocalScreenshot | null>;
-    updateLocalScreenshotDraft: (
-      clientId: string,
-      draft: LocalScreenshotDraft
-    ) => Promise<LocalScreenshot | null>;
-    deleteLocalScreenshot: (clientId: string) => Promise<void>;
-    openScreenshotsFolder: () => Promise<void>;
-    onLocalScreenshotsChange: (
-      cb: (screenshots: LocalScreenshot[]) => void
-    ) => () => Electron.IpcRenderer;
-    onLocalScreenshotsMissing: (
-      cb: (count: number) => void
-    ) => () => Electron.IpcRenderer;
-    onScreenshotUploadProgress: (
-      cb: (progress: ScreenshotUploadProgress) => void
-    ) => () => Electron.IpcRenderer;
     getAchievementSouvenirSyncStatus: () => Promise<AchievementSouvenirSyncStatus>;
     getAchievementSouvenirSyncDetails: () => Promise<AchievementSouvenirSyncDetails>;
     retryAchievementSouvenirSync: () => Promise<AchievementSouvenirSyncRetryResult>;
@@ -1303,9 +1322,6 @@ declare global {
     ) => () => Electron.IpcRenderer;
     onAchievementSouvenirSyncCompleted: (
       cb: (syncedCount: number) => void
-    ) => () => Electron.IpcRenderer;
-    onAchievementSouvenirScreenshotsMissing: (
-      cb: (count: number) => void
     ) => () => Electron.IpcRenderer;
     openFolder: (folderPath: string) => Promise<string>;
     isPortableVersion: boolean;
@@ -1429,7 +1445,6 @@ declare global {
     /* Auth */
     getAuth: () => Promise<Auth | null>;
     signOut: () => Promise<void>;
-    openAuthWindow: (page: AuthPage) => Promise<void>;
     minimizeAuthWindow: () => Promise<void>;
     closeAuthWindow: () => Promise<void>;
     onSignIn: (cb: () => void) => () => Electron.IpcRenderer;
@@ -1763,6 +1778,427 @@ declare global {
     /* Event listeners for transfer progress */
     on: (channel: string, listener: (...args) => void) => void;
     off: (channel: string, listener: (...args) => void) => void;
+
+    /* NxNative & Nx2Android Backend */
+    nxGetRepoStatus: (fetchRemote?: boolean) => Promise<NxReposStatus>;
+    nxCloneRepo: (
+      destinationPath?: string
+    ) => Promise<{ ok: boolean; path: string; message: string }>;
+    nxSyncUpstreamNxnative: () => Promise<{ ok: boolean; message: string }>;
+    nxSyncUpstreamNx2Android: () => Promise<{ ok: boolean; message: string }>;
+    nxGetResolvedPaths: () => Promise<NxResolvedPaths>;
+    nxApplyCacheRootPreset: (
+      mode: "app-adjacent" | "custom",
+      customRoot?: string,
+      includeOutput?: boolean
+    ) => Promise<NxResolvedPaths>;
+    nxCheckAndroidProfileSupport: (
+      titleId: string
+    ) => Promise<{ supported: boolean; profileName?: string }>;
+    nxMigrateAppSupportFolder: (
+      sourceDir: string,
+      targetDir: string
+    ) => Promise<{ ok: boolean; error?: string }>;
+    nxGetSystemHardwareInfo: () => Promise<NxSystemHardwareInfo>;
+    nxRevealInFinder: (targetPath: string) => Promise<void>;
+    nxGetCompatibleGames: (forceRefresh?: boolean) => Promise<{
+      games: NxCompatibleGame[];
+      isOnline: boolean;
+      updatedAt: number;
+    }>;
+    nxRefreshCompatibleGames: () => Promise<{
+      games: NxCompatibleGame[];
+      isOnline: boolean;
+      updatedAt: number;
+    }>;
+    nxSyncSwitchSources: () => Promise<{
+      sources: DownloadSource[];
+      totalMatches: number;
+    }>;
+    nxResolveGameStreams: (titleId: string) => Promise<NxCloudAvailableGame[]>;
+    nxResolveLiveGameStreams: (
+      titleId: string,
+      title: string,
+      generation: SwitchGeneration
+    ) => Promise<NxCloudAvailableGame[]>;
+    nxStartSwitchGameDownload: (params: {
+      titleId?: string | null;
+      title: string;
+      generation: SwitchGeneration;
+      streamUrl?: string;
+      directUri?: string;
+    }) => Promise<{
+      ok: boolean;
+      fallbackBrowser?: boolean;
+      url?: string;
+      error?: string;
+      downloader?: number;
+      gameKey?: string;
+    }>;
+    nxOpenExternalUrl: (url: string) => Promise<void>;
+    nxScanLibraryAndRoms: () => Promise<{
+      roms: NxRomGame[];
+      ported: NxPortedGame[];
+      syncedCount: number;
+    }>;
+    nxGetRomDetailsForGame: (
+      shop: "switch1" | "switch2",
+      objectId: string
+    ) => Promise<{ rom: NxRomGame | null; game: Game | null }>;
+    nxSelectRomForGameDialog: (
+      shop: "switch1" | "switch2",
+      objectId: string
+    ) => Promise<{ rom: NxRomGame | null; game: Game | null } | null>;
+    nxGetHubStatus: () => Promise<import("@types").NxHubStatus>;
+    nxDeployToIosHub: (params: {
+      titleId: string;
+      gameTitle: string;
+      gameDirectory?: string | null;
+      deviceId: string;
+      teamId?: string | null;
+    }) => Promise<{ ok: boolean; outputPath?: string; error?: string }>;
+    nxOpenXcodeAccounts: () => Promise<{ ok: boolean }>;
+    nxGetBuildEstimate: (params: {
+      titleId?: string | null;
+      gameName: string;
+      totalSizeBytes: number;
+      gameDirectory: string;
+      isSwitch2: boolean;
+    }) => Promise<NxBuildEstimate>;
+    nxGetMetalToolchainInfo: () => Promise<NxMetalToolchainInfo>;
+    nxListIosDevicesAndTeams: (force?: boolean) => Promise<{
+      devices: NxIosDevice[];
+      teams: NxSigningTeam[];
+    }>;
+    nxStartPortBuild: (
+      options: NxPortBuildOptions
+    ) => Promise<{ ok: boolean; jobId?: string; error?: string }>;
+    nxCancelPortBuild: () => Promise<boolean>;
+    nxGetActiveBuildJob: () => Promise<NxBuildJobEvent | null>;
+    nxGetGameRuntimeConfig: (
+      shop: "switch1" | "switch2",
+      objectId: string
+    ) => Promise<NxGameRuntimeConfig>;
+    nxSaveGameRuntimeConfig: (
+      shop: "switch1" | "switch2",
+      objectId: string,
+      config: NxGameRuntimeConfig
+    ) => Promise<NxGameRuntimeConfig>;
+    nxGetGameLanguages: (
+      appPath: string
+    ) => Promise<{ supported: string[]; defaultLanguage: string }>;
+    nxLaunchSwitchGame: (
+      shop: "switch1" | "switch2",
+      objectId: string
+    ) => Promise<{ ok: boolean; error?: string }>;
+    nxListPresets: (
+      titleId: string,
+      gameTitle?: string
+    ) => Promise<NxGamePreset[]>;
+    nxSavePreset: (
+      titleId: string,
+      name: string,
+      config: NxGameRuntimeConfig,
+      gameTitle?: string
+    ) => Promise<NxGamePreset>;
+    nxDeletePreset: (titleId: string, presetName: string) => Promise<boolean>;
+    nxExportPresetDialog: (
+      preset: NxGamePreset,
+      gameTitle?: string
+    ) => Promise<string | null>;
+    nxImportPresetDialog: (
+      titleId: string,
+      gameTitle?: string
+    ) => Promise<NxGamePreset | null>;
+    nxListMods: (
+      titleId: string,
+      appPath?: string | null
+    ) => Promise<NxGameModItem[]>;
+    nxInstallModDialog: (titleId: string) => Promise<NxGameModItem[] | null>;
+    nxToggleMod: (
+      titleId: string,
+      folderPath: string
+    ) => Promise<NxGameModItem[]>;
+    nxDeleteMod: (
+      titleId: string,
+      folderPath: string
+    ) => Promise<NxGameModItem[]>;
+    nxOpenModsFolder: (titleId: string) => Promise<void>;
+    nxGetGameICloudStatus: (
+      titleId: string
+    ) => Promise<{ available: boolean; enabled: boolean }>;
+    nxSetGameICloudSync: (
+      titleId: string,
+      enabled: boolean
+    ) => Promise<{ ok: boolean; enabled: boolean; error?: string }>;
+    nxOpenSaveFolder: (titleId: string) => Promise<void>;
+    nxCheckPrerequisites: () => Promise<NxDependencyStatus[]>;
+    nxGetMissingDependenciesForPlatform: (
+      platform: NxTargetPlatform
+    ) => Promise<NxDependencyStatus[]>;
+    nxInstallDependency: (
+      dependencyId: string
+    ) => Promise<{ ok: boolean; error?: string }>;
+    nxRepairDependency: (
+      dependencyId: string
+    ) => Promise<{ ok: boolean; error?: string }>;
+    nxUninstallDependency: (
+      dependencyId: string
+    ) => Promise<{ ok: boolean; error?: string }>;
+    nxInstallMissingDependencies: (
+      platform?: NxTargetPlatform
+    ) => Promise<{ ok: boolean; error?: string }>;
+    nxDetectProdKeys: () => Promise<NxProdKeysInfo>;
+    nxSelectProdKeysDialog: () => Promise<NxProdKeysInfo | null>;
+    nxGetStorageStats: () => Promise<NxStorageStats>;
+    nxCleanBuildCache: () => Promise<number>;
+    nxCleanArtworkCache: () => Promise<number>;
+    nxPurgeICloudBackups: () => Promise<number>;
+    nxSetGlobalICloudSync: (enabled: boolean) => Promise<boolean>;
+
+    /* Controllers & Keyboard Profiles (P1-P8) */
+    controllersGetState: () => Promise<ControllersState>;
+    controllersSaveProfile: (
+      profile: ControllerProfile,
+      syncKeyboardGlobally?: boolean
+    ) => Promise<ControllersState>;
+    controllersCreateProfile: (
+      name: string,
+      templateId?: string
+    ) => Promise<{ state: ControllersState; created: ControllerProfile }>;
+    controllersDuplicateProfile: (
+      profileId: string
+    ) => Promise<{ state: ControllersState; created: ControllerProfile }>;
+    controllersDeleteProfile: (profileId: string) => Promise<ControllersState>;
+    controllersSetPlayerProfile: (
+      playerSlot: number,
+      profileId: string
+    ) => Promise<ControllersState>;
+    controllersExportMappings: () => Promise<boolean>;
+    controllersSetGameProfiles: (
+      shop: GameShop,
+      objectId: string,
+      controllerProfileId: string | null,
+      playerProfileIds: Record<string, string> | null
+    ) => Promise<{
+      controllerProfileId: string | null;
+      playerProfileIds: Record<string, string> | null;
+    }>;
+
+    /* Console Logs */
+    logsGetAll: () => Promise<AppLogEntry[]>;
+    logsClear: () => Promise<boolean>;
+
+    /* IGDB Metadata API */
+    igdbGetStatus: () => Promise<{
+      configured: boolean;
+      isCustom: boolean;
+      clientId: string;
+      hasSecret: boolean;
+    }>;
+    igdbSaveCredentials: (
+      clientId: string,
+      clientSecret: string
+    ) => Promise<{ ok: boolean; message: string; clientIdMasked: string }>;
+    igdbTestConnection: () => Promise<{
+      ok: boolean;
+      message: string;
+      clientIdMasked: string;
+    }>;
+    igdbClearCache: () => Promise<{ ok: boolean }>;
+
+    /* Mac Native Catalogue & Downloads */
+    macNativeGetCatalogue: (forceRefresh?: boolean) => Promise<{
+      items: MacNativeCatalogueItem[];
+      updatedAt: number;
+    }>;
+    macNativeSearchCatalogue: (
+      query: string
+    ) => Promise<MacNativeCatalogueItem[]>;
+    macNativeGetDownloadOptions: (
+      objectId: string,
+      fallbackTitle?: string
+    ) => Promise<{
+      options: MacNativeDownloadOption[];
+      summary: string | null;
+    }>;
+    macNativeStartDownload: (params: {
+      objectId: string;
+      title: string;
+      option: MacNativeDownloadOption;
+      downloadPath?: string;
+    }) => Promise<{
+      ok: boolean;
+      error?: string;
+      fallbackBrowser?: boolean;
+      url?: string;
+    }>;
+
+    /* Windows iCloud Drive Save Sync */
+    icloudGetStatus: () => Promise<ICloudSaveStatus>;
+    icloudGetGameSaveInfo: (
+      shop: GameShop,
+      objectId: string
+    ) => Promise<ICloudGameSaveInfo>;
+    icloudBackupGameSave: (
+      shop: GameShop,
+      objectId: string
+    ) => Promise<{ ok: boolean; info?: ICloudGameSaveInfo; error?: string }>;
+    icloudRestoreGameSave: (
+      shop: GameShop,
+      objectId: string
+    ) => Promise<{ ok: boolean; info?: ICloudGameSaveInfo; error?: string }>;
+    icloudSetCustomSavePath: (
+      shop: GameShop,
+      objectId: string,
+      customPath: string | null
+    ) => Promise<ICloudGameSaveInfo>;
+    icloudSetAutoSync: (
+      shop: GameShop,
+      objectId: string,
+      enabled: boolean
+    ) => Promise<{ ok: boolean }>;
+    icloudOpenSaveFolder: (
+      shop: GameShop,
+      objectId: string
+    ) => Promise<{ ok: boolean }>;
+
+    /* NxNative & Logs Push Listeners */
+    onNxBuildProgress: (
+      cb: (event: NxBuildJobEvent) => void
+    ) => () => Electron.IpcRenderer;
+    onNxInstallerProgress: (
+      cb: (event: NxInstallerProgressEvent) => void
+    ) => () => Electron.IpcRenderer;
+    onNxLog: (cb: (entry: AppLogEntry) => void) => () => Electron.IpcRenderer;
+    onNxLibraryUpdated: (
+      cb: (payload: { romsCount: number; portedCount: number }) => void
+    ) => () => Electron.IpcRenderer;
+    getSystemUsername: () => Promise<string>;
+    getGameUninstallPreview: (
+      shop: GameShop,
+      objectId: string
+    ) => Promise<import("@types").GameUninstallPreview>;
+    uninstallGame: (
+      shop: GameShop,
+      objectId: string,
+      options: import("@types").GameUninstallOptions
+    ) => Promise<import("@types").GameUninstallResult>;
+    getRedWineBottleConfig: (
+      bottleName?: string
+    ) => Promise<import("@types").RedWineBottleConfig>;
+    saveRedWineBottleConfig: (
+      config: Partial<import("@types").RedWineBottleConfig>,
+      bottleName?: string
+    ) => Promise<import("@types").RedWineBottleConfig>;
+
+    /* Store Accounts & Direct Downloads (Steam & Epic) */
+    storesGetAccounts: () => Promise<import("@types").StoreAccountsState>;
+    storesGetSteamAuthState: () => Promise<
+      import("@types").SteamLoginSessionStatus
+    >;
+    storesStartSteamQrLogin: () => Promise<
+      import("@types").SteamLoginSessionStatus
+    >;
+    storesStartSteamCredentialsLogin: (
+      input: import("@types").SteamDepotLoginInput
+    ) => Promise<import("@types").SteamLoginSessionStatus>;
+    storesSubmitSteamGuardCode: (
+      code: string
+    ) => Promise<{ ok: boolean; error?: string }>;
+    storesCancelSteamLogin: () => Promise<void>;
+    storesDisconnectSteam: () => Promise<void>;
+    storesSyncSteamLibrary: () => Promise<{ syncedGamesCount: number }>;
+    storesStartEpicLogin: () => Promise<{ ok: boolean; error?: string }>;
+    storesDisconnectEpic: () => Promise<void>;
+    storesSyncEpicLibrary: () => Promise<{ syncedGamesCount: number }>;
+    storesStartGogLogin: () => Promise<{ ok: boolean; error?: string }>;
+    storesDisconnectGog: () => Promise<void>;
+    storesSyncGogLibrary: () => Promise<{ syncedGamesCount: number }>;
+    storesGetGogDownloads: (
+      gameId: string
+    ) => Promise<any>;
+    storesResolveGogDownlink: (
+      downlink: string
+    ) => Promise<string | null>;
+    storesGetOwnedGames: (
+      provider?: import("@types").StoreProvider
+    ) => Promise<import("@types").StoreLibraryGame[]>;
+    storesStartGameDownload: (payload: {
+      provider: import("@types").StoreProvider;
+      storeId: string;
+      title: string;
+      username?: string;
+      password?: string;
+      useQr?: boolean;
+      installBaseDir?: string;
+    }) => Promise<{ ok: boolean; error?: string }>;
+    storesCancelGameDownload: (payload: {
+      provider: import("@types").StoreProvider;
+      storeId: string;
+    }) => Promise<void>;
+    storesSubmitDownloadInput: (payload: {
+      provider: import("@types").StoreProvider;
+      storeId: string;
+      value: string;
+    }) => Promise<boolean>;
+    storesGetActiveDownloads: () => Promise<
+      import("@types").StoreDownloadProgress[]
+    >;
+    getSteamAppReviews: (
+      appId: string,
+      language?: string
+    ) => Promise<any>;
+    onSteamAuthState: (
+      cb: (state: import("@types").SteamLoginSessionStatus) => void
+    ) => () => Electron.IpcRenderer;
+    onStoreAccountsUpdated: (cb: () => void) => () => Electron.IpcRenderer;
+    onStoreDownloadProgress: (
+      cb: (progress: import("@types").StoreDownloadProgress) => void
+    ) => () => Electron.IpcRenderer;
+
+    /* Unified Social (Steam + Epic Friends, Chat & Invites) */
+    socialGetFriends: () => Promise<import("@types").FriendsSnapshot>;
+    socialGetConversations: () => Promise<
+      import("@types").ChatConversationsPage
+    >;
+    socialGetMessages: (
+      friendId: string,
+      params?: { before?: number; take?: number }
+    ) => Promise<import("@types").ChatMessagesPage>;
+    socialSendMessage: (
+      friendId: string,
+      body: string
+    ) => Promise<import("@types").ChatMessageDto>;
+    socialSendTyping: (friendId: string) => Promise<void>;
+    socialMarkRead: (
+      friendId: string
+    ) => Promise<import("@types").ChatUnreadState>;
+    socialAddFriend: (
+      provider: import("@types").StoreProvider,
+      query: string
+    ) => Promise<void>;
+    socialRespondFriendRequest: (
+      friendId: string,
+      accept: boolean
+    ) => Promise<void>;
+    socialRemoveFriend: (friendId: string) => Promise<void>;
+    socialSendGameInvite: (
+      payload: import("@types").SocialSendInvitePayload
+    ) => Promise<import("@types").ChatMessageDto>;
+    socialAcceptGameInvite: (
+      invite: import("@types").SocialGameInvite
+    ) => Promise<{ launched: boolean; navigatedTo?: string }>;
+    socialGetInvitableGames: (
+      provider: import("@types").StoreProvider
+    ) => Promise<import("@types").SocialInvitableGame[]>;
+    onSocialGameInvite: (
+      cb: (payload: {
+        friend: UserFriend;
+        invite: import("@types").SocialGameInvite;
+        message: import("@types").ChatMessageDto;
+      }) => void
+    ) => () => Electron.IpcRenderer;
   }
 
   interface Window {

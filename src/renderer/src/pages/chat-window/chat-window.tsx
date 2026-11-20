@@ -3,20 +3,17 @@ import { useTranslation } from "react-i18next";
 import cn from "classnames";
 
 import { useFeature } from "@renderer/hooks/use-feature";
-import {
-  fetchAllProfileFriends,
-  OFFICIAL_MESSAGES_PATH,
-  PROFILE_FRIENDS_PATH,
-} from "@shared";
-import type { ChatConversationsPage, ProfileFriends, UserFriend } from "@types";
+import type {
+  ChatConversationsPage,
+  SocialFriendsFilter,
+  UserFriend,
+} from "@types";
 
 import { ChatConversationView } from "./chat-conversation";
 import { ChatConversationHeader } from "./chat-conversation-header";
-import { applyOfficialPage, isOfficialMessagesPage } from "./chat-official";
 import { ChatSidebar } from "./chat-sidebar";
 import {
   dropAbandonedConversations,
-  isOfficialAccount,
   toConversationLastMessage,
 } from "./chat-sidebar-layout";
 import { playMessageSound } from "./chat-sounds";
@@ -27,11 +24,8 @@ import "./chat-window.scss";
 
 const electron = globalThis.electron as Electron;
 
-const CHAT_CONVERSATIONS_PATH = "/profile/chats";
-/** Largest page the API serves. */
-const CHAT_CONVERSATIONS_PAGE_SIZE = 50;
-/** Conversations past this many stay reachable through the picker. */
-const CHAT_CONVERSATIONS_LIMIT = 200;
+const isStoreFriendId = (friendId: string) =>
+  friendId.startsWith("steam:") || friendId.startsWith("epic:");
 
 const createConversation = (friend: UserFriend): ChatConversation => ({
   friend,
@@ -49,40 +43,24 @@ const createConversation = (friend: UserFriend): ChatConversation => ({
 });
 
 export default function ChatWindow() {
-  const { t, i18n } = useTranslation("chat_window");
+  const { t } = useTranslation("chat_window");
   const { isFeatureEnabled, Feature } = useFeature();
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   // Who the new conversation picker offers.
   const [friends, setFriends] = useState<UserFriend[]>([]);
+  const [filter, setFilter] = useState<SocialFriendsFilter>("all");
 
   const listRequestIdRef = useRef(0);
 
-  // Every conversation with messages, most recent first, so the sidebar shows
-  // them all. Ones already open (from a pending open) keep their state and
-  // stay first; the rest fill in behind, with their latest message and unread
-  // count from the list.
   const loadConversations = useCallback(async () => {
     const requestId = ++listRequestIdRef.current;
-    const listed: ChatConversationsPage["conversations"] = [];
-    let cursor: string | null = null;
+    let listed: ChatConversationsPage["conversations"] = [];
 
     try {
-      do {
-        const page: ChatConversationsPage =
-          await electron.hydraApi.get<ChatConversationsPage>(
-            CHAT_CONVERSATIONS_PATH,
-            {
-              params: {
-                take: CHAT_CONVERSATIONS_PAGE_SIZE,
-                ...(cursor ? { cursor } : {}),
-              },
-            }
-          );
-        listed.push(...page.conversations);
-        cursor = page.nextCursor;
-      } while (cursor && listed.length < CHAT_CONVERSATIONS_LIMIT);
+      const page = await electron.socialGetConversations();
+      listed = page.conversations;
     } catch {
       // The sidebar still shows whatever was opened; the next open retries.
       return;
@@ -100,10 +78,9 @@ export default function ChatWindow() {
         return dto
           ? {
               ...conversation,
-              // A pending open built from a notification may lack the mark.
               friend: { ...conversation.friend, ...dto.friend },
               lastMessage: toConversationLastMessage(dto),
-              canSend: dto.canSend && !isOfficialAccount(dto.friend),
+              canSend: dto.canSend,
             }
           : conversation;
       });
@@ -119,8 +96,7 @@ export default function ChatWindow() {
           }),
           lastMessage: toConversationLastMessage(dto),
           unreadCount: dto.unreadCount,
-          // One way, whatever the API says about the relationship.
-          canSend: dto.canSend && !isOfficialAccount(dto.friend),
+          canSend: dto.canSend,
         }));
 
       return [...open, ...rest];
@@ -128,38 +104,6 @@ export default function ChatWindow() {
 
     setActiveId((activeId) => activeId ?? listed[0]?.friendId ?? null);
   }, []);
-
-  const officialRequestIdRef = useRef(0);
-  const officialRevisionRef = useRef<number | null>(null);
-  const language = i18n.language;
-  const languageRef = useRef(language);
-
-  // Official messages aren't part of the list above: older launchers read that
-  // too, and they would show this as a direct conversation.
-  const loadOfficialConversation = useCallback(async () => {
-    const requestId = ++officialRequestIdRef.current;
-    const page = await electron.hydraApi
-      .get<unknown>(OFFICIAL_MESSAGES_PATH, {
-        params: { language: languageRef.current },
-      })
-      .catch(() => null);
-    if (requestId !== officialRequestIdRef.current) return;
-    if (!isOfficialMessagesPage(page)) return;
-
-    setConversations((current) =>
-      applyOfficialPage(current, page, createConversation)
-    );
-    setActiveId((activeId) => {
-      if (page.messages.length > 0) return activeId ?? page.sender.id;
-      return activeId === page.sender.id ? null : activeId;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (languageRef.current === language) return;
-    languageRef.current = language;
-    if (officialRevisionRef.current !== null) void loadOfficialConversation();
-  }, [language, loadOfficialConversation]);
 
   const updateConversation = useCallback(
     (
@@ -199,11 +143,7 @@ export default function ChatWindow() {
     const requestId = ++friendsRequestIdRef.current;
 
     try {
-      const response = await fetchAllProfileFriends((take, skip) =>
-        electron.hydraApi.get<ProfileFriends>(PROFILE_FRIENDS_PATH, {
-          params: { take, skip },
-        })
-      );
+      const response = await electron.socialGetFriends();
       if (requestId !== friendsRequestIdRef.current) return;
 
       setFriends(response.friends);
@@ -312,13 +252,7 @@ export default function ChatWindow() {
   useEffect(() => {
     openPendingConversations();
     void loadConversations()
-      .then(async () => {
-        await refreshFriends();
-        await electron.refreshOfficialChat().catch(() => {});
-        const unread = await electron.getChatUnreadState().catch(() => null);
-        officialRevisionRef.current = unread?.officialRevision ?? 0;
-        await loadOfficialConversation();
-      })
+      .then(() => refreshFriends())
       .catch(() => {});
 
     const unsubscribePending = electron.onChatFriendsPending(() => {
@@ -330,45 +264,44 @@ export default function ChatWindow() {
       void playMessageSound();
     });
     const unsubscribeFriends = electron.onFriendsUpdated(() => {
-      refreshFriends();
+      void refreshFriends();
     });
     const unsubscribeResync = electron.onChatResync(() => {
       void loadConversations();
     });
-    const unsubscribeUnread = electron.onChatUnreadUpdated(
-      ({ officialRevision }) => {
-        if (
-          officialRevisionRef.current === null ||
-          officialRevision === undefined ||
-          officialRevision === officialRevisionRef.current
-        ) {
-          return;
-        }
-
-        officialRevisionRef.current = officialRevision;
-        void loadOfficialConversation();
-      }
-    );
-    const unsubscribePresence = electron.onFriendPresence(
-      ({ friendId, isOnline }) => {
-        updateConversation(friendId, (conversation) => ({
-          ...conversation,
-          friend: { ...conversation.friend, isOnline },
-        }));
-      }
-    );
+    const unsubscribePresence = electron.onFriendPresence((presence) => {
+      updateConversation(presence.friendId, (conversation) => ({
+        ...conversation,
+        friend: {
+          ...conversation.friend,
+          isOnline: presence.isOnline,
+          personaState:
+            presence.personaState ?? conversation.friend.personaState,
+          currentGame:
+            presence.currentGame !== undefined
+              ? presence.currentGame
+              : conversation.friend.currentGame,
+          richPresence:
+            presence.richPresence !== undefined
+              ? presence.richPresence
+              : conversation.friend.richPresence,
+          gameLobby:
+            presence.gameLobby !== undefined
+              ? presence.gameLobby
+              : conversation.friend.gameLobby,
+        },
+      }));
+    });
 
     return () => {
       unsubscribePending();
       unsubscribeSound();
       unsubscribeFriends();
       unsubscribeResync();
-      unsubscribeUnread();
       unsubscribePresence();
     };
   }, [
     loadConversations,
-    loadOfficialConversation,
     openPendingConversations,
     refreshFriends,
     updateConversation,
@@ -418,6 +351,8 @@ export default function ChatWindow() {
         friends={friends}
         onRefreshFriends={() => void refreshFriends()}
         onOpenConversation={handleOpenConversation}
+        filter={filter}
+        onFilterChange={setFilter}
       />
 
       <section className="chat-window__pane">
@@ -432,7 +367,10 @@ export default function ChatWindow() {
           <ChatConversationView
             key={activeConversation.friend.id}
             conversation={activeConversation}
-            imagesEnabled={isFeatureEnabled(Feature.ChatImages)}
+            imagesEnabled={
+              isFeatureEnabled(Feature.ChatImages) &&
+              !isStoreFriendId(activeConversation.friend.id)
+            }
             sendCooldown={chat.sendCooldown}
             sendRejections={chat.sendRejections}
             onDraftChange={(draft) => {

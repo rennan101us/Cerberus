@@ -9,10 +9,8 @@ import { AchievementMemoryStore } from "../achievements/achievement-memory-store
 import { getGameAchievementData } from "../achievements/get-game-achievement-data";
 import { mergeAchievements } from "../achievements/merge-achievements";
 import { HydraApi } from "../hydra-api";
-import { prepareLinuxGameCaptureSession } from "../linux-game-capture-session";
 import { achievementsLogger } from "../logger";
 import { getEmulatorConfig } from "./emulators-repository";
-import { loadEmulatorAchievementTracking } from "./load-emulator-achievement-tracking";
 import {
   createShadps4LogScan,
   mergeTrophyUnlocks,
@@ -46,16 +44,6 @@ const hasTrophyCatalogue = async (game: Game): Promise<boolean> => {
     false
   );
   return catalogue.length > 0;
-};
-
-const prepareSouvenirCapture = async (gameKey: string) => {
-  const [game, tracking] = await Promise.all([
-    gamesSublevel.get(gameKey),
-    loadEmulatorAchievementTracking(),
-  ]);
-  if (tracking.souvenirs && game?.remoteId) {
-    await prepareLinuxGameCaptureSession(gameKey);
-  }
 };
 
 export const startShadps4TrophyWatcher = ({
@@ -192,14 +180,6 @@ export const startShadps4TrophyWatcher = ({
       });
     return inFlightRead;
   };
-
-  prepareSouvenirCapture(gameKey).catch((error) => {
-    achievementsLogger.warn(
-      "Failed to prepare shadPS4 trophy capture",
-      gameKey,
-      error
-    );
-  });
 
   const timer = setInterval(() => {
     if (inFlightRead === null) void runRead(false);

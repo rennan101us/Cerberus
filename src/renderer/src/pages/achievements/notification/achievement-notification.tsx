@@ -161,7 +161,6 @@ export function AchievementNotification() {
         setPhase("idle");
 
         const resolveIcon = () => {
-          if (nextRequest.type === "screenshot") return Promise.resolve("");
           if (nextRequest.type === "combined") {
             return Promise.resolve(HydraIconUrl);
           }
@@ -264,10 +263,7 @@ export function AchievementNotification() {
         logger.error("Failed to report notification start", error);
       });
 
-    if (
-      activeRequest.type !== "screenshot" &&
-      playedSoundBatch.current !== activeRequest.batchId
-    ) {
+    if (playedSoundBatch.current !== activeRequest.batchId) {
       void playAchievementSound(requestId, activeRequest.batchId);
     }
 

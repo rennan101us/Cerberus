@@ -1,3 +1,4 @@
+import { app, session } from "electron";
 import { updateGameRecord } from "@main/services/game-record-updater";
 import { registerEvent } from "../register-event";
 import path from "node:path";
@@ -7,7 +8,7 @@ import i18next from "i18next";
 import { defaultDownloadsPath } from "@main/constants";
 import { db, gamesSublevel, levelKeys } from "@main/level";
 import { patchUserProfile } from "../profile/update-profile";
-import { DownloadManager, ScreenshotInputService, Wine } from "@main/services";
+import { DownloadManager, Wine } from "@main/services";
 import { WindowManager } from "@main/services/window-manager";
 import { getDownloadDirectoryPreferences } from "@shared";
 import {
@@ -21,10 +22,6 @@ import {
 import { HydraApi } from "@main/services/hydra-api";
 import { UnlockedAchievementsCache } from "@main/services/achievements/unlocked-achievements-cache";
 import { deleteRetroAchievementsEmulatorAccount } from "@main/services/retro-achievements/retro-achievements-emulator-account";
-import {
-  prepareLinuxGameCaptureSession,
-  stopAllLinuxGameCaptureSessions,
-} from "@main/services/linux-game-capture-session";
 
 const updateLanguagePreference = async (language: string | undefined) => {
   if (!language) return;
@@ -67,31 +64,8 @@ const pinExistingWinePrefixes = async (
   await Promise.all(games.map(pinGameWinePrefix));
 };
 
-const prepareRunningLinuxCaptureSessions = async () => {
-  if (process.platform !== "linux") return;
-
-  const [{ gamesPlaytime }, { emulatorSessions }] = await Promise.all([
-    import("@main/services/game-running-state"),
-    import("@main/services/emulators/emulator-session-tracker"),
-  ]);
-  const runningGameKeys = new Set(gamesPlaytime.keys());
-
-  for (const [gameKey, session] of emulatorSessions) {
-    if (session.system !== "ps3") {
-      runningGameKeys.add(gameKey);
-    }
-  }
-
-  for (const gameKey of runningGameKeys) {
-    const game = await gamesSublevel.get(gameKey).catch(() => null);
-    if (game?.remoteId)
-      void prepareLinuxGameCaptureSession(gameKey, "souvenir");
-  }
-};
-
 const enableAchievementSouvenirs = async () => {
   await restoreRetroArchAchievementScreenshots();
-  await prepareRunningLinuxCaptureSessions();
 };
 
 const ACHIEVEMENT_VIEW_PREFERENCE_KEYS = [
@@ -120,10 +94,6 @@ const updateEmulatorAchievementTracking = async (
   if (preferences.enableAchievementSouvenirs === true) {
     await enableAchievementSouvenirs();
     return;
-  }
-
-  if (Object.hasOwn(preferences, "enableAchievementSouvenirs")) {
-    stopAllLinuxGameCaptureSessions("souvenir");
   }
 
   const tracking = resolveEmulatorAchievementTracking(
@@ -156,17 +126,6 @@ const unlinkRetroAchievementsEmulatorAccount = async (
   await deleteRetroAchievementsEmulatorAccount();
 };
 
-const updateScreenshotsPreference = async (
-  preferences: Partial<UserPreferences>
-) => {
-  if (!Object.hasOwn(preferences, "screenshotsEnabled")) return;
-
-  const { applyScreenshotsEnabledPreference } = await import(
-    "@main/services/screenshots"
-  );
-  await applyScreenshotsEnabledPreference(preferences.screenshotsEnabled);
-};
-
 const applyDownloadManagerPreferences = async (
   preferences: Partial<UserPreferences>
 ) => {
@@ -180,6 +139,33 @@ const applyDownloadManagerPreferences = async (
     await DownloadManager.applyNetworkInterface(
       preferences.torrentNetworkInterface ?? null
     );
+  }
+
+  if (Object.hasOwn(preferences, "enableDoh")) {
+    const enableDoh = preferences.enableDoh !== false;
+    try {
+      app.configureHostResolver({
+        enableBuiltInResolver: true,
+        secureDnsMode: enableDoh ? "automatic" : "off",
+        secureDnsServers: [
+          "https://cloudflare-dns.com/dns-query",
+          "https://dns.google/dns-query",
+        ],
+      });
+    } catch {
+      // Ignore if host resolver cannot be reconfigured
+    }
+  }
+
+  if (Object.hasOwn(preferences, "networkProxyUrl")) {
+    const proxyUrl = preferences.networkProxyUrl?.trim() || "";
+    try {
+      await session.defaultSession.setProxy(
+        proxyUrl ? { proxyRules: proxyUrl } : { mode: "system" }
+      );
+    } catch {
+      // Ignore proxy errors
+    }
   }
 };
 
@@ -225,11 +211,9 @@ const updateUserPreferences = async (
   }
 
   Wine.syncUserPreferences(updatedPreferences);
-  ScreenshotInputService.syncUserPreferences(updatedPreferences);
 
   await updateEmulatorAchievementTracking(preferences, updatedPreferences);
   await unlinkRetroAchievementsEmulatorAccount(preferences);
-  await updateScreenshotsPreference(preferences);
 
   WindowManager.sendToAppWindows(
     "on-user-preferences-updated",

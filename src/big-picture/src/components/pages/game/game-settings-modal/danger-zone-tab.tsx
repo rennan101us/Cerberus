@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { LibraryGame } from "@types";
+import type { GameUninstallPreview, LibraryGame } from "@types";
 import {
   applyLibraryGroupAction,
   findLibraryGamePresentation,
@@ -12,15 +12,29 @@ import {
   type RemoveFilesTarget,
 } from "@shared";
 import { useIsSteamLibraryExecutable } from "@renderer/hooks/use-steam-library-executable";
-import { Button, VerticalFocusGroup } from "../../../common";
+import {
+  Button,
+  Checkbox,
+  HorizontalFocusGroup,
+  Modal,
+  VerticalFocusGroup,
+} from "../../../common";
 import { ConfirmationModal } from "../../../modals";
 import { useSourceArchive } from "@renderer/hooks/use-source-archive";
 import { SettingsSection } from "../../../../pages/settings/settings-section";
 import { useBigPictureToast } from "../../../../hooks/use-big-picture-toast.hook";
-import { Feature, useFeature } from "../../../../hooks";
-import { MyScreenshotsDangerSection } from "./my-screenshots-danger-section";
+import { useNavigation } from "../../../../hooks";
 
 import "./danger-zone-tab.scss";
+
+const UNINSTALL_MODAL_CANCEL_ID = "bp-game-uninstall-cancel-btn";
+
+function formatUninstallMb(bytes: number): string {
+  if (!bytes || bytes <= 0) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  if (mb < 0.1) return "< 0.1 MB";
+  return `${mb.toFixed(1)} MB`;
+}
 
 function getConfirmationConfig(
   pendingAction: DangerAction,
@@ -93,13 +107,21 @@ export function GameDangerZoneSettingsTab({
   onClose,
 }: Readonly<GameDangerZoneSettingsTabProps>) {
   const { t } = useTranslation("big_picture");
-  const { showSuccessToast, showErrorToast } = useBigPictureToast();
-  const { isFeatureEnabled } = useFeature();
+  const { showSuccessToast, showErrorToast, showWarningToast } =
+    useBigPictureToast();
+  const { setFocus } = useNavigation();
   const [pendingAction, setPendingAction] = useState<DangerAction | null>(null);
   const [pendingRemoveFilesTarget, setPendingRemoveFilesTarget] =
     useState<RemoveFilesTarget | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [deleteSourceArchive, setDeleteSourceArchive] = useState(false);
+  const [showUninstallModal, setShowUninstallModal] = useState(false);
+  const [loadingUninstallPreview, setLoadingUninstallPreview] = useState(false);
+  const [uninstallPreview, setUninstallPreview] =
+    useState<GameUninstallPreview | null>(null);
+  const [uninstallDeleteSaves, setUninstallDeleteSaves] = useState(false);
+  const [uninstallDeleteStaging, setUninstallDeleteStaging] = useState(false);
+  const [uninstallingGame, setUninstallingGame] = useState(false);
   const hasSourceArchive = useSourceArchive(
     pendingRemoveFilesTarget?.kind === "hydra"
       ? pendingRemoveFilesTarget.game
@@ -261,6 +283,87 @@ export function GameDangerZoneSettingsTab({
     deleteSourceArchive,
   ]);
 
+  const canUninstallGame = Boolean(
+    game.executablePath ||
+      game.switchPortedAppPath ||
+      removeFilesSource.executablePath ||
+      removeFilesSource.switchPortedAppPath
+  );
+
+  useEffect(() => {
+    if (!showUninstallModal) return;
+    let cancelled = false;
+    setLoadingUninstallPreview(true);
+    setUninstallDeleteSaves(false);
+    setUninstallDeleteStaging(false);
+
+    void globalThis.window.electron
+      .getGameUninstallPreview(game.shop, game.objectId)
+      .then((res) => {
+        if (!cancelled) setUninstallPreview(res);
+      })
+      .catch(() => {
+        if (!cancelled) setUninstallPreview(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingUninstallPreview(false);
+      });
+
+    const frameId = globalThis.window.requestAnimationFrame(() => {
+      setFocus(UNINSTALL_MODAL_CANCEL_ID);
+    });
+
+    return () => {
+      cancelled = true;
+      globalThis.window.cancelAnimationFrame(frameId);
+    };
+  }, [game.objectId, game.shop, setFocus, showUninstallModal]);
+
+  const handleConfirmUninstallGame = useCallback(async () => {
+    setUninstallingGame(true);
+    try {
+      const result = await globalThis.window.electron.uninstallGame(
+        game.shop,
+        game.objectId,
+        {
+          deleteSaves: uninstallDeleteSaves,
+          deleteStaging:
+            uninstallPreview?.kind === "switch" ? uninstallDeleteStaging : false,
+        }
+      );
+
+      if (!result.ok) {
+        showErrorToast(result.error || t("uninstall_game_failed"));
+        return;
+      }
+
+      if (result.warnings.length > 0) {
+        showWarningToast(result.warnings[0]);
+      } else {
+        showSuccessToast(t("uninstall_game_success", { game: game.title }));
+      }
+      setShowUninstallModal(false);
+      globalThis.window.dispatchEvent(new Event("library-update"));
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error ? err.message : t("uninstall_game_failed")
+      );
+    } finally {
+      setUninstallingGame(false);
+    }
+  }, [
+    game.objectId,
+    game.shop,
+    game.title,
+    showErrorToast,
+    showSuccessToast,
+    showWarningToast,
+    t,
+    uninstallDeleteSaves,
+    uninstallDeleteStaging,
+    uninstallPreview?.kind,
+  ]);
+
   const confirmationConfig = pendingAction
     ? getConfirmationConfig(
         pendingAction,
@@ -335,13 +438,133 @@ export function GameDangerZoneSettingsTab({
         </SettingsSection>
       )}
 
-      {isFeatureEnabled(Feature.Screenshots) ? (
-        <MyScreenshotsDangerSection
-          shop={game.shop}
-          objectId={game.objectId}
-          fallbackFocusId={GAME_DANGER_ZONE_PRIMARY_CONTROL_ID}
-        />
-      ) : null}
+      <SettingsSection
+        className="game-danger-zone-settings-tab__section"
+        title={t("uninstall_game")}
+        description={t("uninstall_game_description")}
+      >
+        <Button
+          variant="danger"
+          className="game-danger-zone-settings-tab__action-button"
+          disabled={!canUninstallGame || isGameDownloading}
+          onClick={() => setShowUninstallModal(true)}
+        >
+          {t("uninstall_game")}
+        </Button>
+      </SettingsSection>
+
+      {showUninstallModal && (
+        <Modal
+          visible={true}
+          onClose={() => {
+            if (!uninstallingGame) setShowUninstallModal(false);
+          }}
+          title={t("uninstall_game_modal_title", { game: game.title })}
+          description={
+            uninstallPreview?.kind === "switch"
+              ? t("uninstall_game_switch_description", { game: game.title })
+              : t("uninstall_game_windows_description", { game: game.title })
+          }
+          initialFocusId={UNINSTALL_MODAL_CANCEL_ID}
+          closeOnBackdrop={!uninstallingGame}
+          closeOnEscape={!uninstallingGame}
+          busy={uninstallingGame}
+        >
+          <VerticalFocusGroup className="game-uninstall-modal__content">
+            {loadingUninstallPreview ? (
+              <div className="game-uninstall-modal__summary">
+                <span>{t("uninstall_scanning")}</span>
+              </div>
+            ) : (
+              <>
+                <div className="game-uninstall-modal__summary">
+                  {uninstallPreview?.installPath ? (
+                    <>
+                      <strong>
+                        {uninstallPreview.kind === "switch"
+                          ? t("uninstall_app_bundle")
+                          : t("uninstall_install_folder")}{" "}
+                        ({formatUninstallMb(uninstallPreview.installSizeBytes)})
+                      </strong>
+                      <span className="game-uninstall-modal__path">
+                        {uninstallPreview.installPath}
+                      </span>
+                    </>
+                  ) : (
+                    <span>{t("uninstall_no_install_found")}</span>
+                  )}
+                  {uninstallPreview?.kind !== "switch" &&
+                    uninstallPreview?.uninstallerPath && (
+                      <span>
+                        {t("uninstall_detected_uninstaller")}:{" "}
+                        {uninstallPreview.uninstallerPath.split("/").pop()}
+                      </span>
+                    )}
+                </div>
+
+                {uninstallPreview?.kind === "switch" && (
+                  <Checkbox
+                    block
+                    label={t("uninstall_delete_staging_checkbox", {
+                      size: formatUninstallMb(
+                        uninstallPreview?.stagingSizeBytes ?? 0
+                      ),
+                    })}
+                    checked={uninstallDeleteStaging}
+                    disabled={
+                      uninstallingGame ||
+                      (uninstallPreview?.stagingPaths.length ?? 0) === 0
+                    }
+                    onChange={setUninstallDeleteStaging}
+                  />
+                )}
+
+                <Checkbox
+                  block
+                  label={t("uninstall_delete_saves_checkbox", {
+                    size: formatUninstallMb(
+                      uninstallPreview?.saveSizeBytes ?? 0
+                    ),
+                  })}
+                  checked={uninstallDeleteSaves}
+                  disabled={
+                    uninstallingGame ||
+                    (uninstallPreview?.savePaths.length ?? 0) === 0
+                  }
+                  onChange={setUninstallDeleteSaves}
+                />
+              </>
+            )}
+
+            <HorizontalFocusGroup className="game-uninstall-modal__actions">
+              <Button
+                variant="secondary"
+                focusId={UNINSTALL_MODAL_CANCEL_ID}
+                disabled={uninstallingGame}
+                onClick={() => setShowUninstallModal(false)}
+              >
+                {t("cancel", { defaultValue: "Cancelar" })}
+              </Button>
+              <Button
+                variant="danger"
+                loading={uninstallingGame}
+                disabled={
+                  loadingUninstallPreview ||
+                  uninstallingGame ||
+                  !uninstallPreview?.canUninstall
+                }
+                onClick={() => {
+                  void handleConfirmUninstallGame();
+                }}
+              >
+                {uninstallingGame
+                  ? t("uninstall_in_progress")
+                  : t("uninstall_confirm")}
+              </Button>
+            </HorizontalFocusGroup>
+          </VerticalFocusGroup>
+        </Modal>
+      )}
 
       {confirmationConfig && (
         <ConfirmationModal

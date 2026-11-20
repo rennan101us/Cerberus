@@ -70,6 +70,8 @@ export interface ChatMessage {
   uploadProgress?: number;
   /** Why a `failed` message failed, when the user can do something about it. */
   failure?: "daily_limit";
+  /** Structured Steam/Epic game invite attached to this message. */
+  invite?: import("@types").SocialGameInvite;
 }
 
 export interface ChatMessageGroup {

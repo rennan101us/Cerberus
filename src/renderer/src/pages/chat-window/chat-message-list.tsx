@@ -18,9 +18,13 @@ import {
   XIcon,
 } from "@primer/octicons-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Gamepad2, Play } from "lucide-react";
 import cn from "classnames";
 
 import { ContextMenu, type ContextMenuItemData } from "@renderer/components";
+import SteamLogo from "@renderer/assets/steam-logo.svg?react";
+import EpicLogo from "@renderer/assets/epic-integration-logo.svg?react";
+import type { SocialGameInvite } from "@types";
 
 import { LARGE_EMOJI_MAX_COUNT, countEmojiOnly } from "./chat-emoji";
 import {
@@ -54,6 +58,84 @@ import {
 import { isTrustedLink } from "./chat-trusted-links";
 
 const electron = globalThis.electron as Electron;
+
+function ChatGameInviteCard({
+  invite,
+  fromMe,
+}: Readonly<{ invite: SocialGameInvite; fromMe: boolean }>) {
+  const [joining, setJoining] = useState(false);
+  const [statusNote, setStatusNote] = useState<string | null>(null);
+
+  const handleAccept = async () => {
+    if (joining) return;
+    setJoining(true);
+    setStatusNote(null);
+    try {
+      const res = await electron.socialAcceptGameInvite(invite);
+      if (res.launched) {
+        setStatusNote(`Abrindo ${invite.gameTitle}...`);
+      } else if (res.navigatedTo) {
+        setStatusNote("Jogo não instalado neste dispositivo.");
+      } else {
+        setStatusNote("Jogo não encontrado na biblioteca local.");
+      }
+    } catch (err) {
+      setStatusNote(
+        err instanceof Error ? err.message : "Não foi possível entrar no jogo."
+      );
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  return (
+    <div
+      className={cn("chat-window__invite-card", {
+        "chat-window__invite-card--mine": fromMe,
+      })}
+    >
+      <div className="chat-window__invite-card-header">
+        <span
+          className={cn(
+            "chat-window__invite-card-provider",
+            `chat-window__invite-card-provider--${invite.provider}`
+          )}
+        >
+          {invite.provider === "steam" ? (
+            <SteamLogo width={14} height={14} />
+          ) : (
+            <EpicLogo width={14} height={14} />
+          )}
+        </span>
+        <div className="chat-window__invite-card-meta">
+          <span className="chat-window__invite-card-label">
+            <Gamepad2 size={12} />
+            <span>{fromMe ? "Convite enviado" : "Convite para jogar"}</span>
+          </span>
+          <strong className="chat-window__invite-card-title">
+            {invite.gameTitle}
+          </strong>
+        </div>
+      </div>
+
+      {statusNote && (
+        <span className="chat-window__invite-card-status">{statusNote}</span>
+      )}
+
+      <div className="chat-window__invite-card-actions">
+        <button
+          type="button"
+          className="chat-window__invite-card-join"
+          disabled={joining}
+          onClick={() => void handleAccept()}
+        >
+          <Play size={12} />
+          <span>{joining ? "Entrando..." : "Entrar no jogo"}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export interface ChatMessageListProps {
   friendId: string;
@@ -452,8 +534,12 @@ export function ChatMessageList({
       ? null
       : (messages.find((message) => message.seq === reactionPickerSeq) ?? null);
 
+  const isStoreConversation =
+    friendId.startsWith("steam:") || friendId.startsWith("epic:");
+
   // Only stored messages have a seq to reply, react to or report.
   const canAct = (message: ChatMessage) =>
+    !isStoreConversation &&
     canReply &&
     message.seq !== undefined &&
     message.status === "sent" &&
@@ -461,6 +547,7 @@ export function ChatMessageList({
 
   // Reports work after an unfriend or block, but only on the friend's messages.
   const canReport = (message: ChatMessage) =>
+    !isStoreConversation &&
     isReportable &&
     !message.fromMe &&
     message.seq !== undefined &&
@@ -541,17 +628,11 @@ export function ChatMessageList({
   const menuItems = menuMessage ? getMenuItems(menuMessage) : [];
 
   const submitReport = async (
-    seq: number,
-    reason: ChatReportReason,
-    description: string
+    _seq: number,
+    _reason: ChatReportReason,
+    _description: string
   ) => {
-    // The server keeps earlier messages with it as context, and reporting
-    // the same message again changes nothing.
-    const details = description.trim();
-    await electron.hydraApi.post(
-      `/profile/chats/${friendId}/messages/${seq}/report`,
-      { data: { reason, ...(details ? { description: details } : {}) } }
-    );
+    // Store chats do not submit reports to third-party servers.
   };
 
   // The confirmation comes up once the dialog is gone.
@@ -680,8 +761,16 @@ export function ChatMessageList({
                           isReactionBarOpen ||
                           (seq !== undefined && reactionPickerSeq === seq);
                         const hasImages = Boolean(message.attachments?.length);
+                        const isInvitePlaceholderText =
+                          Boolean(message.invite) &&
+                          (message.text.startsWith(
+                            "Convite enviado para jogar "
+                          ) ||
+                            message.text.startsWith("[Convite"));
                         const hasBubble =
-                          message.text.length > 0 || Boolean(message.replyTo);
+                          (!isInvitePlaceholderText &&
+                            message.text.length > 0) ||
+                          Boolean(message.replyTo);
                         const isHighlighted =
                           seq !== undefined &&
                           (seq === replyToSeq || isReacting);
@@ -814,6 +903,12 @@ export function ChatMessageList({
                                     onOpenLink={openLink}
                                   />
                                 </p>
+                              )}
+                              {!message.isHidden && message.invite && (
+                                <ChatGameInviteCard
+                                  invite={message.invite}
+                                  fromMe={group.fromMe}
+                                />
                               )}
                               {seq !== undefined && !message.isHidden && (
                                 <ChatReactionPills

@@ -16,7 +16,7 @@ import {
   getEpicLaunchError,
   getEpicManagedError,
 } from "@renderer/helpers/epic-managed-error";
-import { FileArchive, XCircle } from "lucide-react";
+import { FileArchive, Hammer, XCircle } from "lucide-react";
 import {
   useAppSelector,
   useDownload,
@@ -39,6 +39,7 @@ import {
 } from "@renderer/helpers";
 import { DiscSelectionModal } from "../modals/disc-selection-modal";
 import { EpicCloudSaveConflictModal } from "../modals/epic-cloud-save-conflict-modal";
+import { SwitchPortModal } from "../modals/switch-port-modal/switch-port-modal";
 
 import "./hero-panel-actions.scss";
 import { useEffect } from "react";
@@ -102,6 +103,18 @@ export function HeroPanelActions() {
   const location = useLocation();
 
   const [showDiscSelectionModal, setShowDiscSelectionModal] = useState(false);
+  const [showSwitchPortModal, setShowSwitchPortModal] = useState(false);
+
+  const isSwitchGame = game?.shop === "switch1" || game?.shop === "switch2";
+  const nxBuildJob = useAppSelector((state) => state.nxBuildJob.activeJob);
+  const isSwitchPortingThisGame = Boolean(
+    isSwitchGame &&
+      nxBuildJob &&
+      nxBuildJob.objectId === game?.objectId &&
+      nxBuildJob.phase !== "done" &&
+      nxBuildJob.phase !== "error" &&
+      nxBuildJob.phase !== "cancelled"
+  );
 
   useEffect(() => {
     const state = (location.state as Record<string, unknown> | null) ?? {};
@@ -111,6 +124,41 @@ export function HeroPanelActions() {
     setShowDiscSelectionModal(true);
     navigate(location.pathname + location.search, { replace: true, state: {} });
   }, [location, game?.shop, game?.discs?.length, navigate]);
+
+  useEffect(() => {
+    if (!isSwitchGame) return;
+    const state = (location.state as Record<string, unknown> | null) ?? {};
+    const params = new URLSearchParams(location.search);
+    if (state.openSwitchPort || params.get("openSwitchPort") === "1") {
+      setShowSwitchPortModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [isSwitchGame, location, navigate]);
+
+  useEffect(() => {
+    if (!isSwitchGame) return;
+    const handleOpenSwitchPort = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ shop?: string; objectId?: string }>
+      ).detail;
+      if (
+        !detail?.objectId ||
+        (detail.objectId === game?.objectId && detail.shop === game?.shop)
+      ) {
+        setShowSwitchPortModal(true);
+      }
+    };
+    window.addEventListener(
+      "cerberus:openSwitchPortModal",
+      handleOpenSwitchPort
+    );
+    return () => {
+      window.removeEventListener(
+        "cerberus:openSwitchPortModal",
+        handleOpenSwitchPort
+      );
+    };
+  }, [isSwitchGame, game?.objectId, game?.shop]);
   const [localSaveRetry, setLocalSaveRetry] = useState<{
     member: LibraryGame;
     skipUpdateCheck: boolean;
@@ -349,6 +397,29 @@ export function HeroPanelActions() {
 
     if (game.shop === "launchbox") {
       await openClassicsGame();
+      return;
+    }
+
+    if (
+      (game.shop === "switch1" || game.shop === "switch2") &&
+      (game.switchPortedAppPath || game.executablePath)
+    ) {
+      const targetExecutable = game.switchPortedAppPath ?? game.executablePath!;
+      try {
+        await window.electron.openGame(
+          game.shop,
+          game.objectId,
+          targetExecutable,
+          game.launchOptions
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Falha ao abrir o jogo Switch.";
+        showErrorToast(message);
+        logger.error("Failed to launch Switch game", error);
+      }
       return;
     }
 
@@ -685,6 +756,105 @@ export function HeroPanelActions() {
       );
     }
 
+    if (isSwitchGame) {
+      if (isSwitchPortingThisGame && nxBuildJob) {
+        const pct = Math.round((nxBuildJob.fraction ?? 0) * 100);
+        return (
+          <>
+            <Button
+              theme="outline"
+              disabled
+              className="hero-panel-actions__action"
+              title={
+                nxBuildJob.stageName || nxBuildJob.step || "Portando jogo..."
+              }
+            >
+              <Hammer size={16} />
+              Portando {pct > 0 ? `${pct}%` : "..."}
+            </Button>
+            <Button
+              theme="outline"
+              onClick={() => void window.electron.nxCancelPortBuild()}
+              className="hero-panel-actions__action"
+            >
+              <XCircle size={16} />
+              Cancelar
+            </Button>
+          </>
+        );
+      }
+
+      const hasMacPort = Boolean(
+        game?.switchPortedAppPath || game?.executablePath
+      );
+      const hasIosPort = Boolean(game?.switchPortedIpaPath);
+
+      if (!hasMacPort) {
+        const hasLocalRom = Boolean(game?.switchRomPath);
+        return (
+          <>
+            {!hasLocalRom && (
+              <Button
+                onClick={() => setShowRepacksModal(true)}
+                theme="outline"
+                disabled={deleting || isGameDownloading}
+                className="hero-panel-actions__action"
+              >
+                <DownloadIcon />
+                {t("open_download_options")}
+              </Button>
+            )}
+            <Button
+              onClick={() => setShowSwitchPortModal(true)}
+              theme="primary"
+              disabled={deleting}
+              className="hero-panel-actions__action"
+            >
+              <Hammer size={16} />
+              Portar Jogo
+            </Button>
+          </>
+        );
+      }
+
+      if (!hasIosPort) {
+        return (
+          <>
+            <Button
+              onClick={openGame}
+              theme="outline"
+              disabled={deleting || isGameRunning}
+              className="hero-panel-actions__action"
+            >
+              <PlayIcon />
+              {t("play")}
+            </Button>
+            <Button
+              onClick={() => setShowSwitchPortModal(true)}
+              theme="outline"
+              disabled={deleting}
+              className="hero-panel-actions__action"
+            >
+              <Hammer size={16} />
+              Portar
+            </Button>
+          </>
+        );
+      }
+
+      return (
+        <Button
+          onClick={openGame}
+          theme="outline"
+          disabled={deleting || isGameRunning}
+          className="hero-panel-actions__action"
+        >
+          <PlayIcon />
+          {t("play")}
+        </Button>
+      );
+    }
+
     if (game?.executablePath || isPlayableClassics) {
       return (
         <Button
@@ -702,20 +872,32 @@ export function HeroPanelActions() {
     const finishedDownloadAction = finishedDownloadButton();
     if (finishedDownloadAction) return finishedDownloadAction;
 
+    const isCustomDownloadShop =
+      shop === "switch1" ||
+      shop === "switch2" ||
+      shop === "mac_native" ||
+      Boolean(game?.hasActiveSteamImport || game?.hasActiveEpicImport);
+
     return (
       <Button
         onClick={() => setShowRepacksModal(true)}
         theme="outline"
         disabled={isGameDownloading}
-        className={`hero-panel-actions__action ${repacks.length === 0 && !canDownloadOnSteam(officialMembers.steam) && !officialMembers.epic ? "hero-panel-actions__action--disabled" : ""}`}
+        className={`hero-panel-actions__action ${!isCustomDownloadShop && repacks.length === 0 && !canDownloadOnSteam(officialMembers.steam) && !officialMembers.epic ? "hero-panel-actions__action--disabled" : ""}`}
       >
         <DownloadIcon />
-        {t("download")}
+        {isCustomDownloadShop ? t("open_download_options") : t("download")}
       </Button>
     );
   };
 
-  if (repacks.length && !game) {
+  if (
+    !game &&
+    (repacks.length > 0 ||
+      shop === "switch1" ||
+      shop === "switch2" ||
+      shop === "mac_native")
+  ) {
     return (
       <>
         {addGameToLibraryButton}
@@ -726,124 +908,136 @@ export function HeroPanelActions() {
 
   if (game) {
     return (
-      <div className="hero-panel-actions__container">
-        <EpicCloudSaveConflictModal
-          game={epicSaveConflict}
-          isGameRunning={isGameRunning}
-          onClose={() => setEpicSaveConflict(null)}
-        />
-        <Modal
-          visible={!!localSaveRetry}
-          title={
-            canRetryLocalSaves
-              ? t("epic_play_local_saves")
-              : t("epic_play_offline_title")
-          }
-          description={
-            canRetryLocalSaves
-              ? t("epic_play_local_saves_description")
-              : t("epic_play_offline_description")
-          }
-          onClose={() => setLocalSaveRetry(null)}
-        >
-          <div className="hero-panel-actions__epic-actions">
-            {canRetryLocalSaves && (
-              <Button
-                onClick={() => {
-                  if (localSaveRetry)
-                    void launchMember(
-                      localSaveRetry.member,
-                      true,
-                      false,
-                      localSaveRetry.skipUpdateCheck
-                    );
-                }}
-              >
-                {t("epic_play_local_saves")}
-              </Button>
-            )}
-            {canRetryOffline && (
-              <Button
-                theme="outline"
-                onClick={() => {
-                  if (localSaveRetry)
-                    void launchMember(localSaveRetry.member, false, true);
-                }}
-              >
-                {t("epic_play_offline")}
-              </Button>
-            )}
-          </div>
-        </Modal>
-        {gameActionButton()}
-        <div className="hero-panel-actions__separator" />
-        <Button
-          onClick={toggleGameFavorite}
-          theme="outline"
-          disabled={deleting}
-          className="hero-panel-actions__action"
-        >
-          {(presentation?.favorite ?? game.favorite) ? (
-            <HeartFillIcon />
-          ) : (
-            <HeartIcon />
-          )}
-        </Button>
-
-        {userDetails && game.shop !== "custom" && (
+      <div className="hero-panel-actions__wrapper">
+        <div className="hero-panel-actions__container">
+          <EpicCloudSaveConflictModal
+            game={epicSaveConflict}
+            isGameRunning={isGameRunning}
+            onClose={() => setEpicSaveConflict(null)}
+          />
+          <Modal
+            visible={!!localSaveRetry}
+            title={
+              canRetryLocalSaves
+                ? t("epic_play_local_saves")
+                : t("epic_play_offline_title")
+            }
+            description={
+              canRetryLocalSaves
+                ? t("epic_play_local_saves_description")
+                : t("epic_play_offline_description")
+            }
+            onClose={() => setLocalSaveRetry(null)}
+          >
+            <div className="hero-panel-actions__epic-actions">
+              {canRetryLocalSaves && (
+                <Button
+                  onClick={() => {
+                    if (localSaveRetry)
+                      void launchMember(
+                        localSaveRetry.member,
+                        true,
+                        false,
+                        localSaveRetry.skipUpdateCheck
+                      );
+                  }}
+                >
+                  {t("epic_play_local_saves")}
+                </Button>
+              )}
+              {canRetryOffline && (
+                <Button
+                  theme="outline"
+                  onClick={() => {
+                    if (localSaveRetry)
+                      void launchMember(localSaveRetry.member, false, true);
+                  }}
+                >
+                  {t("epic_play_offline")}
+                </Button>
+              )}
+            </div>
+          </Modal>
+          {gameActionButton()}
+          <div className="hero-panel-actions__separator" />
           <Button
-            onClick={toggleGamePinned}
+            onClick={toggleGameFavorite}
             theme="outline"
             disabled={deleting}
             className="hero-panel-actions__action"
           >
-            {(presentation?.isPinned ?? game.isPinned) ? (
-              <PinSlashIcon />
+            {(presentation?.favorite ?? game.favorite) ? (
+              <HeartFillIcon />
             ) : (
-              <PinIcon />
+              <HeartIcon />
             )}
           </Button>
-        )}
 
-        <Button
-          onClick={() => {
-            setGameOptionsInitialCategory("general");
-            setShowGameOptionsModal(true);
-          }}
-          theme="outline"
-          disabled={deleting}
-          className="hero-panel-actions__action"
-        >
-          <GearIcon />
-          {t("options")}
-        </Button>
+          {userDetails && game.shop !== "custom" && (
+            <Button
+              onClick={toggleGamePinned}
+              theme="outline"
+              disabled={deleting}
+              className="hero-panel-actions__action"
+            >
+              {(presentation?.isPinned ?? game.isPinned) ? (
+                <PinSlashIcon />
+              ) : (
+                <PinIcon />
+              )}
+            </Button>
+          )}
 
-        {game.shop === "launchbox" && (
-          <DiscSelectionModal
-            visible={showDiscSelectionModal}
-            discs={game.discs ?? []}
-            defaultDiscPath={game.selectedDiscPath ?? null}
-            defaultDontAsk={Boolean(game.dontAskDiscSelection)}
-            onClose={() => setShowDiscSelectionModal(false)}
-            onConfirm={handleDiscSelectionConfirm}
+          <Button
+            onClick={() => {
+              setGameOptionsInitialCategory(
+                isSwitchGame ? "switch_settings" : "general"
+              );
+              setShowGameOptionsModal(true);
+            }}
+            theme="outline"
+            disabled={deleting}
+            className="hero-panel-actions__action"
+          >
+            <GearIcon />
+            {t("options")}
+          </Button>
+
+          {isSwitchGame && (
+            <SwitchPortModal
+              visible={showSwitchPortModal}
+              game={game}
+              onClose={() => setShowSwitchPortModal(false)}
+            />
+          )}
+
+          {game.shop === "launchbox" && (
+            <DiscSelectionModal
+              visible={showDiscSelectionModal}
+              discs={game.discs ?? []}
+              defaultDiscPath={game.selectedDiscPath ?? null}
+              defaultDontAsk={Boolean(game.dontAskDiscSelection)}
+              onClose={() => setShowDiscSelectionModal(false)}
+              onConfirm={handleDiscSelectionConfirm}
+            />
+          )}
+
+          <ConfirmationModal
+            visible={pendingClassicsLaunch !== null}
+            title={t("rpcs3_already_running_title")}
+            descriptionText={t("rpcs3_already_running_description")}
+            confirmButtonLabel={t("rpcs3_already_running_confirm")}
+            cancelButtonLabel={t("cancel")}
+            onClose={() => setPendingClassicsLaunch(null)}
+            onConfirm={() => {
+              const pending = pendingClassicsLaunch;
+              setPendingClassicsLaunch(null);
+              if (pending) {
+                void launchClassicsWithErrorHandling(pending.discPath, true);
+              }
+            }}
           />
-        )}
-
-        <ConfirmationModal
-          visible={pendingClassicsLaunch !== null}
-          title={t("rpcs3_already_running_title")}
-          descriptionText={t("rpcs3_already_running_description")}
-          confirmButtonLabel={t("rpcs3_already_running_confirm")}
-          cancelButtonLabel={t("cancel")}
-          onClose={() => setPendingClassicsLaunch(null)}
-          onConfirm={() => {
-            const pending = pendingClassicsLaunch;
-            setPendingClassicsLaunch(null);
-            if (pending) {
-              void launchClassicsWithErrorHandling(pending.discPath, true);
-            }
-          }}
-        />
+        </div>
       </div>
     );
   }

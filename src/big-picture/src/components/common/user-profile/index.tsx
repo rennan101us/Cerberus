@@ -9,7 +9,7 @@ export interface UserProfileProps {
   image?: string | null;
   backgroundImageUrl?: string | null;
   name: string;
-  friendCode: string;
+  friendCode?: string;
   profileFocusId?: string;
   notificationsFocusId?: string;
   notificationsFocusable?: boolean;
@@ -24,7 +24,7 @@ export interface UserProfileProps {
 interface UserProfileContentProps {
   image?: string | null;
   name: string;
-  friendCode: string;
+  friendCode?: string;
   notificationCount?: number;
   focusId?: string;
   focusNavigationOverrides?: FocusOverrides;
@@ -135,8 +135,8 @@ function UserProfileContent({
 
   const handleCopy = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    if (!friendCode || isCopied) return;
 
-    if (isCopied) return;
     setIsCopied(true);
     globalThis.window.electron.clipboard.writeText(friendCode).catch(() => {});
 
@@ -182,23 +182,25 @@ function UserProfileContent({
 
       <div className="user-profile-content__info">
         <p className="user-profile-content__info__name">{name}</p>
-        <button
-          className="user-profile-content__info__friend-code"
-          onClick={handleCopy}
-        >
-          {friendCode}
-          {isCopied ? (
-            <CheckIcon
-              size={14}
-              className="user-profile-content__info__friend-code__icon"
-            />
-          ) : (
-            <CopyIcon
-              size={14}
-              className="user-profile-content__info__friend-code__icon"
-            />
-          )}
-        </button>
+        {friendCode ? (
+          <button
+            className="user-profile-content__info__friend-code"
+            onClick={handleCopy}
+          >
+            {friendCode}
+            {isCopied ? (
+              <CheckIcon
+                size={14}
+                className="user-profile-content__info__friend-code__icon"
+              />
+            ) : (
+              <CopyIcon
+                size={14}
+                className="user-profile-content__info__friend-code__icon"
+              />
+            )}
+          </button>
+        ) : null}
       </div>
     </div>
   );

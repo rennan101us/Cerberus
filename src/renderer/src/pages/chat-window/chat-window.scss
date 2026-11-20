@@ -528,7 +528,7 @@ $cooldown-ring-length: 2 * math.$pi * 11;
     flex-shrink: 0;
     height: $header-height;
     padding: 0 0 0 calc(globals.$spacing-unit * 2);
-    overflow: hidden;
+    overflow: visible;
     background-color: globals.$dark-background-color;
     border-bottom: 1px solid globals.$border-color;
     -webkit-app-region: drag;
@@ -3200,6 +3200,323 @@ $cooldown-ring-length: 2 * math.$pi * 11;
     &__composer-reply,
     &__zzz path {
       animation: none;
+    }
+  }
+
+  &__sidebar-filters {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 globals.$spacing-unit globals.$spacing-unit;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-app-region: no-drag;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &__sidebar-filter {
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid globals.$border-color;
+    background-color: globals.$background-color;
+    color: globals.$body-color;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-app-region: no-drag;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      color: globals.$muted-color;
+    }
+
+    &--active {
+      background-color: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.45);
+      color: #ffffff;
+      font-weight: 600;
+    }
+  }
+
+  &__provider-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    vertical-align: middle;
+
+    &--steam {
+      background-color: rgba(102, 192, 244, 0.15);
+      color: #66c0f4;
+    }
+
+    &--epic {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #e4e6eb;
+    }
+  }
+
+  &__header-feedback {
+    font-size: globals.$small-font-size;
+    color: #9ae6b4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    padding-right: globals.$spacing-unit;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+  }
+
+  &__header-join-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(28, 175, 114, 0.55);
+    background-color: rgba(28, 175, 114, 0.18);
+    color: #c6f6de;
+    font-size: globals.$small-font-size;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+
+    &:hover {
+      background-color: rgba(28, 175, 114, 0.32);
+      color: #ffffff;
+    }
+  }
+
+  &__header-invite-wrap {
+    position: relative;
+    -webkit-app-region: no-drag;
+  }
+
+  &__header-invite-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.06);
+    color: globals.$muted-color;
+    font-size: globals.$small-font-size;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+
+    &:hover,
+    &--active {
+      background-color: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+    }
+  }
+
+  &__header-invite-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 40;
+    width: 268px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid globals.$border-color;
+    background-color: globals.$dark-background-color;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+  }
+
+  &__header-invite-popover-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: globals.$small-font-size;
+    font-weight: 600;
+    color: globals.$muted-color;
+
+    button {
+      background: none;
+      border: none;
+      color: globals.$body-color;
+      cursor: pointer;
+      padding: 2px;
+
+      &:hover {
+        color: #ffffff;
+      }
+    }
+  }
+
+  &__header-invite-empty {
+    margin: 0;
+    font-size: globals.$small-font-size;
+    color: globals.$subtle-color;
+    line-height: 1.4;
+  }
+
+  &__header-invite-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  &__header-invite-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.04);
+    color: globals.$muted-color;
+    font-size: globals.$small-font-size;
+    text-align: left;
+    cursor: pointer;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    small {
+      flex-shrink: 0;
+      font-size: 10px;
+      color: globals.$subtle-color;
+    }
+
+    &:hover:not(:disabled) {
+      background-color: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+  }
+
+  &__invite-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 220px;
+    max-width: 290px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background-color: rgba(255, 255, 255, 0.06);
+    margin-top: 2px;
+
+    &--mine {
+      border-color: rgba(102, 192, 244, 0.28);
+      background-color: rgba(102, 192, 244, 0.08);
+    }
+  }
+
+  &__invite-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__invite-card-provider {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    flex-shrink: 0;
+
+    &--steam {
+      background-color: rgba(102, 192, 244, 0.16);
+      color: #66c0f4;
+    }
+
+    &--epic {
+      background-color: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+  }
+
+  &__invite-card-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__invite-card-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: globals.$body-color;
+  }
+
+  &__invite-card-title {
+    font-size: globals.$body-font-size;
+    font-weight: 600;
+    color: globals.$muted-color;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__invite-card-status {
+    font-size: 11px;
+    color: #9ae6b4;
+  }
+
+  &__invite-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__invite-card-join {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(28, 175, 114, 0.55);
+    background-color: rgba(28, 175, 114, 0.22);
+    color: #d6f9e6;
+    font-size: globals.$small-font-size;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background-color: rgba(28, 175, 114, 0.36);
+      color: #ffffff;
+    }
+
+    &:disabled {
+      opacity: 0.65;
+      cursor: default;
     }
   }
 }

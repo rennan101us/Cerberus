@@ -31,6 +31,15 @@ const installerPriorityOf = (fileName: string) =>
     pattern.test(fileName.toLowerCase())
   );
 
+export const isInstallerExecutableName = (filePathOrName: string): boolean => {
+  const baseName = path.basename(filePathOrName).toLowerCase();
+  return (
+    installerPriorityOf(baseName) !== -1 ||
+    /^unins\d*\.exe$/i.test(baseName) ||
+    baseName === "uninstall.exe"
+  );
+};
+
 const collectInstallerCandidates = async (
   rootPath: string,
   directoryPath: string,

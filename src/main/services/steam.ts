@@ -44,7 +44,7 @@ const getDarwinWineSteamInstallations = async (): Promise<
     }
   } catch (error) {
     logger.warn(
-      "[getSteamLocation] Error checking Fine Wine Steam installations",
+      "[getSteamLocation] Error checking Red Wine Steam installations",
       error
     );
   }

@@ -23,12 +23,9 @@ import {
   NavigationAutoScrollBridge,
   NavigationInputProvider,
   NavigationStateBridge,
-  NavigationDiagnostics,
   VerticalFocusGroup,
   BigPictureToastHost,
   CloudGiftNotificationModal,
-  MissingScreenshotsToast,
-  ScreenshotUploadFailureToast,
   VirtualKeyboardProvider,
 } from "./components";
 import { getItemFocusTarget } from "./helpers";
@@ -155,10 +152,59 @@ export default function App() {
         }
       );
 
+    const unsubscribeNxUpdated =
+      globalThis.window.electron.onNxLibraryUpdated?.(() => {
+        globalThis.window.dispatchEvent(new Event("library-update"));
+      });
+
+    const unsubscribeNxBuild =
+      globalThis.window.electron.onNxBuildProgress?.((ev) => {
+        if (ev.phase === "done") {
+          showSuccessToast(`Port de "${ev.gameTitle}" concluído!`);
+          globalThis.window.dispatchEvent(new Event("library-update"));
+        } else if (ev.phase === "error") {
+          showErrorToast(ev.error || `Falha ao portar "${ev.gameTitle}".`);
+        }
+      });
+
+    const onCerberusToast = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          title?: string;
+          message?: string;
+          type?: "success" | "error" | "warning";
+        }>
+      ).detail;
+      if (!detail?.title) return;
+      const options = detail.message ? { message: detail.message } : undefined;
+      if (detail.type === "error") {
+        showErrorToast(detail.title, options);
+      } else if (detail.type === "warning") {
+        showWarningToast(detail.title, options);
+      } else {
+        showSuccessToast(detail.title, options);
+      }
+    };
+
+    const unsubscribeSocialInvite =
+      globalThis.window.electron.onSocialGameInvite?.(
+        ({ friend, invite }) => {
+          showSuccessToast(`${friend.displayName} convidou para jogar`, {
+            message: `${invite.gameTitle} — Abra Amigos para entrar.`,
+          });
+        }
+      );
+
+    globalThis.window.addEventListener("cerberus:toast", onCerberusToast);
+
     return () => {
       unsubscribeExtractionFailed();
       unsubscribeExecutableNotFound();
       unsubscribeInstallerClosed();
+      unsubscribeNxUpdated?.();
+      unsubscribeNxBuild?.();
+      unsubscribeSocialInvite?.();
+      globalThis.window.removeEventListener("cerberus:toast", onCerberusToast);
     };
   }, [showErrorToast, showSuccessToast, showWarningToast, t]);
 
@@ -243,11 +289,8 @@ export default function App() {
           </NavigationLayer>
 
           <InputModeProvider />
-          <NavigationDiagnostics />
           <BigPictureToastHost />
           <CloudGiftNotificationModal />
-          <MissingScreenshotsToast />
-          <ScreenshotUploadFailureToast />
         </div>
       </NavigationInputProvider>
     </Fragment>

@@ -499,10 +499,16 @@ const getPlayTimeDifference = (a: LibraryGame, b: LibraryGame): number => {
 const getMostPlayedDifference = (a: LibraryGame, b: LibraryGame): number =>
   getDisplayedPlayTimeInMilliseconds(b) - getDisplayedPlayTimeInMilliseconds(a);
 
-export const isGameInstalled = (game: LibraryGame): boolean =>
-  Boolean(game.executablePath) ||
-  game.installedSizeInBytes != null ||
-  (game.shop === "launchbox" && (game.discs?.length ?? 0) > 0);
+export const isGameInstalled = (game: LibraryGame): boolean => {
+  if (game.shop === "switch1" || game.shop === "switch2") {
+    return Boolean(game.switchPortedAppPath || game.executablePath);
+  }
+  return (
+    Boolean(game.executablePath) ||
+    game.installedSizeInBytes != null ||
+    (game.shop === "launchbox" && (game.discs?.length ?? 0) > 0)
+  );
+};
 
 export const isSteamImportedGame = (
   game: Pick<LibraryGame, "shop" | "hasActiveSteamImport"> | null | undefined
@@ -681,7 +687,9 @@ export const readStoredProfileSort = (): ProfileSortOption => {
 
 export const readStoredProfilePlatform = (): ProfilePlatformFilter => {
   const saved = localStorage.getItem("profile-platform");
-  return saved === "pc" || saved === "classics" || saved === "all"
+  if (saved === "pc") return "windows";
+  if (saved === "classics") return "all";
+  return saved === "mac" || saved === "windows" || saved === "all"
     ? saved
     : "all";
 };

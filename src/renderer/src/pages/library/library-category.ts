@@ -1,11 +1,11 @@
-export type LibraryCategory = "all" | "pc" | "classics";
+export type LibraryCategory = "all" | "mac" | "windows";
 
 export type LibrarySource = "hydra" | "steam" | "epic";
 
 export const LIBRARY_CATEGORIES: readonly LibraryCategory[] = [
   "all",
-  "pc",
-  "classics",
+  "mac",
+  "windows",
 ];
 
 export const LIBRARY_SOURCES: readonly LibrarySource[] = [
@@ -25,6 +25,8 @@ export interface LibraryCategoryGame {
   catalogueGame?: { shop: string; objectId: string };
   availableShops?: string[];
   members?: LibraryCategoryGame[];
+  executablePath?: string | null;
+  switchPortedAppPath?: string | null;
 }
 
 export interface LibraryFilterGame extends LibraryCategoryGame {
@@ -69,7 +71,13 @@ export const resolveStoredLibraryCategory = (
   value: string | null
 ): { category: LibraryCategory; sources: LibrarySource[] | null } => {
   if (value === LEGACY_STEAM_LIBRARY_CATEGORY) {
-    return { category: "pc", sources: ["steam"] };
+    return { category: "windows", sources: ["steam"] };
+  }
+  if (value === "pc") {
+    return { category: "windows", sources: null };
+  }
+  if (value === "classics") {
+    return { category: "all", sources: null };
   }
 
   return { category: isLibraryCategory(value) ? value : "all", sources: null };
@@ -80,14 +88,17 @@ export const readStoredLibraryFilters = (
   categoryKey: string,
   sourcesKey: string
 ): { category: LibraryCategory; sources: LibrarySource[] } => {
-  const { category, sources } = resolveStoredLibraryCategory(
-    storage.getItem(categoryKey)
-  );
+  const rawStoredCategory = storage.getItem(categoryKey);
+  const { category, sources } = resolveStoredLibraryCategory(rawStoredCategory);
 
   if (sources) {
     storage.setItem(categoryKey, category);
     storage.setItem(sourcesKey, JSON.stringify(sources));
     return { category, sources };
+  }
+
+  if (rawStoredCategory === "pc" || rawStoredCategory === "classics") {
+    storage.setItem(categoryKey, category);
   }
 
   return {
@@ -101,6 +112,20 @@ export const isSteamLibraryGame = (game: LibraryCategoryGame) =>
 
 export const isClassicsGame = (game: LibraryCategoryGame) =>
   game.shop === "launchbox";
+
+export const isSwitchGame = (game: LibraryCategoryGame) =>
+  game.shop === "switch1" || game.shop === "switch2";
+
+export const isMacGame = (game: LibraryCategoryGame) =>
+  game.shop === "mac_native" ||
+  isSwitchGame(game) ||
+  Boolean(game.switchPortedAppPath) ||
+  Boolean(
+    game.executablePath && game.executablePath.toLowerCase().endsWith(".app")
+  );
+
+export const isWindowsGame = (game: LibraryCategoryGame) =>
+  !isMacGame(game) && !isClassicsGame(game);
 
 export const getLibraryGameSource = (
   game: LibraryCategoryGame
@@ -145,21 +170,20 @@ export const shouldShowSteamLibraryBadge = (
 ) => !hideSteamLibraryBadges && isSteamLibraryGame(game);
 
 export const categoryShowsSources = (category: LibraryCategory) =>
-  category === "all" || category === "pc";
+  category === "all" || category === "windows";
 
-export const categoryShowsPlatforms = (category: LibraryCategory) =>
-  category === "all" || category === "classics";
+export const categoryShowsPlatforms = (_category: LibraryCategory) => false;
 
 export const filterLibraryGamesByCategory = <T extends LibraryCategoryGame>(
   games: T[],
   category: LibraryCategory
 ): T[] => {
-  if (category === "pc") {
-    return games.filter((game) => !isClassicsGame(game));
+  if (category === "mac") {
+    return games.filter(isMacGame);
   }
 
-  if (category === "classics") {
-    return games.filter(isClassicsGame);
+  if (category === "windows") {
+    return games.filter(isWindowsGame);
   }
 
   return games;
@@ -201,11 +225,11 @@ export const filterLibraryGames = <T extends LibraryFilterGame>(
 export const getProfileLibraryFilter = (
   platform: LibraryCategory
 ): ProfileLibraryFilter => {
-  if (platform === "classics") {
-    return { shops: ["launchbox"] };
+  if (platform === "mac") {
+    return { shops: ["switch1", "switch2"] };
   }
 
-  if (platform === "pc") {
+  if (platform === "windows") {
     return { shops: ["steam", "epic"] };
   }
 

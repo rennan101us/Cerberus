@@ -271,7 +271,7 @@ const getDarwinWineScanDirectories = async (): Promise<string[]> => {
     }
   } catch (error) {
     logger.warn(
-      "[ScanInstalledGames] Error finding Fine Wine scan directories",
+      "[ScanInstalledGames] Error finding Red Wine scan directories",
       error
     );
   }
@@ -1295,7 +1295,7 @@ const runScan = async (
       await CrossOverDiscovery.autoImportBottleGames().catch(() => 0);
     if (importedBottleGames > 0) {
       logger.info(
-        `[ScanInstalledGames] Auto-imported ${importedBottleGames} Fine Wine bottle games`
+        `[ScanInstalledGames] Auto-imported ${importedBottleGames} Red Wine bottle games`
       );
     }
   }

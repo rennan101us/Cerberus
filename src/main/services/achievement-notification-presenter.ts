@@ -141,33 +141,6 @@ export class AchievementNotificationPresenter {
     this.present();
   }
 
-  public enqueueScreenshot(
-    position: AchievementCustomNotificationPosition,
-    notification: AchievementNotificationInfo,
-    fallback?: NotificationFallback
-  ): void {
-    if (this.shutdownRequested) return;
-
-    const variant = notification.variant ?? "screenshot";
-    this.queue = this.queue.filter(
-      ({ request }) =>
-        request.type !== "screenshot" || request.achievement.variant !== variant
-    );
-    this.queue.push({
-      request: {
-        id: this.nextRequestId(),
-        batchId: this.nextBatchId(),
-        type: "screenshot",
-        position,
-        achievement: { ...notification, variant },
-      },
-      fallback: { callback: fallback, invoked: false, soundPlayed: false },
-      shown: false,
-    });
-
-    this.present();
-  }
-
   public keepWarm(
     position: AchievementCustomNotificationPosition
   ): Promise<void> {
@@ -280,7 +253,7 @@ export class AchievementNotificationPresenter {
 
     try {
       this.dependencies.log(`Achievement notification showing: ${requestId}`);
-      host.setContentProtection(this.activeItem?.request.type === "screenshot");
+      host.setContentProtection(false);
       host.showInactive();
       host.send("start-achievement-notification", requestId, host.isVisible());
       this.startWatchdog(

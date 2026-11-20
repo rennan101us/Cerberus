@@ -27,8 +27,19 @@ const hydraApiCall = async (
   payload: HydraApiCallPayload
 ) => {
   const { method, url, data, params, options } = payload;
+
+  if (options?.needsAuth === true || options?.needsSubscription === true) {
+    throw new Error("Hydra API authentication is disabled in Cerberus");
+  }
+
+  if (method === "put" || method === "patch" || method === "delete") {
+    throw new Error(`Hydra API is read-only in Cerberus: blocked ${method.toUpperCase()} ${url}`);
+  }
+
   const hydraApiOptions = {
     ...options,
+    needsAuth: false,
+    needsSubscription: false,
     validateStatus: options?.acceptedStatuses
       ? (status: number) =>
           status !== 401 &&
@@ -72,15 +83,6 @@ const hydraApiCall = async (
         break;
       case "postResponse":
         request = HydraApi.postResponse(url, data, hydraApiOptions);
-        break;
-      case "put":
-        request = HydraApi.put(url, data, hydraApiOptions);
-        break;
-      case "patch":
-        request = HydraApi.patch(url, data, hydraApiOptions);
-        break;
-      case "delete":
-        request = HydraApi.delete(url, hydraApiOptions);
         break;
       default:
         throw new Error(`Unsupported HTTP method: ${method}`);

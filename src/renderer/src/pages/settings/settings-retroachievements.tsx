@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Button, CheckboxField, GuideLink, Modal } from "@renderer/components";
 import { useAppSelector, useToast, useUserDetails } from "@renderer/hooks";
 import { LinkExternalIcon, PersonIcon, SyncIcon } from "@primer/octicons-react";
-import { AuthPage } from "@shared";
 
 import retroAchievementsLogo from "@renderer/assets/icons/retroachievements.png";
 import {
@@ -256,7 +255,7 @@ export function SettingsRetroAchievements() {
       return (
         <Button
           onClick={() =>
-            globalThis.window.electron.openAuthWindow(AuthPage.SignIn)
+            void 0
           }
         >
           {t("steam_sign_in")}

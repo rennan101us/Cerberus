@@ -1,16 +1,7 @@
 import { updateGameRecord } from "@main/services/game-record-updater";
 import { registerEvent } from "../register-event";
 import { gamesSublevel, levelKeys } from "@main/level";
-import { createGame } from "@main/services/library-sync";
-import { HydraApi } from "@main/services";
 import type { GameShop } from "@types";
-
-const isGameNotFoundError = (error: unknown) => {
-  if (typeof error !== "object" || error === null) return false;
-  const response = (error as { response?: { data?: { message?: unknown } } })
-    .response;
-  return response?.data?.message === "game/not-found";
-};
 
 const setGameVisibility = async (
   _event: Electron.IpcMainInvokeEvent,
@@ -32,29 +23,16 @@ const setGameVisibility = async (
     return saved;
   }
 
-  const path = `/profile/games/${shop}/${objectId}/${field === "isHiddenFromOthers" ? "hide" : "conceal"}`;
-  const save = () =>
-    value
-      ? HydraApi.put<{ isHiddenFromOthers: boolean; isConcealed: boolean }>(
-          path
-        )
-      : HydraApi.delete<{ isHiddenFromOthers: boolean; isConcealed: boolean }>(
-          path
-        );
+  const saved = {
+    isHiddenFromOthers:
+      field === "isHiddenFromOthers"
+        ? value
+        : Boolean(game.isHiddenFromOthers),
+    isConcealed:
+      field === "isConcealed" ? value : Boolean(game.isConcealed),
+  };
 
-  let saved;
-  try {
-    saved = await save();
-  } catch (error) {
-    if (!isGameNotFoundError(error)) throw error;
-    await createGame(game);
-    saved = await save();
-  }
-
-  await updateGameRecord(gameKey, {
-    isHiddenFromOthers: saved.isHiddenFromOthers,
-    isConcealed: saved.isConcealed,
-  });
+  await updateGameRecord(gameKey, saved);
 
   return saved;
 };

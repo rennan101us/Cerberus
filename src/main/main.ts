@@ -1,6 +1,5 @@
 import {
   initializeEpicIntegration,
-  startEpicSyncOnStartup,
 } from "./services/epic";
 import { downloadsSublevel } from "./level/sublevels/downloads";
 import { recoverInterruptedInstallers } from "./helpers/recover-interrupted-installers";
@@ -22,32 +21,26 @@ import {
   AllDebridClient,
   DownloadManager,
   HydraApi,
-  uploadGamesBatch,
   startMainLoop,
   Ludusavi,
   Lock,
   DeckyPlugin,
   DownloadSourcesChecker,
   DownloadOrchestrator,
-  SSEClient,
   Wine,
   WindowManager,
-  ScreenshotInputService,
   logger,
   migrateCloudSaveAutomaticSyncDefaults,
-  groupedSouvenirWorker,
 } from "@main/services";
 import { migrateDownloadSources } from "./helpers/migrate-download-sources";
 import { getDirSize } from "./services/download/helpers";
 import { isDebridPendingError } from "./services/download/debrid-files";
 import { GofileApi } from "./services/hosters";
 import { clearLegacyAchievementPersistence } from "./level/clear-legacy-achievements";
-import { startSteamSyncOnStartup } from "./services/steam-integration/steam-startup-sync";
 import { migrateEmulatorCloudSaveDefaults } from "./services/cloud-save/automatic-sync-emulator-migration";
 import { watchSteamLibraries } from "./services/steam-integration/steam-install-watcher";
 import { migrateGameVisibilityFields } from "./services/library-sync/game-visibility-migration";
 import { UmuUpdater } from "./services/umu-updater";
-import { initializeScreenshots } from "./services/screenshots";
 import { setTrackedGamesRunningListenerErrorReporter } from "./services/game-running-state";
 
 const hasMissingSeedFiles = async (download: Download): Promise<boolean> => {
@@ -90,9 +83,16 @@ export const loadState = async () => {
   setTrackedGamesRunningListenerErrorReporter((error) =>
     logger.error("Tracked games running listener failed", error)
   );
-  ScreenshotInputService.syncUserPreferences(userPreferences);
 
   await import("./events");
+
+  if (process.platform === "darwin") {
+    import("./services/nxnative/nx-scanner-service")
+      .then(({ NxScannerService }) => NxScannerService.scanAndSyncToLibrary())
+      .catch((err) =>
+        logger.warn("Initial NxNative library scan failed", err)
+      );
+  }
 
   if (userPreferences?.realDebridApiToken) {
     RealDebridClient.authorize(userPreferences.realDebridApiToken);
@@ -134,16 +134,11 @@ export const loadState = async () => {
   void syncRetroAchievementsEmulatorCredentials();
 
   await HydraApi.setupApi().then(async () => {
-    void ScreenshotInputService.refreshFeatureFlag();
     try {
       await initializeEpicIntegration();
     } catch (err) {
       logger.warn("Epic integration initialization failed on startup", err);
     }
-    uploadGamesBatch();
-
-    const { syncDownloadSourcesFromApi } = await import("./services/user");
-    void syncDownloadSourcesFromApi();
 
     // Check for new download options on startup (if enabled)
     (async () => {
@@ -152,15 +147,6 @@ export const loadState = async () => {
       );
       await DownloadSourcesChecker.checkForChanges();
     })();
-
-    initializeScreenshots();
-
-    if (HydraApi.isLoggedIn()) {
-      SSEClient.connect();
-      void groupedSouvenirWorker.trigger();
-      void startSteamSyncOnStartup();
-      void startEpicSyncOnStartup();
-    }
   });
 
   void recoverInterruptedInstallers().catch((error) => {

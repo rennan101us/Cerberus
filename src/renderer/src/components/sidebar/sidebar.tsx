@@ -46,6 +46,7 @@ import {
 import { SidebarGameList } from "./sidebar-game-list";
 import { SidebarProfile } from "./sidebar-profile";
 
+const SIDEBAR_COLLAPSED_WIDTH = 64;
 const SIDEBAR_MIN_WIDTH = 200;
 const SIDEBAR_INITIAL_WIDTH = 250;
 const SIDEBAR_MAX_WIDTH = 450;
@@ -54,7 +55,6 @@ const SIDEBAR_SORT_OPTIONS = new Set<SortOption>([
   "title_asc",
   "recently_played",
   "most_played",
-  "achievements",
 ]);
 
 const isGamePlayable = (game: LibraryGame) =>
@@ -94,9 +94,24 @@ export function Sidebar() {
   const filterRef = useRef<HTMLInputElement>(null);
 
   const [isResizing, setIsResizing] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(
+    () => window.localStorage.getItem("sidebarCollapsed") === "true"
+  );
   const [sidebarWidth, setSidebarWidth] = useState(
     initialSidebarWidth ? Number(initialSidebarWidth) : SIDEBAR_INITIAL_WIDTH
   );
+
+  const handleToggleCollapse = useCallback(() => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem("sidebarCollapsed", String(next));
+      return next;
+    });
+  }, []);
+
+  const effectiveSidebarWidth = isCollapsed
+    ? SIDEBAR_COLLAPSED_WIDTH
+    : sidebarWidth;
 
   const location = useLocation();
 
@@ -393,9 +408,9 @@ export function Sidebar() {
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--sidebar-width",
-      `${sidebarWidth}px`
+      `${effectiveSidebarWidth}px`
     );
-  }, [sidebarWidth]);
+  }, [effectiveSidebarWidth]);
 
   const cursorPos = useRef({ x: 0 });
   const sidebarInitialWidth = useRef(0);
@@ -486,58 +501,85 @@ export function Sidebar() {
       ref={sidebarRef}
       className={cn("sidebar", {
         "sidebar--resizing": isResizing,
+        "sidebar--collapsed": isCollapsed,
       })}
       style={{
-        width: sidebarWidth,
-        minWidth: sidebarWidth,
-        maxWidth: sidebarWidth,
+        width: effectiveSidebarWidth,
+        minWidth: effectiveSidebarWidth,
+        maxWidth: effectiveSidebarWidth,
       }}
     >
       <div className="sidebar__container">
-        <SidebarProfile />
+        <SidebarProfile
+          isCollapsed={isCollapsed}
+          onToggleCollapse={handleToggleCollapse}
+        />
 
         <div className="sidebar__content">
           <section className="sidebar__section">
             <ul className="sidebar__menu">
               {routes.map(({ nameKey, path, render }) => (
-                  <li
-                    key={nameKey}
-                    className={cn("sidebar__menu-item", {
-                      "sidebar__menu-item--active": location.pathname === path,
-                    })}
+                <li
+                  key={nameKey}
+                  className={cn("sidebar__menu-item", {
+                    "sidebar__menu-item--active": location.pathname === path,
+                    "sidebar__menu-item--collapsed": isCollapsed,
+                  })}
+                >
+                  <button
+                    type="button"
+                    className="sidebar__menu-item-button"
+                    onClick={() => handleSidebarItemClick(path)}
+                    data-tooltip-id={
+                      isCollapsed ? "sidebar-collapsed-tooltip" : undefined
+                    }
+                    data-tooltip-content={
+                      isCollapsed ? t(nameKey) : undefined
+                    }
                   >
-                    <button
-                      type="button"
-                      className="sidebar__menu-item-button"
-                      onClick={() => handleSidebarItemClick(path)}
-                    >
-                      {render()}
-                      <span>{t(nameKey)}</span>
-                    </button>
-                  </li>
-                ))}
+                    {render()}
+                    {!isCollapsed && <span>{t(nameKey)}</span>}
+                  </button>
+                </li>
+              ))}
 
               {window.electron.platform === "linux" && homebrewFolderExists && (
-                <li className="sidebar__menu-item sidebar__menu-item--decky">
+                <li
+                  className={cn(
+                    "sidebar__menu-item sidebar__menu-item--decky",
+                    {
+                      "sidebar__menu-item--collapsed": isCollapsed,
+                    }
+                  )}
+                >
                   <button
                     type="button"
                     className="sidebar__menu-item-button"
                     onClick={handleInstallHydraDeckyPlugin}
+                    data-tooltip-id={
+                      isCollapsed ? "sidebar-collapsed-tooltip" : undefined
+                    }
+                    data-tooltip-content={
+                      isCollapsed ? t("install_decky_plugin") : undefined
+                    }
                   >
                     <img
                       src={deckyIcon}
                       alt=""
                       style={{ width: 16, height: 16 }}
                     />
-                    <span>
-                      {deckyPluginInfo.installed && !deckyPluginInfo.outdated
-                        ? t("decky_plugin_installed_version", {
-                            version: deckyPluginInfo.version,
-                          })
-                        : deckyPluginInfo.installed && deckyPluginInfo.outdated
-                          ? t("update_decky_plugin")
-                          : t("install_decky_plugin")}
-                    </span>
+                    {!isCollapsed && (
+                      <span>
+                        {deckyPluginInfo.installed && !deckyPluginInfo.outdated
+                          ? t("decky_plugin_installed_version", {
+                              version: deckyPluginInfo.version,
+                            })
+                          : deckyPluginInfo.installed &&
+                              deckyPluginInfo.outdated
+                            ? t("update_decky_plugin")
+                            : t("install_decky_plugin")}
+                      </span>
+                    )}
                   </button>
                 </li>
               )}
@@ -545,56 +587,60 @@ export function Sidebar() {
           </section>
 
           <section className="sidebar__section sidebar__section--games">
-            <div className="sidebar__search-row">
-              <TextField
-                ref={filterRef}
-                placeholder={t("filter")}
-                onChange={handleFilter}
-                theme="dark"
-              />
+            {isCollapsed ? (
+              <div className="sidebar__collapsed-divider" />
+            ) : (
+              <div className="sidebar__search-row">
+                <TextField
+                  ref={filterRef}
+                  placeholder={t("filter")}
+                  onChange={handleFilter}
+                  theme="dark"
+                />
 
-              <button
-                type="button"
-                className={cn("sidebar__play-button", {
-                  "sidebar__play-button--active": showPlayableOnly,
-                })}
-                onClick={handleTogglePlayableOnly}
-                data-tooltip-id="sidebar-show-playable-only-tooltip"
-                data-tooltip-content={t("show_installed_only", {
-                  ns: "library",
-                })}
-                data-tooltip-place="top"
-              >
-                {showPlayableOnly ? (
-                  <CheckCircleFillIcon size={16} />
-                ) : (
-                  <CheckCircleIcon size={16} />
-                )}
-              </button>
+                <button
+                  type="button"
+                  className={cn("sidebar__play-button", {
+                    "sidebar__play-button--active": showPlayableOnly,
+                  })}
+                  onClick={handleTogglePlayableOnly}
+                  data-tooltip-id="sidebar-show-playable-only-tooltip"
+                  data-tooltip-content={t("show_installed_only", {
+                    ns: "library",
+                  })}
+                  data-tooltip-place="top"
+                >
+                  {showPlayableOnly ? (
+                    <CheckCircleFillIcon size={16} />
+                  ) : (
+                    <CheckCircleIcon size={16} />
+                  )}
+                </button>
 
-              <Tooltip id="sidebar-show-playable-only-tooltip" place="top" />
+                <Tooltip id="sidebar-show-playable-only-tooltip" place="top" />
 
-              <SidebarFilterMenu
-                category={sidebarCategory}
-                onCategoryChange={handleSidebarCategoryChange}
-                sortBy={sidebarSortBy}
-                onSortChange={handleSidebarSortChange}
-                showFavoritesFirst={showFavoritesFirst}
-                onToggleFavoritesFirst={handleToggleFavoritesFirst}
-                showSources={
-                  categoryShowsSources(sidebarCategory) && hasImportedGames
-                }
-                sources={availableSources}
-                selectedSources={effectiveSources}
-                onSourcesChange={handleSelectedSourcesChange}
-                showPlatforms={
-                  categoryShowsPlatforms(sidebarCategory) && hasPlatforms
-                }
-                platforms={uniquePlatforms}
-                selectedPlatforms={selectedPlatforms}
-                onPlatformsChange={handleSelectedPlatformsChange}
-              />
-            </div>
+                <SidebarFilterMenu
+                  category={sidebarCategory}
+                  onCategoryChange={handleSidebarCategoryChange}
+                  sortBy={sidebarSortBy}
+                  onSortChange={handleSidebarSortChange}
+                  showFavoritesFirst={showFavoritesFirst}
+                  onToggleFavoritesFirst={handleToggleFavoritesFirst}
+                  showSources={
+                    categoryShowsSources(sidebarCategory) && hasImportedGames
+                  }
+                  sources={availableSources}
+                  selectedSources={effectiveSources}
+                  onSourcesChange={handleSelectedSourcesChange}
+                  showPlatforms={
+                    categoryShowsPlatforms(sidebarCategory) && hasPlatforms
+                  }
+                  platforms={uniquePlatforms}
+                  selectedPlatforms={selectedPlatforms}
+                  onPlatformsChange={handleSelectedPlatformsChange}
+                />
+              </div>
+            )}
 
             <SidebarGameList
               games={visibleGames}
@@ -603,16 +649,21 @@ export function Sidebar() {
               emptyLabel={t("library:no_results")}
               onGameClick={handleSidebarGameClick}
               getGameTitle={getGameTitle}
+              isCollapsed={isCollapsed}
             />
           </section>
         </div>
       </div>
 
-      <button
-        type="button"
-        className="sidebar__handle"
-        onMouseDown={handleMouseDown}
-      />
+      {!isCollapsed && (
+        <button
+          type="button"
+          className="sidebar__handle"
+          onMouseDown={handleMouseDown}
+        />
+      )}
+
+      <Tooltip id="sidebar-collapsed-tooltip" place="right" />
 
       <ConfirmationModal
         visible={showDeckyConfirmModal}

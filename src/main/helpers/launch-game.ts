@@ -6,6 +6,9 @@ import { GameShop, type Game, type UserPreferences } from "@types";
 import { db, downloadsSublevel, gamesSublevel, levelKeys } from "@main/level";
 import { isEpicUpdateInterrupted } from "@shared";
 import { updateGameExecutablePath } from "./update-executable-path";
+import { isInstallerExecutableName } from "./find-game-installer";
+import { GameFilesManager } from "@main/services/game-files-manager";
+import { CrossOverDetector, DEFAULT_BOTTLE_NAME } from "@main/services/crossover";
 import {
   clearCloudSaveLaunchGuard,
   canRunAutomaticCloudSaveSync,
@@ -69,6 +72,7 @@ export interface LaunchGameOptions {
   objectId: string;
   executablePath: string;
   launchOptions?: string | null;
+  extraArgs?: string[];
   epicSavePolicy?: "local-once";
   epicOffline?: boolean;
   epicSkipUpdateCheck?: boolean;
@@ -627,9 +631,34 @@ const launchResolvedGame = async (
   launchOptions: string | null | undefined,
   useMangohud: boolean,
   useGamemode: boolean,
-  shortcut: ExecutableShortcut | null = null
+  shortcut: ExecutableShortcut | null = null,
+  extraArgs?: string[]
 ) => {
   if (process.platform === "darwin") {
+    if (shop === "switch1" || shop === "switch2") {
+      const { NxRuntimeConfigService } = await import(
+        "@main/services/nxnative/nx-runtime-config-service"
+      );
+      try {
+        const res = await NxRuntimeConfigService.launchSwitchGame(
+          shop,
+          objectId
+        );
+        if (!res.ok) {
+          throw new Error(res.error || "Falha ao iniciar o jogo Switch.");
+        }
+        if (res.pid) {
+          launchedGamePids.set(gameKey, res.pid);
+          setImmediate(() => {
+            void watchProcesses();
+          });
+        }
+        return res.pid ?? null;
+      } finally {
+        WindowManager.closeGameLauncherWindow();
+      }
+    }
+
     const isDarwinApp =
       parsedPath.toLowerCase().endsWith(".app") ||
       parsedPath.toLowerCase().includes(".app/contents/macos/");
@@ -656,9 +685,40 @@ const launchResolvedGame = async (
         hasManuallyUpdatedPlaytime: false,
       };
 
+      let storeExtraArgs = extraArgs ? [...extraArgs] : [];
+      let storeExtraEnv: Record<string, string> | undefined;
+      let onExit: (() => void) | undefined;
+
+      if (shop === "epic") {
+        const { EpicDownloadService } = await import(
+          "@main/services/stores/epic-download-service"
+        );
+        const epicLaunch = await EpicDownloadService.getLaunchParameters(
+          objectId
+        ).catch(() => null);
+        if (epicLaunch) {
+          storeExtraArgs = [...epicLaunch.args, ...storeExtraArgs];
+          storeExtraEnv = epicLaunch.env;
+        }
+      } else if (shop === "steam") {
+        const steamAppId = Number(objectId);
+        if (Number.isFinite(steamAppId) && steamAppId > 0) {
+          const { SteamSocialService } = await import(
+            "@main/services/social/steam-social-service"
+          );
+          SteamSocialService.setPlayingApp(steamAppId);
+          onExit = () => SteamSocialService.setPlayingApp(null);
+        }
+      }
+
       const pid = await CrossOverRunner.launchGame(
         { ...launchPayload, executablePath: parsedPath },
-        launchOptions
+        launchOptions,
+        {
+          args: storeExtraArgs.length > 0 ? storeExtraArgs : undefined,
+          env: storeExtraEnv,
+          onExit,
+        }
       );
       if (pid !== null) {
         launchedGamePids.set(gameKey, pid);
@@ -1064,7 +1124,8 @@ const launchGameWithCloudSaveChecks = async (
           launchOptions,
           useMangohud,
           useGamemode,
-          shortcut
+          shortcut,
+          options.extraArgs
         );
       }
     );
@@ -1097,7 +1158,8 @@ const launchGameWithCloudSaveChecks = async (
     launchOptions,
     useMangohud,
     useGamemode,
-    shortcut
+    shortcut,
+    options.extraArgs
   );
 };
 
@@ -1112,6 +1174,65 @@ const hasLaunchableExecutable = (executablePath: string) => {
 };
 
 export const launchGame = async (options: LaunchGameOptions) => {
+  // Self-heal if game.executablePath was previously bound to an installer (e.g. setup.exe)
+  if (
+    options.executablePath &&
+    isInstallerExecutableName(options.executablePath)
+  ) {
+    logger.info(
+      `[launchGame] Detected installer executable bound as game executable (${options.executablePath}); attempting to rebind installed game executable`
+    );
+    const gameKey = levelKeys.game(options.shop, options.objectId);
+    const [download, game] = await Promise.all([
+      downloadsSublevel.get(gameKey).catch(() => null),
+      gamesSublevel.get(gameKey).catch(() => null),
+    ]);
+    const winePrefixPath = Wine.getEffectivePrefixPath(
+      game?.winePrefixPath,
+      options.objectId
+    );
+    const effectiveWinePrefixPath =
+      process.platform === "darwin"
+        ? (winePrefixPath ??
+          path.join(
+            await CrossOverDetector.getBottlesDirectory(),
+            DEFAULT_BOTTLE_NAME
+          ))
+        : winePrefixPath;
+
+    const bound = await new GameFilesManager(
+      options.shop,
+      options.objectId
+    ).searchAndBindInstalledExecutable(
+      download?.installerStartedAt ?? 0,
+      effectiveWinePrefixPath
+    );
+
+    if (bound) {
+      const refreshed = await gamesSublevel.get(gameKey).catch(() => null);
+      if (
+        refreshed?.executablePath &&
+        !isInstallerExecutableName(refreshed.executablePath)
+      ) {
+        options = {
+          ...options,
+          executablePath: refreshed.executablePath,
+        };
+      }
+    } else {
+      await updateGameRecord(gameKey, (current) =>
+        updateGameExecutablePath(current, null)
+      );
+      WindowManager.sendToAppWindows("on-library-batch-complete");
+      WindowManager.sendToAppWindows(
+        "on-game-executable-not-found",
+        options.shop,
+        options.objectId
+      );
+      return null;
+    }
+  }
+
   if (!hasLaunchableExecutable(options.executablePath)) {
     logger.warn("Game executable not found", {
       shop: options.shop,

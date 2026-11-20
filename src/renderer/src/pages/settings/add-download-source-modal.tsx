@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Button, Modal, TextField } from "@renderer/components";
+import { Button, Modal, SelectField, TextField } from "@renderer/components";
 import { settingsContext } from "@renderer/context";
 import { useForm } from "react-hook-form";
 import { logger } from "@renderer/logger";
@@ -18,6 +18,7 @@ interface AddDownloadSourceModalProps {
 }
 
 interface FormValues {
+  name: string;
   url: string;
 }
 
@@ -27,11 +28,25 @@ export function AddDownloadSourceModal({
   onAddDownloadSource,
 }: Readonly<AddDownloadSourceModalProps>) {
   const [isLoading, setIsLoading] = useState(false);
+  const [sourceKind, setSourceKind] = useState<"auto" | "hydra" | "switch">(
+    "auto"
+  );
 
   const { t } = useTranslation("settings");
 
-  const schema = yup.object().shape({
-    url: yup.string().required(t("required_field")).url(t("must_be_valid_url")),
+  const schema: yup.ObjectSchema<FormValues> = yup.object({
+    name: yup.string().defined().default(""),
+    url: yup
+      .string()
+      .required(t("required_field"))
+      .test(
+        "valid-url-or-magnet",
+        t("must_be_valid_url"),
+        (val) =>
+          Boolean(val) &&
+          (val!.trim().startsWith("magnet:") ||
+            /^https?:\/\/.+/i.test(val!.trim()))
+      ),
   });
 
   const {
@@ -42,6 +57,7 @@ export function AddDownloadSourceModal({
     clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
+    defaultValues: { name: "", url: "" },
     resolver: yupResolver(schema),
   });
 
@@ -51,7 +67,10 @@ export function AddDownloadSourceModal({
     setIsLoading(true);
 
     try {
-      await window.electron.addDownloadSource(values.url);
+      await window.electron.addDownloadSource(values.url.trim(), {
+        name: values.name?.trim() || undefined,
+        kind: sourceKind,
+      });
 
       onClose();
       onAddDownloadSource();
@@ -72,7 +91,9 @@ export function AddDownloadSourceModal({
   };
 
   useEffect(() => {
+    setValue("name", "");
     setValue("url", "");
+    setSourceKind("auto");
     clearErrors();
     setIsLoading(false);
 
@@ -90,16 +111,49 @@ export function AddDownloadSourceModal({
     <Modal
       visible={visible}
       title={t("add_download_source")}
-      description={t("add_download_source_description")}
+      description="Adicione fontes JSON de jogos Windows ou URLs de sites/diretórios/magnet de Switch 1 e Switch 2 (ex: blueroms, romshq, nswpedia)."
       onClose={handleClose}
       clickOutsideToClose={!isLoading}
     >
       <div className="add-download-source-modal__container">
         <form onSubmit={handleSubmit(onSubmit)}>
+          <SelectField
+            label="Tipo de Fonte"
+            theme="dark"
+            value={sourceKind}
+            onChange={(e) =>
+              setSourceKind(e.target.value as "auto" | "hydra" | "switch")
+            }
+            options={[
+              {
+                key: "auto",
+                value: "auto",
+                label: "Detectar automaticamente (JSON PC ou Switch 1/2)",
+              },
+              {
+                key: "switch",
+                value: "switch",
+                label:
+                  "Switch 1 & 2 (Site, Diretório, MediaFire, GDrive, Magnet)",
+              },
+              {
+                key: "hydra",
+                value: "hydra",
+                label: "Jogos Windows (JSON Hydra)",
+              },
+            ]}
+          />
+
+          <TextField
+            {...register("name")}
+            label="Nome (opcional)"
+            placeholder="Ex: blueroms, romshq, nswpedia"
+          />
+
           <TextField
             {...register("url")}
             label={t("download_source_url")}
-            placeholder={t("insert_valid_json_url")}
+            placeholder="https://www.blueroms.ws/switch2, https://.../source.json ou magnet:..."
             error={errors.url?.message}
           />
 

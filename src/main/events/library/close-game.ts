@@ -61,6 +61,16 @@ const closeGame = async (
         );
       }
 
+      if (
+        process.platform === "darwin" &&
+        targetPath.toLowerCase().endsWith(".app") &&
+        runningProcess.exe?.startsWith(
+          path.join(targetPath, "Contents", "MacOS") + "/"
+        )
+      ) {
+        return true;
+      }
+
       return runningProcess.exe === targetPath;
     });
 

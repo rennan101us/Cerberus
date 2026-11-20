@@ -1,0 +1,117 @@
+@use "../../scss/globals.scss";
+
+.changelog-modal {
+  display: flex;
+  flex-direction: column;
+  gap: calc(globals.$spacing-unit * 3);
+
+  &__release {
+    display: flex;
+    flex-direction: column;
+    gap: calc(globals.$spacing-unit * 1.5);
+    padding: calc(globals.$spacing-unit * 2);
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid globals.$border-color;
+  }
+
+  &__release-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: globals.$spacing-unit;
+    flex-wrap: wrap;
+  }
+
+  &__release-title-group {
+    display: flex;
+    align-items: center;
+    gap: calc(globals.$spacing-unit * 1.25);
+  }
+
+  &__version-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: globals.$small-font-size;
+    font-weight: 600;
+    color: globals.$platinum-cyan;
+    background-color: rgba(48, 237, 197, 0.12);
+    border: 1px solid rgba(48, 237, 197, 0.25);
+  }
+
+  &__release-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: globals.$muted-color;
+  }
+
+  &__release-date {
+    font-size: globals.$small-font-size;
+    color: globals.$subtle-color;
+  }
+
+  &__summary {
+    margin: 0;
+    font-size: globals.$body-font-size;
+    line-height: 1.5;
+    color: globals.$body-color;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: calc(globals.$spacing-unit * 1.25);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+    align-items: flex-start;
+    gap: calc(globals.$spacing-unit * 1.25);
+    font-size: globals.$body-font-size;
+    line-height: 1.5;
+    color: globals.$body-color;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: globals.$tiny-font-size;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+    margin-top: 2px;
+
+    &--feature {
+      color: #60a5fa;
+      background-color: rgba(96, 165, 250, 0.14);
+      border: 1px solid rgba(96, 165, 250, 0.28);
+    }
+
+    &--improvement {
+      color: #34d399;
+      background-color: rgba(52, 211, 153, 0.14);
+      border: 1px solid rgba(52, 211, 153, 0.28);
+    }
+
+    &--fix {
+      color: #fbbf24;
+      background-color: rgba(251, 191, 36, 0.14);
+      border: 1px solid rgba(251, 191, 36, 0.28);
+    }
+  }
+
+  &__item-text {
+    flex: 1;
+  }
+}

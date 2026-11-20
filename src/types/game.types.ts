@@ -1,4 +1,12 @@
-export type GameShop = "steam" | "epic" | "custom" | "launchbox";
+export type GameShop =
+  | "steam"
+  | "epic"
+  | "gog"
+  | "custom"
+  | "launchbox"
+  | "switch1"
+  | "switch2"
+  | "mac_native";
 
 export type ShortcutLocation = "desktop" | "start_menu";
 
@@ -49,4 +57,32 @@ export interface UserAchievement extends SteamAchievement {
     epic?: boolean;
   };
   imageUrl?: string | null;
+}
+
+export interface GameUninstallPreview {
+  kind: "windows-red-wine" | "switch" | "generic";
+  canUninstall: boolean;
+  installPath: string | null;
+  installSizeBytes: number;
+  uninstallerPath: string | null;
+  uninstallerSource: "directory" | "registry" | null;
+  savePaths: string[];
+  saveSizeBytes: number;
+  stagingPaths: string[];
+  stagingSizeBytes: number;
+  bottleName: string | null;
+}
+
+export interface GameUninstallOptions {
+  deleteSaves: boolean;
+  deleteStaging?: boolean;
+  removeFromLibrary?: boolean;
+}
+
+export interface GameUninstallResult {
+  ok: boolean;
+  uninstallerRan: boolean;
+  removedPaths: string[];
+  warnings: string[];
+  error?: string;
 }

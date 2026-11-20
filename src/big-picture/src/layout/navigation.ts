@@ -3,6 +3,7 @@ import { DOWNLOADS_PAGE_REGION_ID } from "../components/pages/downloads/navigati
 import { GAME_PAGE_REGION_ID } from "../components/pages/game/navigation";
 import { CATALOGUE_GRID_REGION_ID } from "../pages/catalogue/navigation";
 import { HOME_PAGE_REGION_ID } from "../pages/home/navigation";
+import { FRIENDS_PAGE_REGION_ID } from "../pages/friends/navigation";
 import { PROFILE_PAGE_REGION_ID } from "../pages/profile/navigation";
 import { SETTINGS_PAGE_REGION_ID } from "../pages/settings/navigation";
 import { LIBRARY_PAGE_REGION_ID } from "../components/pages/library/navigation";
@@ -18,6 +19,7 @@ export const BIG_PICTURE_SIDEBAR_ITEM_IDS = {
   catalogue: "big-picture-sidebar-catalogue",
   library: "big-picture-sidebar-library",
   downloads: "big-picture-sidebar-downloads",
+  friends: "big-picture-sidebar-friends",
   settings: "big-picture-sidebar-settings",
   componentLab: "big-picture-sidebar-component-lab",
 } as const;
@@ -103,6 +105,10 @@ export function getBigPictureSidebarItemIdFromPathname(pathname: string) {
     return BIG_PICTURE_SIDEBAR_ITEM_IDS.downloads;
   }
 
+  if (normalizedPathname.startsWith("/friends")) {
+    return BIG_PICTURE_SIDEBAR_ITEM_IDS.friends;
+  }
+
   if (normalizedPathname.startsWith("/settings")) {
     return BIG_PICTURE_SIDEBAR_ITEM_IDS.settings;
   }
@@ -137,6 +143,10 @@ export function getBigPictureContentEntryRegionIdFromPathname(
 
   if (normalizedPathname.startsWith("/downloads")) {
     return DOWNLOADS_PAGE_REGION_ID;
+  }
+
+  if (normalizedPathname.startsWith("/friends")) {
+    return FRIENDS_PAGE_REGION_ID;
   }
 
   if (normalizedPathname.startsWith("/settings")) {

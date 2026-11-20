@@ -1,0 +1,256 @@
+@use "../../../scss/globals.scss";
+
+.settings-nxnative {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  &__section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    h3 {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+
+  &__inline-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  &__folder-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  &__folder-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+
+    strong {
+      font-size: 13px;
+      color: globals.$muted-color;
+    }
+  }
+
+  &__muted {
+    font-size: 12px;
+    color: globals.$subtle-color;
+  }
+
+  &__folder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__folder-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background-color: rgba(0, 0, 0, 0.28);
+    border: 1px solid globals.$border-color;
+    font-family: ui-monospace, monospace;
+    font-size: 11.5px;
+    color: globals.$body-color;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    button {
+      color: #f43f5e;
+      cursor: pointer;
+      padding: 4px;
+    }
+  }
+
+  &__repo-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  &__repo-meta {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+
+    strong {
+      display: block;
+      font-size: 13px;
+      color: globals.$muted-color;
+    }
+
+    small {
+      display: block;
+      font-size: 11.5px;
+      font-family: ui-monospace, monospace;
+      color: globals.$subtle-color;
+      margin-top: 2px;
+    }
+  }
+
+  &__commit-line {
+    display: block;
+    font-size: 11.5px;
+    color: globals.$body-color;
+    margin-top: 4px;
+
+    code {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+  }
+
+  &__warn-text {
+    color: #f59e0b;
+  }
+
+  &__live-banner {
+    padding: 8px 10px;
+    border-radius: 6px;
+    background-color: rgba(0, 0, 0, 0.45);
+    border: 1px solid globals.$border-color;
+    font-size: 11.5px;
+    color: var(--color-accent-secondary, #30edc5);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__deps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__dep-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(0, 0, 0, 0.22);
+    flex-wrap: wrap;
+  }
+
+  &__dep-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+
+    small {
+      font-size: 11px;
+      font-family: ui-monospace, monospace;
+      color: globals.$subtle-color;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &__dep-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+
+    strong {
+      font-size: 12.5px;
+      color: globals.$muted-color;
+    }
+
+    .text-ok {
+      color: #22c55e;
+    }
+
+    .text-missing {
+      color: #f43f5e;
+    }
+  }
+
+  &__cat-tag,
+  &__size-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: globals.$body-color;
+  }
+
+  &__storage-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.02);
+    flex-wrap: wrap;
+
+    strong {
+      display: block;
+      font-size: 13px;
+      color: globals.$muted-color;
+    }
+
+    small {
+      display: block;
+      font-size: 11.5px;
+      color: globals.$subtle-color;
+      margin-top: 2px;
+    }
+  }
+
+  &__icloud-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .spin {
+    animation: settings-nx-spin 1s linear infinite;
+  }
+}
+
+@keyframes settings-nx-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

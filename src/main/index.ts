@@ -6,6 +6,7 @@ import {
   net,
   powerMonitor,
   protocol,
+  session,
 } from "electron";
 import updater from "electron-updater";
 import i18n from "i18next";
@@ -19,11 +20,10 @@ import {
   Lock,
   PowerSaveBlockerManager,
   DownloadOrchestrator,
-  SSEClient,
   emulators,
-  ScreenshotInputService,
   CrossOverProvisioner,
   CrossOverDiscovery,
+  CrossOverCompatibilityService,
 } from "@main/services";
 import resources from "@locales";
 import { TorrentService } from "./services/torrent-service";
@@ -31,11 +31,6 @@ import { DownloadManager } from "./services/download/download-manager";
 import { db, gamesSublevel, levelKeys } from "./level";
 import { GameShop, UserPreferences } from "@types";
 import { launchGame, openClassicsGame } from "./helpers";
-import {
-  flushScreenshotTelemetry,
-  stopWaylandFocusWatch,
-} from "./services/screenshots";
-import { isWaylandSession } from "./services/linux-game-capture-session";
 import { recompilationGameSessions } from "./services/game-running-state";
 import { refreshPortableShortcutLauncher } from "./helpers/shortcut-launch";
 import { lookupCachedPlatform } from "./events/library/get-library";
@@ -72,12 +67,6 @@ crashReporter.start({
 
 const { autoUpdater } = updater;
 
-autoUpdater.setFeedURL({
-  provider: "github",
-  owner: "hydralauncher",
-  repo: "hydra",
-});
-
 autoUpdater.logger = logger;
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -85,9 +74,6 @@ if (!gotTheLock) app.quit();
 
 if (process.platform === "linux") {
   app.commandLine.appendSwitch("ozone-platform-hint", "auto");
-  if (isWaylandSession()) {
-    app.commandLine.appendSwitch("enable-features", "GlobalShortcutsPortal");
-  }
 }
 
 i18n.init({
@@ -99,7 +85,7 @@ i18n.init({
   },
 });
 
-const PROTOCOL = "hydralauncher";
+const PROTOCOL = "cerberus";
 
 // Register the custom schemes as privileged so the renderer can fetch them
 // (supportFetchAPI) and use the results on a canvas without tainting it
@@ -127,13 +113,20 @@ if (process.defaultApp) {
 
 const initializeApp = async () => {
   refreshPortableShortcutLauncher();
-  electronApp.setAppUserModelId("gg.hydralauncher.hydra");
+  electronApp.setAppUserModelId("gg.cerberus.launcher");
+  WindowManager.syncDynamicAppIcon();
 
   logger.info("Crash dumps directory", app.getPath("crashDumps"));
 
   protocol.handle("local", (request) => {
-    const filePath = request.url.slice("local:".length);
-    return net.fetch(url.pathToFileURL(decodeURI(filePath)).toString());
+    const rawPath = request.url.slice("local:".length);
+    let decodedPath = rawPath;
+    try {
+      decodedPath = decodeURIComponent(rawPath);
+    } catch {
+      decodedPath = decodeURI(rawPath);
+    }
+    return net.fetch(url.pathToFileURL(decodedPath).toString());
   });
 
   protocol.handle("gradient", (request) => {
@@ -208,14 +201,50 @@ const initializeApp = async () => {
   } catch (error) {
     logger.error("Failed to load app state during startup", error);
   }
+
+  try {
+    const startupPrefs = await db
+      .get<string, UserPreferences | null>(levelKeys.userPreferences, {
+        valueEncoding: "json",
+      })
+      .catch(() => null);
+
+    const enableDoh = startupPrefs?.enableDoh !== false;
+    app.configureHostResolver({
+      enableBuiltInResolver: true,
+      secureDnsMode: enableDoh ? "automatic" : "off",
+      secureDnsServers: [
+        "https://cloudflare-dns.com/dns-query",
+        "https://dns.google/dns-query",
+      ],
+    });
+
+    const proxyUrl = startupPrefs?.networkProxyUrl?.trim();
+    if (proxyUrl) {
+      await session.defaultSession.setProxy({ proxyRules: proxyUrl });
+    }
+  } catch (error) {
+    logger.warn("Failed to configure DoH / proxy during startup", error);
+  }
   // Optional integration failures must not interrupt launcher startup.
   await initializeEpicIntegration().catch((error) => {
     logger.warn("Epic integration initialization unavailable", error);
   });
+  void import("./services/social/social-hub-service")
+    .then(({ SocialHubService }) => SocialHubService.initialize())
+    .catch((error) => {
+      logger.warn("[SocialHub] Startup initialization warning", error);
+    });
 
   if (process.platform === "darwin") {
+    await CrossOverProvisioner.migrateLegacyBottlesToHeadBottle().catch(
+      (error) => {
+        logger.warn("[RedWine] Startup bottle migration notice", error);
+      }
+    );
+
     CrossOverProvisioner.resetTrial().catch((error) => {
-      logger.warn("[FineReset] Startup auto-reset notice", error);
+      logger.warn("[RedReset] Startup auto-reset notice", error);
     });
 
     CrossOverDiscovery.autoImportBottleGames().catch((error) => {
@@ -231,13 +260,38 @@ const initializeApp = async () => {
         error
       );
     });
+
+    // Periodic macOS CrossOver compatibility sync from MacGamingDB, AppleGamingWiki & CodeWeavers
+    setTimeout(() => {
+      CrossOverCompatibilityService.syncLibraryCompatibility().catch(
+        (error) => {
+          logger.warn(
+            "[CrossOverCompatibility] Initial background sync notice:",
+            error
+          );
+        }
+      );
+    }, 15_000);
+
+    setInterval(
+      () => {
+        CrossOverCompatibilityService.syncLibraryCompatibility().catch(
+          (error) => {
+            logger.warn(
+              "[CrossOverCompatibility] Periodic background sync notice:",
+              error
+            );
+          }
+        );
+      },
+      6 * 60 * 60 * 1000
+    );
   }
 
   // Suspend can outlive the 60s stall watchdog; reconnect right away instead
   powerMonitor.on("suspend", suspendEpicPlaytime);
   powerMonitor.on("resume", () => {
     resumeEpicPlaytime();
-    SSEClient.reconnectNow();
     DownloadOrchestrator.onNetworkStatusChanged({
       online: true,
       switched: true,
@@ -254,7 +308,7 @@ const initializeApp = async () => {
 
   // Check if starting from a "run" deep link - don't show main window in that case
   const deepLinkArg = process.argv.find((arg) =>
-    arg.startsWith("hydralauncher://")
+    arg.startsWith("cerberus://")
   );
   const forceBigPicture = process.argv.includes("--big-picture");
 
@@ -297,7 +351,7 @@ app.on("render-process-gone", (_event, _webContents, details) => {
 });
 
 const COLD_START_BACKGROUND_DEEP_LINK_HOSTS = new Set(["run"]);
-const RUNNING_BACKGROUND_DEEP_LINK_HOSTS = new Set(["run", "screenshot"]);
+const RUNNING_BACKGROUND_DEEP_LINK_HOSTS = new Set(["run"]);
 
 const isBackgroundDeepLink = (
   uri: string | undefined,
@@ -368,11 +422,6 @@ const handleDeepLinkPath = (uri?: string) => {
   try {
     const url = new URL(uri);
 
-    if (url.host === "screenshot") {
-      ScreenshotInputService.trigger("deeplink");
-      return;
-    }
-
     if (url.host === "run") {
       const shop = url.searchParams.get("shop") as GameShop | null;
       const objectId = url.searchParams.get("objectId");
@@ -380,6 +429,21 @@ const handleDeepLinkPath = (uri?: string) => {
       if (shop && objectId) {
         void handleRunGame(shop, objectId).catch((error) => {
           logger.error("Failed to launch game from deep link", error);
+          WindowManager.createMainWindow();
+        });
+      }
+
+      return;
+    }
+
+    if (url.host === "join") {
+      const shop = (url.searchParams.get("shop") || "steam") as GameShop;
+      const objectId =
+        url.searchParams.get("id") || url.searchParams.get("objectId");
+
+      if (shop && objectId) {
+        void handleRunGame(shop, objectId).catch((error) => {
+          logger.error("Failed to launch game from join deep link", error);
           WindowManager.createMainWindow();
         });
       }
@@ -435,9 +499,7 @@ const handleDeepLinkPath = (uri?: string) => {
 };
 
 app.on("second-instance", (_event, commandLine) => {
-  const deepLink = commandLine.find((arg) =>
-    arg.startsWith("hydralauncher://")
-  );
+  const deepLink = commandLine.find((arg) => arg.startsWith("cerberus://"));
   const forceBigPicture = commandLine.includes("--big-picture");
 
   // Check if this is a "run" deep link - don't show main window in that case
@@ -469,8 +531,6 @@ app.on("window-all-closed", () => {
   WindowManager.clearMainWindow();
 });
 
-const SCREENSHOT_TELEMETRY_QUIT_FLUSH_TIMEOUT_MS = 2_000;
-
 const saveRecompilationPlaytimeOnQuit = async () => {
   if (recompilationGameSessions.size === 0) return;
   const session = await import("./events/recompilation/recompilation-session");
@@ -486,6 +546,9 @@ app.on("before-quit", async (e) => {
     if (isAppClosing) return;
     isAppClosing = true;
     await saveSocialWindowsSession();
+    await import("./services/social/social-hub-service")
+      .then(({ SocialHubService }) => SocialHubService.shutdown())
+      .catch(() => {});
     try {
       await shutdownEpicIntegration();
     } catch {
@@ -501,7 +564,6 @@ app.on("before-quit", async (e) => {
     }
     DownloadOrchestrator.cancelPendingDebridPreparations();
     PowerSaveBlockerManager.reset();
-    ScreenshotInputService.shutdown();
     try {
       await DownloadManager.pauseDownload();
     } catch (error) {
@@ -513,7 +575,6 @@ app.on("before-quit", async (e) => {
       clearGamesPlaytime(),
       saveRecompilationPlaytimeOnQuit(),
       emulators.stopAllEmulatorSouvenirCaptureSessions(),
-      flushScreenshotTelemetry(SCREENSHOT_TELEMETRY_QUIT_FLUSH_TIMEOUT_MS),
     ]);
     for (const result of results) {
       if (result.status === "rejected") {
@@ -528,7 +589,6 @@ app.on("before-quit", async (e) => {
 
 app.on("will-quit", () => {
   logger.info("Application will quit");
-  stopWaylandFocusWatch();
 });
 
 app.on("activate", () => {

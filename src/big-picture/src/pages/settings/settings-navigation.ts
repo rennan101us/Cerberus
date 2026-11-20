@@ -35,32 +35,12 @@ export const BIG_PICTURE_STARTUP_SECTION_REGION_ID =
   "big-picture-startup-section-region";
 export const BIG_PICTURE_AUDIO_SECTION_REGION_ID =
   "big-picture-audio-section-region";
-export const BIG_PICTURE_DIAGNOSTICS_SECTION_REGION_ID =
-  "big-picture-diagnostics-section-region";
-export const BIG_PICTURE_DIAGNOSTICS_POSITION_SELECT_ID =
-  "big-picture-diagnostics-position-select";
 export const COMPATIBILITY_SECTION_REGION_ID = "compatibility-section-region";
 export const INTEGRATIONS_SECTION_REGION_ID = "integrations-section-region";
-export const ACCOUNT_PRIVACY_PRIVACY_SELECT_ID =
-  "account-privacy-profile-visibility";
-export const ACCOUNT_PRIVACY_CLOUD_GIFTS_CHECKBOX_ID =
-  "account-privacy-cloud-gifts";
-export const ACCOUNT_PRIVACY_SOUVENIRS_SELECT_ID =
-  "account-privacy-souvenirs-visibility";
-export const ACCOUNT_PRIVACY_SCREENSHOTS_SELECT_ID =
-  "account-privacy-screenshots-visibility";
-export const ACCOUNT_PRIVACY_SCREENSHOT_COMMENTS_SELECT_ID =
-  "account-privacy-screenshot-comments-policy";
 export const COMPATIBILITY_GAMEMODE_FOCUS_ID = "compatibility-gamemode";
 export const COMPATIBILITY_MANGOHUD_FOCUS_ID = "compatibility-mangohud";
 export const COMPATIBILITY_COMMON_REDIST_BUTTON_ID =
   "compatibility-common-redist";
-export const ACCOUNT_PRIVACY_UPDATE_EMAIL_BUTTON_ID =
-  "account-privacy-update-email";
-export const ACCOUNT_PRIVACY_UPDATE_PASSWORD_BUTTON_ID =
-  "account-privacy-update-password";
-export const ACCOUNT_PRIVACY_HYDRA_CLOUD_BUTTON_ID =
-  "account-privacy-hydra-cloud";
 export const EMULATION_OVERVIEW_REGION_ID = "emulation-overview-region";
 export const EMULATION_DETAIL_REGION_ID = "emulation-detail-region";
 export const EMULATION_DETAIL_EXECUTABLE_REGION_ID =
@@ -148,14 +128,10 @@ export const NOTIFICATIONS_ACHIEVEMENTS_ITEM_FOCUS_IDS = {
 export const CONTENT_ITEM_FOCUS_IDS = {
   autoplayGameTrailers: "content-autoplay-game-trailers",
   disableNsfwAlert: "content-disable-nsfw-alert",
-  showSensitiveScreenshots: "content-show-sensitive-screenshots",
   showHiddenAchievementsDescription:
     "content-show-hidden-achievements-description",
   enableSteamAchievements: "content-enable-steam-achievements",
   enableAchievementSouvenirs: "content-enable-achievement-souvenirs",
-  changeScreenshotsDirectory: "content-change-screenshots-directory",
-  resetScreenshotsDirectory: "content-reset-screenshots-directory",
-  openScreenshotsDirectory: "content-open-screenshots-directory",
   autoplayAnimatedArtwork: "content-autoplay-animated-artwork",
   persistFiltersAndSorting: "content-persist-filters-and-sorting",
 } as const;
@@ -165,7 +141,6 @@ export const BIG_PICTURE_ITEM_FOCUS_IDS = {
   launchToLibraryPage: "big-picture-launch-to-library-page",
   enableSounds: "big-picture-enable-sounds",
   enableVirtualKeyboard: "big-picture-enable-virtual-keyboard",
-  enableDiagnostics: "big-picture-enable-diagnostics",
 } as const;
 
 export const COMPATIBILITY_PROTON_OPTION_AUTO_FOCUS_ID =
@@ -225,10 +200,6 @@ export function getDownloadsSourceRemoveButtonFocusId(sourceId: string) {
 
 export function getCompatibilityProtonOptionFocusId(path: string) {
   return `compatibility-proton-option-${path.replaceAll(/[^a-z0-9_-]/gi, "-").toLowerCase()}`;
-}
-
-export function getAccountPrivacyBlockedUserButtonFocusId(userId: string) {
-  return `account-privacy-blocked-user-${userId}`;
 }
 
 export function getEmulationRomFolderToggleFocusId(folderId: string) {

@@ -1,7 +1,6 @@
-import { PROFILE_FRIENDS_PAGE_SIZE, PROFILE_FRIENDS_PATH } from "@shared";
-import type { FriendRequest, FriendsSnapshot, ProfileFriends } from "@types";
-import { HydraApi } from "./hydra-api";
+import type { FriendsSnapshot } from "@types";
 import { logger } from "./logger";
+import { SocialHubService } from "./social/social-hub-service";
 
 // Reopening the profile menu within this window reuses the last snapshot
 // instead of hitting the API again.
@@ -16,7 +15,7 @@ export class FriendsSnapshotCache {
   private static generation = 0;
 
   public static prefetch(): Promise<FriendsSnapshot | null> {
-    if (!HydraApi.isLoggedIn()) return Promise.resolve(null);
+    if (!SocialHubService.hasConnectedAccount()) return Promise.resolve(null);
     if (this.inFlight !== null) return this.inFlight;
 
     if (this.snapshot && Date.now() - this.fetchedAt < SNAPSHOT_MAX_AGE_MS) {
@@ -36,7 +35,8 @@ export class FriendsSnapshotCache {
   // Waits for a prefetch that is still running; otherwise returns whatever is
   // cached. The friends window revalidates right after painting it.
   public static get(): Promise<FriendsSnapshot | null> {
-    return this.inFlight ?? Promise.resolve(this.snapshot);
+    if (!SocialHubService.hasConnectedAccount()) return Promise.resolve(null);
+    return this.inFlight ?? SocialHubService.getSnapshot();
   }
 
   public static clear() {
@@ -50,23 +50,11 @@ export class FriendsSnapshotCache {
     generation: number
   ): Promise<FriendsSnapshot | null> {
     try {
-      const [profileFriends, friendRequests] = await Promise.all([
-        HydraApi.get<ProfileFriends>(PROFILE_FRIENDS_PATH, {
-          take: PROFILE_FRIENDS_PAGE_SIZE,
-          skip: 0,
-        }),
-        HydraApi.get<FriendRequest[]>("/profile/friend-requests"),
-      ]);
-
+      const next = await SocialHubService.getSnapshot();
       if (generation !== this.generation) return null;
 
-      this.snapshot = {
-        friends: profileFriends.friends,
-        onlineFriends: profileFriends.onlineFriends,
-        friendRequests,
-      };
+      this.snapshot = next;
       this.fetchedAt = Date.now();
-
       return this.snapshot;
     } catch (error) {
       logger.error("Failed to prefetch friends", error);

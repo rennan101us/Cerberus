@@ -10,10 +10,6 @@ export const SIDEBAR_PLATFORMS_STORAGE_KEY = "sidebar-platforms";
 export const SIDEBAR_SOURCES_STORAGE_KEY = "sidebar-sources";
 export const SIDEBAR_PLAYABLE_ONLY_STORAGE_KEY = "sidebar-playable-only";
 
-export const PROFILE_SCREENSHOT_SORT_STORAGE_KEY = "profile-screenshot-sort-by";
-export const PROFILE_SCREENSHOT_GAME_STORAGE_KEY = "profile-screenshot-game";
-export const GAME_SCREENSHOT_SORT_STORAGE_KEY = "game-screenshot-sort-by";
-
 export const SESSION_SCOPED_KEY_PREFIXES = [SETTINGS_EMULATOR_TAB_STORAGE_KEY];
 
 const ALWAYS_SESSION_SCOPED_KEYS = [
@@ -41,17 +37,13 @@ const FILTER_SESSION_SCOPED_KEYS = [
   "profile-platform",
   "profile-souvenir-sort-by",
   "profile-souvenir-grouping",
-  PROFILE_SCREENSHOT_SORT_STORAGE_KEY,
-  GAME_SCREENSHOT_SORT_STORAGE_KEY,
   "hydra:big-picture:library-sort-by",
   "hydra:big-picture:library-filter-by",
   "hydra:big-picture:library-tab",
   "hydra:big-picture:sidebar-library-filter",
 ];
 
-const FILTER_SESSION_SCOPED_KEY_PREFIXES = [
-  `${PROFILE_SCREENSHOT_GAME_STORAGE_KEY}:`,
-];
+const FILTER_SESSION_SCOPED_KEY_PREFIXES: string[] = [];
 
 export const getSessionScopedKeyPrefixesToClear = (
   persistFiltersAndSorting: boolean

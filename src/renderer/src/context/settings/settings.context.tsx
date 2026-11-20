@@ -10,14 +10,14 @@ import { SETTINGS_CATEGORY_STORAGE_KEY } from "@renderer/session-state";
 
 export type SettingsCategoryId =
   | "general"
+  | "switch"
+  | "red_wine"
   | "downloads"
   | "download_sources"
   | "notifications"
   | "content_gameplay"
-  | "screenshots"
   | "integrations"
   | "compatibility"
-  | "account_privacy"
   | "big_picture"
   | "emulation";
 
@@ -27,20 +27,20 @@ const legacyTabMap: Record<number, SettingsCategoryId> = {
   2: "downloads",
   3: "general",
   4: "integrations",
-  5: "account_privacy",
+  5: "general",
 };
 
 const isSettingsCategoryId = (value: string): value is SettingsCategoryId => {
   return [
     "general",
+    "switch",
+    "red_wine",
     "downloads",
     "download_sources",
     "notifications",
     "content_gameplay",
-    "screenshots",
     "integrations",
     "compatibility",
-    "account_privacy",
     "big_picture",
     "emulation",
   ].includes(value);

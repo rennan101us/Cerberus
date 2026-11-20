@@ -1,5 +1,47 @@
 @use "./scss/globals.scss";
 
+:root {
+  --color-primary: #16b195;
+  --color-accent: #16b195;
+  --color-accent-secondary: #30edc5;
+  --color-accent-rgb: 22, 177, 149;
+}
+
+// Apply user-chosen highlight theme across Cerberus interactive surfaces
+// (only active when user switches away from default Cerberus highlight)
+:root[data-highlight-theme] {
+  .sidebar__menu-item--active {
+    background-color: rgba(var(--color-accent-rgb), 0.16) !important;
+    border-left: 2px solid var(--color-accent);
+  }
+
+  .catalogue__tab--active {
+    border-color: rgba(var(--color-accent-rgb), 0.55) !important;
+    background-color: rgba(var(--color-accent-rgb), 0.14) !important;
+    color: var(--color-accent-secondary) !important;
+  }
+
+  .button--primary {
+    background-color: var(--color-accent) !important;
+    color: #ffffff !important;
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.08);
+    }
+  }
+
+  .settings__sidebar-button--active,
+  .game-options-modal__sidebar-button--active {
+    background-color: rgba(var(--color-accent-rgb), 0.16) !important;
+    border-color: rgba(var(--color-accent-rgb), 0.45) !important;
+  }
+
+  input[type="checkbox"]:checked,
+  input[type="range"] {
+    accent-color: var(--color-accent);
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -51,10 +93,6 @@ body.window-rounded {
   &.window-maximized #root {
     border-radius: 0;
   }
-}
-
-body.feedback-widget-hidden #workwonders-feedback-widget-trigger {
-  display: none;
 }
 
 button {
@@ -142,4 +180,13 @@ progress[value] {
 .woot-widget-holder,
 #cw-widget-holder {
   bottom: 56px !important;
+}
+
+body.gamepad-nav-active {
+  *:focus,
+  *:focus-visible {
+    outline: 2px solid var(--color-accent, #16b195) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px rgba(22, 177, 149, 0.24) !important;
+  }
 }

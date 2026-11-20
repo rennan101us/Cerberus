@@ -26,6 +26,7 @@ export interface SteamMovie {
   hls_h264?: string;
   mp4?: SteamVideoSource;
   webm?: SteamVideoSource;
+  youtube_id?: string;
   thumbnail: string;
   name: string;
   highlight: boolean;

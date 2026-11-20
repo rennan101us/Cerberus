@@ -3,19 +3,31 @@ import path from "node:path";
 import os from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { CrossOverStatus } from "@types";
+import type {
+  CrossOverStatus,
+  MacChipFamily,
+  MacChipTier,
+  MacHardwareSpecs,
+} from "@types";
 import { logger } from "../logger";
 
 const execFileAsync = promisify(execFile);
 
-export const DEFAULT_BOTTLE_NAME = "HydraGames";
+export const DEFAULT_BOTTLE_NAME = "Head Bottle";
 export const CROSSOVER_FEED_URL =
   "https://www.codeweavers.com/xml/versions/cxmac.xml";
 
 export class CrossOverDetector {
   private static cachedStatus: CrossOverStatus | null = null;
+  private static cachedHardwareSpecs: MacHardwareSpecs | null = null;
   private static lastCheckTime = 0;
-  private static readonly CACHE_TTL_MS = 30_000; // 30s cache
+  private static readonly CACHE_TTL_MS = 5 * 60_000; // 5m cache
+  private static cachedLatestRelease: {
+    version: string | null;
+    build: string | null;
+    downloadUrl: string | null;
+  } = { version: null, build: null, downloadUrl: null };
+  private static isCheckingRelease = false;
 
   public static getPotentialAppPaths(): string[] {
     const homeDir = os.homedir();
@@ -166,9 +178,15 @@ export class CrossOverDetector {
         }
       }
 
-      return bottles;
+      if (bottles.includes(DEFAULT_BOTTLE_NAME)) {
+        return [DEFAULT_BOTTLE_NAME];
+      }
+      if (bottles.includes("Steam")) {
+        return ["Steam"];
+      }
+      return bottles.slice(0, 1);
     } catch (error) {
-      logger.error("[CrossOver] Error listing bottles", error);
+      logger.error("[RedWine] Error listing bottles", error);
       return [];
     }
   }
@@ -211,7 +229,7 @@ export class CrossOverDetector {
         downloadUrl: urlMatch ? urlMatch[1] : null,
       };
     } catch (error) {
-      logger.warn("[CrossOver] Failed to check for latest release", error);
+      logger.warn("[RedWine] Failed to check for latest release", error);
       return { version: null, build: null, downloadUrl: null };
     }
   }
@@ -257,15 +275,35 @@ export class CrossOverDetector {
     }
 
     const bottlesDir = await this.getBottlesDirectory();
-    const bottles = await this.listBottles(bottlesDir);
+    await this.listBottles(bottlesDir);
 
-    // Default bottle selection
-    const defaultBottle = bottles.includes(DEFAULT_BOTTLE_NAME)
-      ? DEFAULT_BOTTLE_NAME
-      : bottles[0] || DEFAULT_BOTTLE_NAME;
+    // Single unified bottle architecture: always expose Head Bottle
+    const defaultBottle = DEFAULT_BOTTLE_NAME;
+    const bottles = [DEFAULT_BOTTLE_NAME];
 
-    // Check updates
-    const latestRelease = await this.checkLatestRelease();
+    // Refresh latest release asynchronously so UI modals never block on network calls
+    if (!this.isCheckingRelease && (forceRefresh || !this.cachedLatestRelease.version)) {
+      this.isCheckingRelease = true;
+      void this.checkLatestRelease()
+        .then((latest) => {
+          this.cachedLatestRelease = latest;
+          if (this.cachedStatus) {
+            this.cachedStatus = {
+              ...this.cachedStatus,
+              updateAvailable:
+                this.cachedStatus.installed &&
+                this.isNewerVersion(this.cachedStatus.version, latest.version),
+              latestVersion: latest.version,
+              downloadUrl: latest.downloadUrl,
+            };
+          }
+        })
+        .finally(() => {
+          this.isCheckingRelease = false;
+        });
+    }
+
+    const latestRelease = this.cachedLatestRelease;
     const updateAvailable =
       installed && this.isNewerVersion(version, latestRelease.version);
 
@@ -285,5 +323,153 @@ export class CrossOverDetector {
     this.cachedStatus = status;
     this.lastCheckTime = now;
     return status;
+  }
+
+  private static parseChipFamily(chipName: string): {
+    family: MacChipFamily;
+    tier: MacChipTier;
+    isAppleSilicon: boolean;
+  } {
+    const normalized = chipName.toUpperCase();
+    let family: MacChipFamily = "Unknown";
+    if (/\bM5\b/.test(normalized)) family = "M5";
+    else if (/\bM4\b/.test(normalized)) family = "M4";
+    else if (/\bM3\b/.test(normalized)) family = "M3";
+    else if (/\bM2\b/.test(normalized)) family = "M2";
+    else if (/\bM1\b/.test(normalized)) family = "M1";
+    else if (/INTEL|CORE|XEON/.test(normalized)) family = "Intel";
+
+    let tier: MacChipTier = "unknown";
+    if (/\bULTRA\b/.test(normalized)) tier = "ultra";
+    else if (/\bMAX\b/.test(normalized)) tier = "max";
+    else if (/\bPRO\b/.test(normalized)) tier = "pro";
+    else if (family !== "Intel" && family !== "Unknown") tier = "base";
+
+    const isAppleSilicon =
+      family === "M1" ||
+      family === "M2" ||
+      family === "M3" ||
+      family === "M4" ||
+      family === "M5" ||
+      /APPLE/i.test(chipName) ||
+      process.arch === "arm64";
+
+    return { family, tier, isAppleSilicon };
+  }
+
+  private static estimateDefaultGpuCores(
+    family: MacChipFamily,
+    tier: MacChipTier
+  ): number | null {
+    if (family === "Intel" || family === "Unknown") return null;
+    if (tier === "ultra") return 60;
+    if (tier === "max") return 32;
+    if (tier === "pro") return 16;
+    return family === "M1" || family === "M2" ? 8 : 10;
+  }
+
+  public static async getMacHardwareSpecs(): Promise<MacHardwareSpecs> {
+    if (this.cachedHardwareSpecs) {
+      return this.cachedHardwareSpecs;
+    }
+
+    let chipName = os.cpus()[0]?.model?.trim() || "Apple Silicon";
+    try {
+      const { stdout } = await execFileAsync(
+        "/usr/sbin/sysctl",
+        ["-n", "machdep.cpu.brand_string"],
+        { timeout: 2000 }
+      );
+      if (stdout.trim()) {
+        chipName = stdout.trim();
+      }
+    } catch {
+      // Fallback to os.cpus() model
+    }
+
+    const cpuCoresTotal = Math.max(1, os.cpus().length || 8);
+    const ramGB = Math.max(
+      1,
+      Math.round(os.totalmem() / (1024 * 1024 * 1024))
+    );
+
+    let cpuPerformanceCores: number | null = null;
+    let cpuEfficiencyCores: number | null = null;
+    try {
+      const { stdout } = await execFileAsync(
+        "/usr/sbin/sysctl",
+        ["-n", "hw.perflevel0.physicalcpu", "hw.perflevel1.physicalcpu"],
+        { timeout: 2000 }
+      );
+      const lines = stdout
+        .trim()
+        .split(/\r?\n/)
+        .map((val) => parseInt(val.trim(), 10));
+      if (Number.isFinite(lines[0]) && lines[0] > 0) {
+        cpuPerformanceCores = lines[0];
+      }
+      if (Number.isFinite(lines[1]) && lines[1] > 0) {
+        cpuEfficiencyCores = lines[1];
+      }
+    } catch {
+      // Optional on non-Apple Silicon systems
+    }
+
+    let gpuCores: number | null = null;
+    try {
+      const { stdout } = await execFileAsync(
+        "/usr/sbin/ioreg",
+        ["-r", "-c", "AGXAccelerator", "-d", "1"],
+        { timeout: 2500 }
+      );
+      const match = stdout.match(/"gpu-core-count"\s*=\s*(\d+)/i);
+      if (match && match[1]) {
+        const parsed = parseInt(match[1], 10);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          gpuCores = parsed;
+        }
+      }
+    } catch {
+      // Ignore and try system_profiler fallback
+    }
+
+    if (gpuCores === null) {
+      try {
+        const { stdout } = await execFileAsync(
+          "/usr/sbin/system_profiler",
+          ["SPDisplaysDataType"],
+          { timeout: 3500 }
+        );
+        const match = stdout.match(/Total Number of Cores:\s*(\d+)/i);
+        if (match && match[1]) {
+          const parsed = parseInt(match[1], 10);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            gpuCores = parsed;
+          }
+        }
+      } catch {
+        // Fallback to heuristic
+      }
+    }
+
+    const { family, tier, isAppleSilicon } = this.parseChipFamily(chipName);
+    if (gpuCores === null && isAppleSilicon) {
+      gpuCores = this.estimateDefaultGpuCores(family, tier);
+    }
+
+    const specs: MacHardwareSpecs = {
+      chipName,
+      chipFamily: family,
+      chipTier: tier,
+      ramGB,
+      cpuCoresTotal,
+      cpuPerformanceCores,
+      cpuEfficiencyCores,
+      gpuCores,
+      isAppleSilicon,
+    };
+
+    this.cachedHardwareSpecs = specs;
+    return specs;
   }
 }

@@ -12,7 +12,6 @@ import { chatTypingEvent } from "./events/chat-typing";
 import { chatReactionEvent } from "./events/chat-reaction";
 import { chatMessageVisibilityEvent } from "./events/chat-message-visibility";
 import { chatMessageRejectedEvent } from "./events/chat-message-rejected";
-import { screenshotModeratedEvent } from "./events/screenshot-moderated";
 import { resyncAfterEventFailure, resyncAfterReconnect } from "./resync";
 import {
   cancelChatCatchUp,
@@ -33,7 +32,6 @@ import type {
   FriendPresence,
   FriendRequest,
   Notification,
-  ScreenshotModerated,
 } from "./types";
 
 const dispatchEvent = async (
@@ -79,12 +77,6 @@ const dispatchEvent = async (
     case "chatMessageRejected":
       await chatMessageRejectedEvent(
         payload satisfies ChatMessageRejected,
-        signal
-      );
-      break;
-    case "screenshotModerated":
-      await screenshotModeratedEvent(
-        payload satisfies ScreenshotModerated,
         signal
       );
       break;

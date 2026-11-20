@@ -5,6 +5,7 @@ import App from "./app";
 import Catalogue from "./pages/catalogue/catalogue";
 import ComponentLab from "./pages/component-lab/component-lab";
 import Downloads from "./pages/downloads/downloads";
+import Friends from "./pages/friends/friends";
 import Game from "./pages/game/game";
 import GameAchievements from "./pages/game-achievements/game-achievements";
 import Home from "./pages/home/home";
@@ -30,6 +31,7 @@ ReactDOM.createRoot(rootElement).render(
           <Route path="catalogue" element={<Catalogue />} />
           <Route path="component-lab" element={<ComponentLab />} />
           <Route path="downloads" element={<Downloads />} />
+          <Route path="friends" element={<Friends />} />
           <Route path="settings" element={<Settings />} />
           <Route path="library" element={<LibraryPage />} />
           <Route path="profile/:userId?" element={<Profile />} />

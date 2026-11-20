@@ -34,8 +34,6 @@ export const levelKeys = {
   pendingAchievementSouvenirs: "pending-achievement-souvenirs",
   pendingGroupedAchievementSouvenirs: "pending-grouped-achievement-souvenirs",
   localSouvenirAssets: "local-souvenir-assets",
-  screenshots: "screenshots",
-  screenshotsFeatureEnabled: "screenshotsFeatureEnabled",
   globalTrackersUrlCache: "globalTrackersUrlCache",
   ps2MemoryCardSaves: "ps2MemoryCardSaves",
   ps2MemoryCardSave: (cardFilePath: string, folderName: string) =>
@@ -57,4 +55,11 @@ export const levelKeys = {
   chatNotificationCursor: "chatNotificationCursor", // Newest chat message already announced
   leaderboardNotificationsShown: "leaderboardNotificationsShown",
   recompilationInstalls: "recompilationInstalls",
+  macCompatibilityCache: "macCompatibilityCache",
+  nxCompatibilityCache: "nxCompatibilityCache",
+  nxCloudStreams: "nxCloudStreams",
+  controllerProfiles: "controllerProfiles",
+  storeAccounts: "storeAccounts",
+  socialChatMessages: "socialChatMessages",
+  socialConversations: "socialConversations",
 };

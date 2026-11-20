@@ -116,7 +116,6 @@ async function fixture(
     export const getGameAchievementData = async () => [];
     export const AchievementWatcherManager = {hasFinishedPreSearch: true, alreadySyncedGames: new Map(), forgetAchievementFiles: () => {}};
     export const achievementNotificationPresenter = {enqueueAchievements: () => {}};
-    export const ScreenshotService = {};
     export const PendingAchievementSouvenirStore = {get: async () => ({}), clearSynced: async () => {}};
     export const PendingGroupedSouvenirStore = {};
     export const groupedSouvenirWorker = {trigger: async () => {}};

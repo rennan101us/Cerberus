@@ -75,6 +75,13 @@ const resolveInstallerSize = (
   game: Game,
   download: Download | undefined
 ) => {
+  if (
+    (game.shop === "switch1" || game.shop === "switch2") &&
+    game.switchRomPath &&
+    fs.existsSync(game.switchRomPath)
+  ) {
+    return game.installerSizeInBytes ?? game.romSizeBytes ?? null;
+  }
   if (!game.installerSizeInBytes || !download?.folderName) {
     return game.installerSizeInBytes;
   }
@@ -101,9 +108,11 @@ const getLibrary = async (
     .filter(([_key, game]) => !game.isDeleted);
   const keys = entries.map(([key]) => key);
   const catalogueKeys = entries.map(([key, game]) =>
-    game.catalogueGame
-      ? levelKeys.game(game.catalogueGame.shop, game.catalogueGame.objectId)
-      : key
+    game.shop === "switch1" || game.shop === "switch2"
+      ? key
+      : game.catalogueGame
+        ? levelKeys.game(game.catalogueGame.shop, game.catalogueGame.objectId)
+        : key
   );
   // Batched reads: one round trip per sublevel instead of three per game.
   const [downloads, shopAssets, artworkSelections] = await Promise.all([
@@ -121,7 +130,8 @@ const getLibrary = async (
         game.shop === "epic" &&
           game.catalogueGame?.shop !== "steam" &&
           gameAssets &&
-          !gameAssets.epicArtworkUpdatedAtByType?.icon
+          !gameAssets.epicArtworkUpdatedAtByType?.icon &&
+          !gameAssets.iconUrl
           ? { ...gameAssets, iconUrl: null }
           : (gameAssets ?? null),
         artworkSelection
@@ -180,7 +190,10 @@ const getLibrary = async (
           game.catalogueGame?.shop !== "steam" && {
             iconUrl: composedAssets?.iconUrl ?? null,
           }),
-        title: composedAssets?.title || game.title,
+        title:
+          game.shop === "switch1" || game.shop === "switch2"
+            ? game.title
+            : composedAssets?.title || game.title,
         platform: game.platform ?? null,
         // Preserve custom image URLs from game if they exist
         customIconUrl: game.customIconUrl,

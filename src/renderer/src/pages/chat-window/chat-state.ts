@@ -82,6 +82,7 @@ export const toChatMessage = (
     ...(dto.attachments?.length
       ? { attachments: toChatAttachments(dto.attachments) }
       : {}),
+    ...(dto.invite ? { invite: dto.invite } : {}),
     ...(fromHistory ? { fromHistory } : {}),
   };
 };

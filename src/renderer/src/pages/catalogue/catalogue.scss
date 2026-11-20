@@ -9,6 +9,43 @@
   padding: globals.$page-gutter;
   scroll-behavior: smooth;
 
+  &__tabs {
+    display: flex;
+    align-items: center;
+    gap: globals.$spacing-unit;
+    border-bottom: 1px solid globals.$border-color;
+    padding-bottom: calc(globals.$spacing-unit * 1.5);
+  }
+
+  &__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: globals.$body-font-size;
+    font-weight: 500;
+    color: globals.$subtle-color;
+    background-color: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+
+    &:hover {
+      color: globals.$muted-color;
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    &--active {
+      color: globals.$muted-color;
+      background-color: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+  }
+
   &__filters-container {
     width: 100%;
     align-self: flex-start;

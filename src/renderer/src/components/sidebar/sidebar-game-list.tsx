@@ -15,6 +15,7 @@ interface SidebarGameListProps {
   emptyLabel: string;
   onGameClick: (game: LibraryGame) => void;
   getGameTitle: (game: LibraryGame) => string;
+  isCollapsed?: boolean;
 }
 
 // Owns the virtualizer so scrolling re-renders only the list, not the whole sidebar.
@@ -25,6 +26,7 @@ export const SidebarGameList = memo(function SidebarGameList({
   emptyLabel,
   onGameClick,
   getGameTitle,
+  isCollapsed = false,
 }: Readonly<SidebarGameListProps>) {
   const gameListRef = useRef<HTMLDivElement>(null);
   const [isGameListScrolled, setIsGameListScrolled] = useState(false);
@@ -60,7 +62,7 @@ export const SidebarGameList = memo(function SidebarGameList({
       >
         {isLoading && <SidebarGameListSkeleton />}
 
-        {!isLoading && hasActiveFilter && games.length === 0 && (
+        {!isLoading && !isCollapsed && hasActiveFilter && games.length === 0 && (
           <p className="sidebar__game-list-empty">{emptyLabel}</p>
         )}
 
@@ -79,7 +81,9 @@ export const SidebarGameList = memo(function SidebarGameList({
                   position: "absolute",
                   top: 0,
                   left: 0,
-                  right: SIDEBAR_GAME_LIST_RIGHT_GUTTER - scrollbarWidth,
+                  right: isCollapsed
+                    ? 0
+                    : SIDEBAR_GAME_LIST_RIGHT_GUTTER - scrollbarWidth,
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >
@@ -87,6 +91,7 @@ export const SidebarGameList = memo(function SidebarGameList({
                   game={game}
                   handleSidebarGameClick={onGameClick}
                   getGameTitle={getGameTitle}
+                  isCollapsed={isCollapsed}
                 />
               </div>
             );

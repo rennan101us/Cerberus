@@ -25,7 +25,6 @@ import resources from "@locales";
 import { logger } from "./logger";
 import { addCookieInterceptor } from "./cookies";
 import { clearStateFromPreviousSession } from "./session-state";
-import * as Sentry from "@sentry/react";
 import { ErrorBoundary } from "./components/error-boundary/error-boundary";
 import { levelDBService } from "./services/leveldb.service";
 import Catalogue from "./pages/catalogue/catalogue";
@@ -38,34 +37,23 @@ import ThemeEditor from "./pages/theme-editor/theme-editor";
 import Library from "./pages/library/library";
 import Notifications from "./pages/notifications/notifications";
 import Shop from "./pages/shop/shop";
+import Controllers from "./pages/controllers/controllers";
+import Logs from "./pages/logs/logs";
 import GameLauncher from "./pages/game-launcher/game-launcher";
 import FriendsWindow from "./pages/friends-window/friends-window";
 import ChatWindow from "./pages/chat-window/chat-window";
-import AuthWindow from "./pages/auth-window/auth-window";
 import BigPictureApp from "../../big-picture/src/app";
 import BigPictureCatalogue from "../../big-picture/src/pages/catalogue/catalogue";
 import BigPictureComponentLab from "../../big-picture/src/pages/component-lab/component-lab";
 import BigPictureDownloads from "../../big-picture/src/pages/downloads/downloads";
+import BigPictureFriends from "../../big-picture/src/pages/friends/friends";
 import BigPictureHome from "../../big-picture/src/pages/home/home";
 import BigPictureSettings from "../../big-picture/src/pages/settings/settings";
 import BigPictureLibrary from "../../big-picture/src/pages/library/page";
 import BigPictureGame from "../../big-picture/src/pages/game/game";
-import BigPictureGameAchievements from "../../big-picture/src/pages/game-achievements/game-achievements";
 import BigPictureProfile from "../../big-picture/src/pages/profile/profile";
 
 console.log = logger.log;
-
-Sentry.init({
-  dsn: import.meta.env.RENDERER_VITE_SENTRY_DSN,
-  integrations: [
-    Sentry.browserTracingIntegration(),
-    Sentry.replayIntegration(),
-  ],
-  tracesSampleRate: 0.5,
-  replaysSessionSampleRate: 0,
-  replaysOnErrorSampleRate: 0,
-  release: "hydra-launcher@" + (await globalThis.electron.getVersion()),
-});
 
 globalThis.addEventListener("unhandledrejection", (event) => {
   logger.error("Unhandled promise rejection", event.reason);
@@ -135,12 +123,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                   <Route path="/" element={<Home />} />
                   <Route path="/catalogue" element={<Catalogue />} />
                   <Route path="/library" element={<Library />} />
+                  <Route path="/controllers" element={<Controllers />} />
                   <Route path="/downloads" element={<Downloads />} />
                   <Route
                     path="/game/:shop/:objectId"
                     element={<GameDetails />}
                   />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/logs" element={<Logs />} />
                   <Route path="/profile/:userId" element={<Profile />} />
                   <Route path="/notifications" element={<Notifications />} />
                   <Route path="/shop" element={<Shop />} />
@@ -150,7 +140,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                 <Route path="/game-launcher" element={<GameLauncher />} />
                 <Route path="/friends-window" element={<FriendsWindow />} />
                 <Route path="/chat-window" element={<ChatWindow />} />
-                <Route path="/auth-window" element={<AuthWindow />} />
 
                 <Route path="/big-picture" element={<BigPictureApp />}>
                   <Route index element={<BigPictureHome />} />
@@ -160,6 +149,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                     element={<BigPictureComponentLab />}
                   />
                   <Route path="downloads" element={<BigPictureDownloads />} />
+                  <Route path="friends" element={<BigPictureFriends />} />
                   <Route path="settings" element={<BigPictureSettings />} />
                   <Route path="library" element={<BigPictureLibrary />} />
                   <Route
@@ -169,10 +159,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                   <Route
                     path="game/:shop/:objectId"
                     element={<BigPictureGame />}
-                  />
-                  <Route
-                    path="game/:shop/:objectId/achievements"
-                    element={<BigPictureGameAchievements />}
                   />
                 </Route>
               </Routes>

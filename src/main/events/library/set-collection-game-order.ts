@@ -16,8 +16,6 @@ import type { Game, GameShop } from "@types";
 type CollectionOrderGame = { shop: GameShop; objectId: string };
 type AuthContext = ReturnType<typeof HydraApi.getAuthContext>;
 
-const ORDER_SAVE_TIMEOUT_MS = 30_000;
-
 const orderSaveQueue = new LibraryWriteQueue();
 
 const getOrderKey = (game: CollectionOrderGame) =>
@@ -77,16 +75,6 @@ const saveCollectionGameOrder = async (
     collectionId,
     requestedGames,
     storedGames
-  );
-
-  await HydraApi.put(
-    `/profile/games/collections/${encodeURIComponent(collectionId)}/order`,
-    {
-      games: games
-        .filter((game) => game.shop !== "custom")
-        .map(({ shop, objectId }) => ({ shop, objectId })),
-    },
-    { timeout: ORDER_SAVE_TIMEOUT_MS, authContext: authContext ?? undefined }
   );
 
   const positions = getLibraryCollectionOrderPositions(games);

@@ -2,6 +2,7 @@ import type { SteamMovie, SteamVideoSource } from "@types";
 import type { GalleryVideoSource } from "./gallery-slider";
 
 export const HLS_VIDEO_TYPE = "application/x-mpegURL";
+export const YOUTUBE_VIDEO_TYPE = "video/youtube";
 const DASH_VIDEO_TYPE = "application/dash+xml";
 const MP4_VIDEO_TYPE = "video/mp4";
 const WEBM_VIDEO_TYPE = "video/webm";
@@ -30,6 +31,13 @@ const buildProgressiveSources = (
 export const getSteamMovieSource = (
   movie: SteamMovie
 ): SteamMovieSource | null => {
+  if (movie.youtube_id) {
+    return {
+      videoSrc: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(movie.youtube_id)}?rel=0&modestbranding=1`,
+      videoType: YOUTUBE_VIDEO_TYPE,
+    };
+  }
+
   if (movie.hls_h264) {
     return { videoSrc: toHttps(movie.hls_h264), videoType: HLS_VIDEO_TYPE };
   }

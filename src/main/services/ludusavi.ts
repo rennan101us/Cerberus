@@ -84,6 +84,84 @@ export class Ludusavi {
     });
   }
 
+  public static async restoreGame(
+    _shop: GameShop,
+    objectId: string,
+    backupPath: string,
+    winePrefix?: string | null
+  ): Promise<LudusaviBackup> {
+    return new Promise((resolve, reject) => {
+      const args = [
+        "--config",
+        this.configPath,
+        "restore",
+        objectId,
+        "--path",
+        backupPath,
+        "--api",
+        "--force",
+      ];
+
+      if (winePrefix) args.push("--wine-prefix", winePrefix);
+
+      cp.execFile(
+        this.binaryPath,
+        args,
+        (err: cp.ExecFileException | null, stdout: string) => {
+          if (err) {
+            return reject(err);
+          }
+
+          return resolve(JSON.parse(stdout) as LudusaviBackup);
+        }
+      );
+    });
+  }
+
+  public static async previewGame(
+    _shop: GameShop,
+    objectId: string,
+    winePrefix?: string | null
+  ): Promise<LudusaviBackup | null> {
+    try {
+      await this.copyConfigFileToUserData();
+      await this.copyBinaryToUserData();
+    } catch {
+      return null;
+    }
+
+    if (!fs.existsSync(this.binaryPath)) return null;
+
+    return new Promise((resolve) => {
+      const args = [
+        "--config",
+        this.configPath,
+        "backup",
+        objectId,
+        "--preview",
+        "--api",
+      ];
+      if (winePrefix) args.push("--wine-prefix", winePrefix);
+
+      cp.execFile(
+        this.binaryPath,
+        args,
+        { timeout: 15_000 },
+        (err: cp.ExecFileException | null, stdout: string) => {
+          if (err || !stdout) {
+            resolve(null);
+            return;
+          }
+          try {
+            resolve(JSON.parse(stdout) as LudusaviBackup);
+          } catch {
+            resolve(null);
+          }
+        }
+      );
+    });
+  }
+
   public static async getBackupPreview(
     _shop: GameShop,
     objectId: string,

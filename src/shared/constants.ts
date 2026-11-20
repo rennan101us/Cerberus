@@ -15,6 +15,9 @@ export enum Downloader {
   ArchiveOrg = 14,
   Epic = 15,
   FileKeeper = 16,
+  DirectHttp = 17,
+  Steam = 18,
+  Gog = 19,
 }
 
 export enum DownloadSourceStatus {
@@ -121,7 +124,14 @@ export const LINUX_GAME_EXECUTABLE_EXTENSIONS = [
   "bin",
 ];
 
-export const DARWIN_GAME_EXECUTABLE_EXTENSIONS = ["app"];
+export const DARWIN_GAME_EXECUTABLE_EXTENSIONS = [
+  "exe",
+  "app",
+  "bat",
+  "cmd",
+  "lnk",
+  "sh",
+];
 
 export const getGameExecutableFilters = (
   platform: string,
@@ -140,11 +150,13 @@ export const getGameExecutableFilters = (
         name: labels.executable,
         extensions: DARWIN_GAME_EXECUTABLE_EXTENSIONS,
       },
+      { name: labels.allFiles, extensions: ["*"] },
     ];
   }
 
   return [
     { name: labels.executable, extensions: WINDOWS_GAME_EXECUTABLE_EXTENSIONS },
+    { name: labels.allFiles, extensions: ["*"] },
   ];
 };
 

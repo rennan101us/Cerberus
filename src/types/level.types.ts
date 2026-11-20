@@ -3,15 +3,15 @@ import type { GameShop } from "./game.types";
 import type { DownloadStatus } from "./download.types";
 import type { ClassicsDisc } from "./emulator.types";
 import type {
-  ScreenshotGamepadButton,
-  ScreenshotHotkeyBinding,
-} from "./screenshot.types";
-import type { ProfileVisibility } from "./index";
-import type {
   EpicDownloadMetadata,
   EpicInstallation,
 } from "./epic-managed.types";
 import type { MacOSCompatibilityOptions } from "./crossover.types";
+import type {
+  LauncherHighlightThemeId,
+  NxGameRuntimeConfig,
+  SwitchGeneration,
+} from "./nxnative.types";
 
 export type SubscriptionStatus = "active" | "pending" | "cancelled";
 
@@ -83,7 +83,7 @@ export interface Game extends LibraryCatalogueMetadata {
   objectId: string;
   shop: GameShop;
   remoteId: string | null;
-  source?: "hydra" | "steam" | "epic";
+  source?: "hydra" | "steam" | "epic" | "gog";
   collectionIds?: string[];
   collectionPositions?: Record<string, number>;
   isDeleted: boolean;
@@ -116,6 +116,15 @@ export interface Game extends LibraryCatalogueMetadata {
   selectedDiscPath?: string | null;
   dontAskDiscSelection?: boolean;
   romSizeBytes?: number | null;
+  switchTitleId?: string | null;
+  switchGeneration?: SwitchGeneration | null;
+  switchRomPath?: string | null;
+  switchPortedAppPath?: string | null;
+  switchPortedIpaPath?: string | null;
+  switchPortedApkPath?: string | null;
+  switchRuntimeConfig?: NxGameRuntimeConfig | null;
+  controllerProfileId?: string | null;
+  playerProfileIds?: Record<string, string> | null;
 }
 
 export interface DownloadFile {
@@ -184,19 +193,17 @@ export type AchievementCustomNotificationPosition =
   | "bottom-center"
   | "bottom-right";
 
-export type BigPictureDiagnosticsPosition =
-  | "top-left"
-  | "top-center"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-center"
-  | "bottom-right";
-
 export interface DownloadDirectoryPreference {
   path: string;
   createdAt: string;
   source: "manual" | "auto";
 }
+
+export type CerberusGamingPlatform =
+  | "windows"
+  | "switch_mac"
+  | "switch_ios"
+  | "switch_android";
 
 export interface UserPreferences {
   downloadsPath?: string | null;
@@ -239,7 +246,6 @@ export interface UserPreferences {
   deleteArchiveFilesAfterExtractionByDefault?: boolean;
   enableSteamAchievements?: boolean;
   enableAchievementSouvenirs?: boolean;
-  achievementScreenshotsPath?: string;
   autoplayGameTrailers?: boolean;
   hideToTrayOnGameStart?: boolean;
   useNativeWindowDecorations?: boolean;
@@ -247,8 +253,6 @@ export interface UserPreferences {
   createStartMenuShortcut?: boolean;
   bigPictureSoundsEnabled?: boolean;
   bigPictureVirtualKeyboardEnabled?: boolean;
-  bigPictureDiagnosticsEnabled?: boolean;
-  bigPictureDiagnosticsPosition?: BigPictureDiagnosticsPosition;
   maxDownloadSpeedBytesPerSecond?: number | null;
   torrentNetworkInterface?: string | null;
   globalTrackers?: string[];
@@ -268,16 +272,27 @@ export interface UserPreferences {
   hideLibraryAchievementProgress?: boolean;
   autoplayAnimatedArtwork?: boolean;
   persistFiltersAndSorting?: boolean;
-  screenshotsEnabled?: boolean;
-  screenshotsFolderPath?: string;
-  screenshotHotkey?: ScreenshotHotkeyBinding;
-  screenshotGamepadEnabled?: boolean;
-  screenshotGamepadCombo?: ScreenshotGamepadButton[];
-  screenshotCaptureSoundEnabled?: boolean;
-  screenshotToastEnabled?: boolean;
-  screenshotDefaultVisibility?: ProfileVisibility;
-  showSensitiveScreenshots?: boolean;
-  hideCommunityScreenshots?: boolean;
+  highlightTheme?: LauncherHighlightThemeId;
+  customHighlightColor?: string | null;
+  nxnativeRepoPath?: string | null;
+  nx2androidRepoPath?: string | null;
+  switch1RomFolders?: string[];
+  switch2RomFolders?: string[];
+  nxPortedOutputFolder?: string | null;
+  nxAppSupportFolder?: string | null;
+  nxStagingFolder?: string | null;
+  cerberusCacheRoot?: string | null;
+  nx2androidHomeFolder?: string | null;
+  nxProdKeysPath?: string | null;
+  nxICloudSyncEnabled?: boolean;
+  windowsICloudAutoSyncEnabled?: boolean;
+  igdbClientId?: string | null;
+  igdbClientSecret?: string | null;
+  hasCompletedFirstRunOnboarding?: boolean;
+  selectedGamingPlatforms?: CerberusGamingPlatform[];
+  playerName?: string | null;
+  enableDoh?: boolean;
+  networkProxyUrl?: string | null;
 }
 
 export interface NetworkInterface {

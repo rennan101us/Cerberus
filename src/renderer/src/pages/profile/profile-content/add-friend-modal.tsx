@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { CopyIcon } from "@primer/octicons-react";
-import { AuthPage } from "@shared";
 import "./add-friend-modal.scss";
 
 interface AddFriendModalProps {
@@ -61,7 +60,7 @@ export function AddFriendModal({ visible, onClose }: AddFriendModalProps) {
 
   const handleClickAddFriend = () => {
     if (!userDetails) {
-      window.electron.openAuthWindow(AuthPage.SignIn);
+      void 0;
       return;
     }
 
@@ -93,7 +92,7 @@ export function AddFriendModal({ visible, onClose }: AddFriendModalProps) {
 
   const handleCancelFriendRequest = (userId: string) => {
     if (!userDetails) {
-      window.electron.openAuthWindow(AuthPage.SignIn);
+      void 0;
       return;
     }
 

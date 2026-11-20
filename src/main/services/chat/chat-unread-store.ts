@@ -1,8 +1,9 @@
 import { OFFICIAL_CHAT_FRIEND_ID } from "@shared";
 import type { ChatUnreadState, ChatUnreadSummary } from "@types";
-import { HydraApi } from "../hydra-api";
 import { logger } from "../logger";
 import { WindowManager } from "../window-manager";
+import { SocialChatStore } from "../social/social-chat-store";
+import { SocialHubService } from "../social/social-hub-service";
 import { ChatTaskbarBadge } from "./chat-taskbar-badge";
 
 export type ChatUnreadConversation = ChatUnreadSummary["conversations"][number];
@@ -46,7 +47,7 @@ export class ChatUnreadStore {
   }
 
   public static refresh(): Promise<void> {
-    if (!HydraApi.isLoggedIn()) return Promise.resolve();
+    if (!SocialHubService.hasConnectedAccount()) return Promise.resolve();
 
     this.loading ??= this.load(this.generation).finally(() => {
       this.loading = null;
@@ -169,22 +170,12 @@ export class ChatUnreadStore {
     this.pendingChanges = changes;
 
     try {
-      const summary = await HydraApi.get<ChatUnreadSummary>(
-        "/profile/chats/unread"
-      );
+      const state = await SocialChatStore.getUnreadState();
       if (generation !== this.generation) return;
 
-      this.unread = new Map(
-        summary.conversations.map((conversation) => [
-          conversation.friendId,
-          conversation.unreadCount,
-        ])
-      );
+      this.unread = new Map(Object.entries(state.byFriend));
       this.lastMessageAt = new Map(
-        summary.conversations.map((conversation) => [
-          conversation.friendId,
-          conversation.lastMessageAt,
-        ])
+        Object.entries(state.lastMessageAtByFriend ?? {})
       );
       for (const [friendId, change] of changes) {
         this.applyPendingChange(friendId, change);

@@ -25,12 +25,6 @@ function mergeUserProfileIntoDetails(
       currentUserDetails?.allowCloudGifts ??
       true,
     souvenirsVisibility: updatedProfile.souvenirsVisibility,
-    screenshotsVisibility:
-      updatedProfile.screenshotsVisibility ??
-      currentUserDetails?.screenshotsVisibility,
-    screenshotCommentsPolicy:
-      updatedProfile.screenshotCommentsPolicy ??
-      currentUserDetails?.screenshotCommentsPolicy,
     bio: updatedProfile.bio,
     workwondersJwt: currentUserDetails?.workwondersJwt ?? "",
     subscription: currentUserDetails?.subscription ?? null,

@@ -16,7 +16,16 @@ import {
   CheckboxField,
   SteamIcon,
 } from "@renderer/components";
-import type { DownloadSource, Game, GameRepack } from "@types";
+import type {
+  DownloadSource,
+  Game,
+  GameRepack,
+  MacNativeDownloadOption,
+  NxCloudAvailableGame,
+  StoreLibraryGame,
+} from "@types";
+import { Download as LucideDownload, ExternalLink } from "lucide-react";
+import { useToast } from "@renderer/hooks";
 
 import { DownloadSettingsModal } from "./download-settings-modal";
 import { gameDetailsContext } from "@renderer/context";
@@ -42,6 +51,7 @@ import {
 } from "@renderer/helpers";
 import "./repacks-modal.scss";
 import EpicLogo from "@renderer/assets/epic-integration-logo.svg?react";
+import GogLogo from "@renderer/assets/gog-integration-logo.svg?react";
 import { EpicInstallModal } from "./epic-install-modal";
 import { useEpicManagedConnection } from "@renderer/hooks/use-epic-managed";
 import { useLibrary } from "@renderer/hooks";
@@ -86,8 +96,206 @@ export function RepacksModal({
     new Set()
   );
 
-  const { game, presentation, repacks, updateGame } =
+  const { game, presentation, repacks, shop, objectId, gameTitle, updateGame } =
     useContext(gameDetailsContext);
+  const { showSuccessToast, showErrorToast } = useToast();
+
+  const isSwitchShop = shop === "switch1" || shop === "switch2";
+  const isMacNativeShop = shop === "mac_native";
+
+  const [switchStreams, setSwitchStreams] = useState<NxCloudAvailableGame[]>(
+    []
+  );
+  const [loadingSwitchStreams, setLoadingSwitchStreams] = useState(false);
+  const [switchDirectLink, setSwitchDirectLink] = useState("");
+  const [startingSwitchKey, setStartingSwitchKey] = useState<string | null>(
+    null
+  );
+
+  const [macOptions, setMacOptions] = useState<MacNativeDownloadOption[]>([]);
+  const [loadingMacOptions, setLoadingMacOptions] = useState(false);
+  const [startingMacId, setStartingMacId] = useState<string | null>(null);
+  const [storeAccounts, setStoreAccounts] = useState<{
+    steam: boolean;
+    epic: boolean;
+    gog: boolean;
+  }>({ steam: false, epic: false, gog: false });
+  const [startingStoreProvider, setStartingStoreProvider] = useState<
+    "steam" | "epic" | "gog" | null
+  >(null);
+  const [ownedStoreGames, setOwnedStoreGames] = useState<StoreLibraryGame[]>(
+    []
+  );
+
+  useEffect(() => {
+    if (!visible) return;
+    window.electron?.storesGetAccounts?.()
+      ?.then((res) => {
+        if (!res) return;
+        setStoreAccounts({
+          steam: Boolean(res.steam?.connected),
+          epic: Boolean(res.epic?.connected),
+          gog: Boolean(res.gog?.connected),
+        });
+      })
+      ?.catch(() => {});
+
+    window.electron?.storesGetOwnedGames?.()
+      ?.then((games) => setOwnedStoreGames(games || []))
+      ?.catch(() => {});
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !isSwitchShop || !objectId) return;
+    let cancelled = false;
+    setLoadingSwitchStreams(true);
+    setSwitchDirectLink("");
+    const tid = game?.switchTitleId || objectId;
+    const gen = shop === "switch2" ? "switch2" : "switch1";
+
+    void (async () => {
+      try {
+        const cached = await window.electron.nxResolveGameStreams(tid);
+        if (!cancelled && cached.length > 0) {
+          setSwitchStreams(cached);
+          setLoadingSwitchStreams(false);
+        }
+        const live = await window.electron.nxResolveLiveGameStreams(
+          tid,
+          gameTitle || game?.title || tid,
+          gen
+        );
+        if (!cancelled) {
+          setSwitchStreams(live.length > 0 ? live : cached);
+        }
+      } catch {
+        if (!cancelled) setSwitchStreams([]);
+      } finally {
+        if (!cancelled) setLoadingSwitchStreams(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    visible,
+    isSwitchShop,
+    objectId,
+    shop,
+    game?.switchTitleId,
+    game?.title,
+    gameTitle,
+  ]);
+
+  useEffect(() => {
+    if (!visible || !isMacNativeShop || !objectId) return;
+    let cancelled = false;
+    setLoadingMacOptions(true);
+
+    void window.electron
+      .macNativeGetDownloadOptions(objectId, gameTitle || game?.title)
+      .then((res) => {
+        if (!cancelled) setMacOptions(res.options ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setMacOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMacOptions(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, isMacNativeShop, objectId, gameTitle, game?.title]);
+
+  const handleStartSwitchDownload = async (opts: {
+    streamUrl?: string;
+    directUri?: string;
+  }) => {
+    if (!objectId) return;
+    const key = opts.directUri || opts.streamUrl || "direct";
+    setStartingSwitchKey(key);
+    try {
+      const tid = game?.switchTitleId || objectId;
+      const gen = shop === "switch2" ? "switch2" : "switch1";
+      const title = gameTitle || game?.title || tid;
+      const res = await window.electron.nxStartSwitchGameDownload({
+        titleId: tid,
+        title,
+        generation: gen,
+        streamUrl: opts.streamUrl,
+        directUri: opts.directUri,
+      });
+
+      if (res.ok) {
+        showSuccessToast(
+          `Download de "${title}" iniciado! Acompanhe na aba Downloads.`
+        );
+        await Promise.all([updateLibrary(), updateGame()]);
+        onClose();
+      } else if (res.fallbackBrowser) {
+        await window.electron.nxOpenExternalUrl(
+          res.url || opts.streamUrl || ""
+        );
+        showErrorToast(
+          "Este portal exige verificação no navegador. A página foi aberta externamente."
+        );
+      } else {
+        showErrorToast(
+          res.error || "Não foi possível iniciar o download deste link."
+        );
+      }
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error ? err.message : "Erro ao iniciar download Switch."
+      );
+    } finally {
+      setStartingSwitchKey(null);
+    }
+  };
+
+  const handleStartMacNativeDownload = async (
+    option: MacNativeDownloadOption
+  ) => {
+    if (!objectId) return;
+    setStartingMacId(option.id);
+    try {
+      const title = gameTitle || game?.title || objectId;
+      const res = await window.electron.macNativeStartDownload({
+        objectId,
+        title,
+        option,
+      });
+
+      if (res.ok) {
+        showSuccessToast(
+          `Download de "${title}" iniciado! Acompanhe na aba Downloads.`
+        );
+        await Promise.all([updateLibrary(), updateGame()]);
+        onClose();
+      } else if (res.fallbackBrowser && res.url) {
+        await window.electron.nxOpenExternalUrl(res.url);
+        showErrorToast(
+          res.error ||
+            `${option.hoster} requer abertura no navegador. A página foi aberta externamente.`
+        );
+      } else {
+        showErrorToast(
+          res.error || "Não foi possível iniciar o download Mac Native."
+        );
+      }
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error
+          ? err.message
+          : "Erro ao iniciar download Mac Native."
+      );
+    } finally {
+      setStartingMacId(null);
+    }
+  };
   const { steam: steamGame, epic: epicGame } = getOfficialStoreMembers(
     presentation?.members ?? (game ? [game] : [])
   );
@@ -186,8 +394,23 @@ export function RepacksModal({
     }
   }, [visible, game, dispatch]);
 
+  const isDirectHttpsRepack = (repack: GameRepack) =>
+    Array.isArray(repack.uris) &&
+    repack.uris.some(
+      (uri) =>
+        (uri.startsWith("https://") || uri.startsWith("http://")) &&
+        !uri.toLowerCase().endsWith(".torrent")
+    );
+
   const sortedRepacks = useMemo(() => {
-    return orderBy(repacks, [(repack) => repack.uploadDate], ["desc"]);
+    return orderBy(
+      repacks,
+      [
+        (repack) => (isDirectHttpsRepack(repack) ? 1 : 0),
+        (repack) => repack.uploadDate,
+      ],
+      ["desc", "desc"]
+    );
   }, [repacks]);
 
   useEffect(() => {
@@ -265,25 +488,259 @@ export function RepacksModal({
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const steamOptionTerm = filterTerm.trim().toLowerCase();
   const isNonSteamExecutable = useIsNonSteamExecutable(steamGame);
+
+  const currentNormalizedTitle = useMemo(() => {
+    const raw = gameTitle || game?.title || "";
+    return raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  }, [gameTitle, game?.title]);
+
+  const matchedOwnedSteam = useMemo(() => {
+    return ownedStoreGames.find(
+      (g) =>
+        g.provider === "steam" &&
+        (g.storeId === objectId ||
+          (currentNormalizedTitle &&
+            g.title.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+              currentNormalizedTitle))
+    );
+  }, [ownedStoreGames, objectId, currentNormalizedTitle]);
+
+  const matchedOwnedEpic = useMemo(() => {
+    return ownedStoreGames.find(
+      (g) =>
+        g.provider === "epic" &&
+        (g.storeId === objectId ||
+          (currentNormalizedTitle &&
+            g.title.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+              currentNormalizedTitle))
+    );
+  }, [ownedStoreGames, objectId, currentNormalizedTitle]);
+
+  const matchedOwnedGog = useMemo(() => {
+    return ownedStoreGames.find(
+      (g) =>
+        g.provider === "gog" &&
+        (g.storeId === objectId ||
+          (currentNormalizedTitle &&
+            g.title.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+              currentNormalizedTitle))
+    );
+  }, [ownedStoreGames, objectId, currentNormalizedTitle]);
+
+  const effectiveSteamId =
+    steamGame?.objectId ||
+    (game?.shop === "steam" ? game.objectId : null) ||
+    (shop === "steam" ? objectId : null) ||
+    presentation?.members?.find((m) => m.shop === "steam")?.objectId ||
+    matchedOwnedSteam?.storeId ||
+    null;
+
+  const effectiveEpicId =
+    epicGame?.objectId ||
+    (game?.shop === "epic" ? game.objectId : null) ||
+    (shop === "epic" ? objectId : null) ||
+    presentation?.members?.find((m) => m.shop === "epic")?.objectId ||
+    matchedOwnedEpic?.storeId ||
+    null;
+
+  const effectiveGogId =
+    (game?.shop === "gog" ? game.objectId : null) ||
+    (shop === "gog" ? objectId : null) ||
+    (game?.source === "gog" ? game.objectId : null) ||
+    presentation?.members?.find(
+      (m) => m.shop === "gog" || (m as { source?: string }).source === "gog"
+    )?.objectId ||
+    matchedOwnedGog?.storeId ||
+    null;
+
+  const hasOwnedSteam =
+    (storeAccounts.steam &&
+      Boolean(
+        steamGame?.hasActiveSteamImport ||
+          game?.hasActiveSteamImport ||
+          game?.shop === "steam" ||
+          shop === "steam" ||
+          presentation?.members?.some((m) => m.shop === "steam") ||
+          game?.source === "steam" ||
+          matchedOwnedSteam
+      )) ||
+    Boolean(canDownloadOnSteam(steamGame)) ||
+    Boolean(isSteamImportedGame(steamGame) && isNonSteamExecutable);
+
+  const hasOwnedEpic =
+    (storeAccounts.epic &&
+      Boolean(
+        epicGame?.hasActiveEpicImport ||
+          game?.hasActiveEpicImport ||
+          game?.shop === "epic" ||
+          shop === "epic" ||
+          presentation?.members?.some((m) => m.shop === "epic") ||
+          game?.source === "epic" ||
+          matchedOwnedEpic
+      )) ||
+    Boolean(epicAvailable && isEpicMemberInCurrentScope(epicGame, connection));
+
+  const hasOwnedGog =
+    storeAccounts.gog &&
+    Boolean(
+      game?.shop === "gog" ||
+        shop === "gog" ||
+        game?.source === "gog" ||
+        presentation?.members?.some(
+          (m) => m.shop === "gog" || (m as { source?: string }).source === "gog"
+        ) ||
+        matchedOwnedGog
+    );
+
   const showSteamOption =
-    (canDownloadOnSteam(steamGame) ||
-      (isSteamImportedGame(steamGame) && isNonSteamExecutable)) &&
+    Boolean(effectiveSteamId) &&
     selectedFingerprints.length === 0 &&
     (!steamOptionTerm ||
       "steam".includes(steamOptionTerm) ||
       (game?.title ?? "").toLowerCase().includes(steamOptionTerm));
+
   const showEpicOption =
-    epicAvailable &&
-    isEpicMemberInCurrentScope(epicGame, connection) &&
+    Boolean(effectiveEpicId) &&
     selectedFingerprints.length === 0 &&
     (!steamOptionTerm ||
       "epic games".includes(steamOptionTerm) ||
+      "epic".includes(steamOptionTerm) ||
       (game?.title ?? "").toLowerCase().includes(steamOptionTerm));
 
-  const handleSteamOptionClick = () => {
-    if (!steamGame) return;
+  const showGogOption =
+    Boolean(effectiveGogId) &&
+    selectedFingerprints.length === 0 &&
+    (!steamOptionTerm ||
+      "gog".includes(steamOptionTerm) ||
+      (game?.title ?? "").toLowerCase().includes(steamOptionTerm));
 
-    void window.electron.installGameOnSteam(steamGame.objectId);
+  const handleGogOptionClick = async () => {
+    const gogId = effectiveGogId;
+    if (!gogId) return;
+
+    if (!storeAccounts.gog) {
+      showErrorToast(
+        "Conecte sua conta GOG em Ajustes → Lojas para baixar instaladores oficiais."
+      );
+      navigate("/settings?tab=gog");
+      onClose();
+      return;
+    }
+
+    setStartingStoreProvider("gog");
+    try {
+      const downloads = await window.electron.storesGetGogDownloads(gogId);
+      if (!downloads) {
+        showErrorToast("Nenhum instalador GOG encontrado para este jogo.");
+        return;
+      }
+      const isMac = window.electron.platform === "darwin";
+      const installers =
+        isMac && downloads.macInstallers.length > 0
+          ? downloads.macInstallers
+          : downloads.windowsInstallers;
+
+      if (!installers || installers.length === 0) {
+        showErrorToast("Nenhum arquivo instalador disponível no GOG.");
+        return;
+      }
+
+      const chosen = installers[0];
+      const firstFile = chosen.files?.[0];
+      if (!firstFile?.downlink) {
+        showErrorToast("Link de download direto do GOG não disponível.");
+        return;
+      }
+
+      const directUrl = await window.electron.storesResolveGogDownlink(
+        firstFile.downlink
+      );
+      if (!directUrl) {
+        showErrorToast("Não foi possível resolver o link direto da CDN GOG.");
+        return;
+      }
+
+      showSuccessToast(
+        `Instalador GOG (${chosen.os === "mac" ? "Mac Native" : "Windows - Red Wine"}) pronto para download!`
+      );
+      onClose();
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error ? err.message : "Erro ao obter download GOG."
+      );
+    } finally {
+      setStartingStoreProvider(null);
+    }
+  };
+
+  const handleSteamOptionClick = async () => {
+    const steamId = effectiveSteamId;
+    if (!steamId) return;
+
+    if (hasOwnedSteam) {
+      setStartingStoreProvider("steam");
+      try {
+        const res = await window.electron.storesStartGameDownload({
+          provider: "steam",
+          storeId: steamId,
+          title: gameTitle || game?.title || steamId,
+        });
+        if (res.ok) {
+          showSuccessToast(
+            "Download oficial Steam iniciado! Acompanhe na aba Downloads."
+          );
+          void Promise.all([updateLibrary(), updateGame()]);
+          onClose();
+        } else {
+          showErrorToast(res.error || "Erro ao baixar pela Steam.");
+        }
+      } finally {
+        setStartingStoreProvider(null);
+      }
+      return;
+    }
+
+    void window.electron.installGameOnSteam(steamId);
+    onClose();
+  };
+
+  const handleEpicOptionClick = async () => {
+    const epicId = effectiveEpicId;
+    if (!epicId) return;
+
+    if (storeAccounts.epic && hasOwnedEpic) {
+      setStartingStoreProvider("epic");
+      try {
+        const res = await window.electron?.storesStartGameDownload?.({
+          provider: "epic",
+          storeId: epicId,
+          title: gameTitle || game?.title || epicId,
+        });
+        if (res?.ok) {
+          showSuccessToast(
+            "Download oficial Epic Games iniciado! Acompanhe na aba Downloads."
+          );
+          void Promise.all([updateLibrary(), updateGame()]);
+          onClose();
+        } else {
+          showErrorToast(res?.error || "Erro ao baixar pela Epic Games.");
+        }
+      } finally {
+        setStartingStoreProvider(null);
+      }
+      return;
+    }
+
+    if (epicGame) {
+      epicInstallTiming.beginOptions(epicGame.objectId);
+      setEpicInstallGame(epicGame);
+      return;
+    }
+
+    showErrorToast(
+      "Conecte sua conta Epic Games em Ajustes → Lojas para baixar instaladores oficiais via Legendary."
+    );
+    navigate("/settings?tab=epic");
     onClose();
   };
 
@@ -294,6 +751,176 @@ export function RepacksModal({
       setIsFilterDrawerOpen(false);
     }
   }, [visible]);
+
+  if (isSwitchShop) {
+    return (
+      <Modal
+        visible={visible}
+        title={t("download_options_title")}
+        description={`Opções de download para ${gameTitle || game?.title || objectId}`}
+        onClose={onClose}
+      >
+        <div className="switch-catalogue__streams-modal">
+          <div className="switch-catalogue__direct-link-box">
+            <TextField
+              placeholder="Colar link direto (.nsp/.nsz/.xci/.nup/.zip) ou magnet:..."
+              value={switchDirectLink}
+              onChange={(e) => setSwitchDirectLink(e.target.value)}
+            />
+            <Button
+              theme="primary"
+              disabled={!switchDirectLink.trim() || startingSwitchKey !== null}
+              onClick={() =>
+                void handleStartSwitchDownload({
+                  directUri: switchDirectLink.trim(),
+                })
+              }
+            >
+              <LucideDownload size={14} /> Baixar Link
+            </Button>
+          </div>
+
+          {loadingSwitchStreams ? (
+            <p>Buscando fontes cadastradas e portais ao vivo...</p>
+          ) : switchStreams.length === 0 ? (
+            <div className="switch-catalogue__streams-empty">
+              <p>
+                Nenhum link automático encontrado nas suas fontes Switch para
+                este título.
+              </p>
+              <small>
+                Verifique as fontes (BlueRoms, RomsHQ, NSWPedia) em Ajustes →
+                Fontes de Download ou cole um link direto / magnet acima.
+              </small>
+              <div className="switch-catalogue__streams-actions">
+                <Button
+                  theme="outline"
+                  onClick={() => {
+                    onClose();
+                    navigate("/settings?tab=download_sources");
+                  }}
+                >
+                  Ir para Fontes de Download
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="switch-catalogue__streams-list">
+              {switchStreams.map((s) => {
+                const isStarting = startingSwitchKey === s.downloadURL;
+                return (
+                  <div
+                    key={`${s.sourceId}-${s.downloadURL}`}
+                    className="switch-catalogue__stream-row"
+                  >
+                    <div>
+                      <strong>{s.sourceName}</strong>
+                      <small>
+                        {s.isTorrent
+                          ? "Torrent / Magnet (P2P)"
+                          : "HTTPS Direto · Recomendado em Redes Restritas"}
+                        {s.fileSizeFormatted ? ` · ${s.fileSizeFormatted}` : ""}
+                      </small>
+                    </div>
+                    <div className="switch-catalogue__stream-row-actions">
+                      <Button
+                        theme="primary"
+                        onClick={() =>
+                          void handleStartSwitchDownload({
+                            streamUrl: s.downloadURL,
+                          })
+                        }
+                        disabled={startingSwitchKey !== null}
+                      >
+                        <LucideDownload size={13} />{" "}
+                        {isStarting ? "Resolvendo..." : "Baixar"}
+                      </Button>
+                      <Button
+                        theme="outline"
+                        onClick={() =>
+                          void window.electron.nxOpenExternalUrl(s.downloadURL)
+                        }
+                        title="Abrir no navegador"
+                      >
+                        <ExternalLink size={13} />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Modal>
+    );
+  }
+
+  if (isMacNativeShop) {
+    return (
+      <Modal
+        visible={visible}
+        title={t("download_options_title")}
+        description={`Opções de download Mac Native para ${gameTitle || game?.title || objectId}`}
+        onClose={onClose}
+      >
+        <div className="switch-catalogue__streams-modal">
+          {loadingMacOptions ? (
+            <p>Buscando links em Appstorrent e TorrentMac...</p>
+          ) : macOptions.length === 0 ? (
+            <div className="switch-catalogue__streams-empty">
+              <p>
+                Nenhum link de download encontrado no momento para este jogo Mac
+                Native.
+              </p>
+              <small>
+                Tente atualizar o catálogo Mac Native ou tente novamente em
+                alguns instantes.
+              </small>
+            </div>
+          ) : (
+            <div className="switch-catalogue__streams-list">
+              {macOptions.map((opt) => {
+                const isStarting = startingMacId === opt.id;
+                return (
+                  <div key={opt.id} className="switch-catalogue__stream-row">
+                    <div>
+                      <strong>{opt.title}</strong>
+                      <small>
+                        {opt.sourceLabel} · {opt.hoster} ·{" "}
+                        {opt.isTorrent
+                          ? "Torrent / Magnet (P2P)"
+                          : "HTTPS Direto · Recomendado em Redes Restritas"}
+                        {opt.fileSize ? ` · ${opt.fileSize}` : ""}
+                      </small>
+                    </div>
+                    <div className="switch-catalogue__stream-row-actions">
+                      <Button
+                        theme="primary"
+                        onClick={() => void handleStartMacNativeDownload(opt)}
+                        disabled={startingMacId !== null}
+                      >
+                        <LucideDownload size={13} />{" "}
+                        {isStarting ? "Iniciando..." : "Baixar"}
+                      </Button>
+                      <Button
+                        theme="outline"
+                        onClick={() =>
+                          void window.electron.nxOpenExternalUrl(opt.detailUrl)
+                        }
+                        title="Abrir página da fonte"
+                      >
+                        <ExternalLink size={13} />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <>
@@ -377,11 +1004,18 @@ export function RepacksModal({
         </div>
 
         <div className="repacks-modal__repacks">
-          {showSteamOption && game && (
+          {(showSteamOption || showEpicOption || showGogOption) && (
+            <div className="repacks-modal__section-header">
+              <span>Lojas Oficiais</span>
+            </div>
+          )}
+
+          {showSteamOption && (
             <Button
               theme="dark"
-              onClick={handleSteamOptionClick}
-              className="repacks-modal__repack-button"
+              disabled={startingStoreProvider !== null}
+              onClick={() => void handleSteamOptionClick()}
+              className="repacks-modal__repack-button repacks-modal__repack-button--official"
             >
               <span
                 className="repacks-modal__availability-orb repacks-modal__availability-orb--online"
@@ -392,42 +1026,98 @@ export function RepacksModal({
 
               <p className="repacks-modal__repack-title repacks-modal__steam-title">
                 <SteamIcon size={16} />
-                {game.title}
+                <span>{game?.title ?? steamGame?.title ?? "Steam"}</span>
+                <span className="repacks-modal__store-badge">
+                  Loja Oficial · Steam
+                </span>
               </p>
 
               <p className="repacks-modal__repack-info">
-                {t("download_on_steam")}
+                {startingStoreProvider === "steam"
+                  ? "Iniciando download Steam..."
+                  : hasOwnedSteam
+                    ? "Steam Oficial · Baixar versão Windows (DepotDownloader)"
+                    : t("download_on_steam")}
               </p>
             </Button>
           )}
 
-          {showEpicOption && epicGame && (
+          {showEpicOption && (
             <Button
               theme="dark"
-              onClick={() => {
-                if (epicGame) epicInstallTiming.beginOptions(epicGame.objectId);
-                setEpicInstallGame(epicGame);
-              }}
-              className="repacks-modal__repack-button"
+              disabled={startingStoreProvider !== null}
+              onClick={() => void handleEpicOptionClick()}
+              className="repacks-modal__repack-button repacks-modal__repack-button--official"
             >
+              <span
+                className="repacks-modal__availability-orb repacks-modal__availability-orb--online"
+                data-tooltip-id="availability-orb-epic"
+                data-tooltip-content={t("source_online")}
+              />
+              <Tooltip id="availability-orb-epic" />
+
               <p className="repacks-modal__repack-title repacks-modal__steam-title">
                 <EpicLogo width={16} height={16} aria-hidden="true" />
-                {game?.title ?? epicGame.title}
+                <span>{game?.title ?? epicGame?.title ?? "Epic Games"}</span>
+                <span className="repacks-modal__store-badge">
+                  Loja Oficial · Epic
+                </span>
               </p>
               <p className="repacks-modal__repack-info">
-                {t("download_on_epic")}
+                {startingStoreProvider === "epic"
+                  ? "Iniciando download Epic Games..."
+                  : hasOwnedEpic
+                    ? "Epic Games Oficial · Baixar versão Windows (Legendary)"
+                    : t("download_on_epic")}
               </p>
             </Button>
           )}
 
-          {(showSteamOption || showEpicOption) &&
+          {showGogOption && (
+            <Button
+              theme="dark"
+              disabled={startingStoreProvider !== null}
+              onClick={() => void handleGogOptionClick()}
+              className="repacks-modal__repack-button repacks-modal__repack-button--official"
+            >
+              <span
+                className="repacks-modal__availability-orb repacks-modal__availability-orb--online"
+                data-tooltip-id="availability-orb-gog"
+                data-tooltip-content={t("source_online")}
+              />
+              <Tooltip id="availability-orb-gog" />
+
+              <p className="repacks-modal__repack-title repacks-modal__steam-title">
+                <GogLogo width={16} height={16} aria-hidden="true" />
+                <span>{game?.title ?? "GOG Galaxy"}</span>
+                <span className="repacks-modal__store-badge">
+                  Loja Oficial · GOG
+                </span>
+              </p>
+              <p className="repacks-modal__repack-info">
+                {startingStoreProvider === "gog"
+                  ? "Obtendo instalador GOG..."
+                  : hasOwnedGog
+                    ? "GOG Galaxy Oficial · Instaladores macOS e Windows"
+                    : "GOG Oficial · Conectar conta em Ajustes"}
+              </p>
+            </Button>
+          )}
+
+          {(showSteamOption || showEpicOption || showGogOption) &&
             filteredRepacks.length > 0 && (
-              <div className="repacks-modal__separator" />
+              <>
+                <div className="repacks-modal__separator" />
+                <div className="repacks-modal__section-header">
+                  <span>Fontes Adicionadas pelo Usuário</span>
+                </div>
+              </>
             )}
 
           {filteredRepacks.length === 0
             ? !showSteamOption &&
-              !showEpicOption && (
+              !showEpicOption &&
+              !showGogOption && (
                 <div className="repacks-modal__no-results">
                   <div className="repacks-modal__no-results-content">
                     <div className="repacks-modal__no-results-text">
@@ -486,6 +1176,9 @@ export function RepacksModal({
 
                     <p className="repacks-modal__repack-info">
                       {repack.fileSize} - {repack.downloadSourceName} -{" "}
+                      {isDirectHttpsRepack(repack)
+                        ? "HTTPS Direto (Redes Restritas) - "
+                        : "Torrent/P2P - "}
                       {repack.uploadDate ? formatDate(repack.uploadDate) : ""}
                     </p>
                   </Button>

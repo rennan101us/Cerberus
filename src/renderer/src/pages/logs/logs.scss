@@ -1,0 +1,167 @@
+@use "../../scss/globals.scss";
+
+.logs-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: globals.$page-gutter;
+  gap: 14px;
+  min-height: 0;
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  &__title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: globals.$muted-color;
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    span {
+      font-size: 12px;
+      color: globals.$subtle-color;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__filters {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  &__level-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  &__pill {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: globals.$body-color;
+    border: 1px solid globals.$border-color;
+    background-color: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    &--active {
+      border-color: var(--color-accent, globals.$brand-teal);
+      background-color: rgba(var(--color-accent-rgb, 22, 177, 149), 0.16);
+      color: globals.$muted-color;
+    }
+  }
+
+  &__search {
+    min-width: 260px;
+    flex: 1;
+    max-width: 380px;
+  }
+
+  &__console {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background-color: globals.$dark-background-color;
+    border: 1px solid globals.$border-color;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    user-select: text;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__empty {
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: globals.$subtle-color;
+    text-align: center;
+    padding: 40px 20px;
+
+    p {
+      color: globals.$body-color;
+      font-family: inherit;
+      font-size: 13px;
+    }
+
+    small {
+      font-size: 11.5px;
+      max-width: 440px;
+      line-height: 1.5;
+    }
+  }
+
+  &__line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.5;
+    word-break: break-word;
+
+    &--info {
+      color: globals.$body-color;
+    }
+
+    &--step {
+      color: var(--color-accent-secondary, #60a5fa);
+      font-weight: 600;
+    }
+
+    &--success {
+      color: #22c55e;
+    }
+
+    &--warning {
+      color: #f59e0b;
+    }
+
+    &--error {
+      color: #f43f5e;
+    }
+  }
+
+  &__time {
+    color: globals.$subtle-color;
+    flex-shrink: 0;
+  }
+
+  &__source {
+    color: rgba(255, 255, 255, 0.55);
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+
+  &__message {
+    white-space: pre-wrap;
+    flex: 1;
+  }
+}

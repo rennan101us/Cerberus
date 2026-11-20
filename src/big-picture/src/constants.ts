@@ -26,4 +26,7 @@ export const DOWNLOADER_NAME: Record<Downloader, string> = {
   [Downloader.ArchiveOrg]: "Archive.org",
   [Downloader.Epic]: "Epic Games",
   [Downloader.FileKeeper]: "FileKeeper",
+  [Downloader.DirectHttp]: "Direct HTTP",
+  [Downloader.Steam]: "Steam",
+  [Downloader.Gog]: "GOG",
 };

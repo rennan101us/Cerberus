@@ -31,7 +31,6 @@ import { addSeconds } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  AuthPage,
   EDIT_PROFILE_SEARCH_PARAM,
   EDIT_PROFILE_SEARCH_VALUE,
 } from "@shared";
@@ -120,7 +119,7 @@ export function ProfileHero() {
       if (!userProfile) return;
 
       if (!userDetails) {
-        window.electron.openAuthWindow(AuthPage.SignIn);
+        void 0;
         return;
       }
 
@@ -176,7 +175,7 @@ export function ProfileHero() {
         theme="cloud"
         onClick={() => {
           if (!userDetails) {
-            window.electron.openAuthWindow(AuthPage.SignIn);
+            void 0;
             return;
           }
 

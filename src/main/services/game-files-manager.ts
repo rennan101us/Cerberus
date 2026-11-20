@@ -1,8 +1,17 @@
 import { ASSETS_PATH } from "@main/constants";
+import {
+  sanitizeExtractedDirectoryTree,
+  sanitizePathSegment,
+} from "@main/helpers/sanitize-extracted-paths";
 import { getGameAssets } from "@main/events/catalogue/get-game-assets";
 import { getDirectorySize } from "@main/events/helpers/get-directory-size";
 import { findGameExecutableInFolder } from "@main/helpers/find-game-executable";
-import { findDownloadInstaller } from "@main/helpers/find-game-installer";
+import {
+  findDownloadInstaller,
+  findSourceArchiveFile,
+  getDownloadFolderPath,
+  isInstallerExecutableName,
+} from "@main/helpers/find-game-installer";
 import {
   getInstallerTargetDirectories,
   listFoldersChangedSince,
@@ -898,7 +907,24 @@ export class GameFilesManager {
       ]);
 
       if (!download || !game) return false;
-      if (game.executablePath) return true;
+      if (game.executablePath) {
+        if (!isInstallerExecutableName(game.executablePath)) {
+          return true;
+        }
+        // Clear mistakenly bound installer executable
+        await updateGameRecord(this.gameKey, (current) =>
+          updateGameExecutablePath(current, null)
+        );
+      }
+
+      // If the download folder contains an installer (setup.exe / install.exe),
+      // do not prematurely bind any executable from the staging folder.
+      const installerInDownload = await findDownloadInstaller(download).catch(
+        () => null
+      );
+      if (installerInDownload) {
+        return false;
+      }
 
       const executables = GameExecutables.getExecutablesForGame(this.objectId);
 
@@ -924,7 +950,9 @@ export class GameFilesManager {
         executables
       );
 
-      if (!foundExePath) return false;
+      if (!foundExePath || isInstallerExecutableName(foundExePath)) {
+        return false;
+      }
 
       return await this.bindExecutable(foundExePath);
     } catch (err) {
@@ -936,12 +964,84 @@ export class GameFilesManager {
     }
   }
 
+  private async cleanupInstallerAfterBind(
+    boundExecutablePath: string
+  ): Promise<void> {
+    try {
+      const download = await downloadsSublevel.get(this.gameKey);
+      if (!download) return;
+
+      const downloadFolderPath = await getDownloadFolderPath(download);
+      if (!downloadFolderPath) return;
+
+      const resolvedDownloadDir = path.resolve(downloadFolderPath);
+      const resolvedExe = path.resolve(boundExecutablePath);
+      const rel = path.relative(resolvedDownloadDir, resolvedExe);
+      const isInsideDownloadFolder =
+        rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+
+      if (isInsideDownloadFolder) {
+        // The bound executable runs directly from the download folder (portable game); keep it!
+        return;
+      }
+
+      const isActivelySeedingTorrent =
+        download.downloader === Downloader.Torrent &&
+        download.shouldSeed &&
+        download.status === "seeding";
+
+      if (!isActivelySeedingTorrent && fs.existsSync(resolvedDownloadDir)) {
+        await fs.promises
+          .rm(resolvedDownloadDir, { recursive: true, force: true })
+          .catch((err) => {
+            logger.warn(
+              `[GameFilesManager] Could not remove installer folder ${resolvedDownloadDir}`,
+              err
+            );
+          });
+        logger.info(
+          `[GameFilesManager] Automatically deleted installer folder after installation: ${resolvedDownloadDir}`
+        );
+      }
+
+      const sourceArchive = await findSourceArchiveFile(download).catch(
+        () => null
+      );
+      if (sourceArchive && !isActivelySeedingTorrent) {
+        await deleteArchiveFile(sourceArchive).catch(() => {});
+      }
+
+      const installedDir = path.dirname(resolvedExe);
+      const installedSizeInBytes = fs.existsSync(installedDir)
+        ? await getDirectorySize(installedDir).catch(() => null)
+        : null;
+
+      await downloadsSublevel.put(this.gameKey, {
+        ...download,
+        hasInstaller: false,
+        installerRunning: false,
+        installerPath: undefined,
+      });
+
+      await updateGameRecord(this.gameKey, {
+        installerSizeInBytes: null,
+        ...(installedSizeInBytes !== null ? { installedSizeInBytes } : {}),
+      });
+
+      WindowManager.sendDownloadsUpdated();
+      WindowManager.sendToAppWindows("on-library-batch-complete");
+    } catch (error) {
+      logger.warn(
+        `[GameFilesManager] Post-install cleanup warning for ${this.objectId}`,
+        error
+      );
+    }
+  }
+
   async searchAndBindInstalledExecutable(
     installerStartedAt: number,
     winePrefixPath: string | null
   ): Promise<boolean> {
-    if (await this.searchAndBindExecutable()) return true;
-
     try {
       const download = await downloadsSublevel.get(this.gameKey);
       if (!download) return false;
@@ -954,50 +1054,79 @@ export class GameFilesManager {
         [download.downloadPath]
       );
 
-      if (!executables || executables.length === 0) {
-        if (process.platform === "darwin" && changedFolders.length > 0) {
-          for (const folderPath of changedFolders) {
-            const found = await CrossOverDiscovery.findExecutablesInDir(
+      // 1. Search changed target directories in Bottle / installation drives first
+      if (executables && executables.length > 0 && changedFolders.length > 0) {
+        const matches = await Promise.all(
+          changedFolders.map((folderPath) =>
+            findGameExecutableInFolder(
               folderPath,
-              0,
-              3
+              executables,
+              "installation",
+              INSTALLED_EXECUTABLE_MAX_DEPTH
+            )
+          )
+        );
+        const distinctMatches = [
+          ...new Set(
+            matches.filter(
+              (match): match is string =>
+                Boolean(match) && !isInstallerExecutableName(match!)
+            )
+          ),
+        ];
+
+        if (distinctMatches.length === 1) {
+          const bound = await this.bindExecutable(distinctMatches[0], {
+            overwrite: true,
+          });
+          if (bound) {
+            await this.cleanupInstallerAfterBind(distinctMatches[0]);
+            return true;
+          }
+        } else if (distinctMatches.length > 1) {
+          logger.warn(
+            `[GameFilesManager] Multiple installed copies match ${this.objectId}, binding most recent: ${distinctMatches[0]}`
+          );
+          const bound = await this.bindExecutable(distinctMatches[0], {
+            overwrite: true,
+          });
+          if (bound) {
+            await this.cleanupInstallerAfterBind(distinctMatches[0]);
+            return true;
+          }
+        }
+      }
+
+      // 2. Fallback: scan changed folders for any primary game executable (ignoring setup/unins/redist)
+      if (changedFolders.length > 0) {
+        for (const folderPath of changedFolders) {
+          const found = await CrossOverDiscovery.findExecutablesInDir(
+            folderPath,
+            0,
+            INSTALLED_EXECUTABLE_MAX_DEPTH
+          );
+          if (found.length > 0) {
+            const primary = CrossOverDiscovery.pickPrimaryExecutable(
+              path.basename(folderPath),
+              found
             );
-            if (found.length > 0) {
-              const primary = CrossOverDiscovery.pickPrimaryExecutable(
-                path.basename(folderPath),
-                found
-              );
-              return await this.bindExecutable(primary);
+            if (primary && !isInstallerExecutableName(primary)) {
+              const bound = await this.bindExecutable(primary, {
+                overwrite: true,
+              });
+              if (bound) {
+                await this.cleanupInstallerAfterBind(primary);
+                return true;
+              }
             }
           }
         }
-        return false;
       }
 
-      const matches = await Promise.all(
-        changedFolders.map((folderPath) =>
-          findGameExecutableInFolder(
-            folderPath,
-            executables,
-            "installation",
-            INSTALLED_EXECUTABLE_MAX_DEPTH
-          )
-        )
-      );
-      const distinctMatches = [
-        ...new Set(matches.filter((match): match is string => !!match)),
-      ];
+      // 3. Final fallback: check if the game was extracted in-place without an installer
+      if (await this.searchAndBindExecutable()) return true;
 
-      if (distinctMatches.length > 1) {
-        logger.warn(
-          `[GameFilesManager] Not binding ${this.objectId}, several installed copies match: ${distinctMatches.join(", ")}`
-        );
-        return false;
-      }
-
-      if (distinctMatches.length === 0) return false;
-
-      return await this.bindExecutable(distinctMatches[0]);
+      return false;
     } catch (err) {
       logger.error(
         `[GameFilesManager] Error searching for installed executable: ${this.objectId}`,
@@ -1007,11 +1136,27 @@ export class GameFilesManager {
     }
   }
 
-  private async bindExecutable(executablePath: string): Promise<boolean> {
+  private async bindExecutable(
+    executablePath: string,
+    options?: { overwrite?: boolean }
+  ): Promise<boolean> {
+    if (isInstallerExecutableName(executablePath)) {
+      logger.warn(
+        `[GameFilesManager] Refusing to bind installer executable as game executable: ${executablePath}`
+      );
+      return false;
+    }
+
     let bound = false;
 
     const updatedGame = await updateGameRecord(this.gameKey, (current) => {
-      if (current.executablePath) return {};
+      const canOverwrite =
+        options?.overwrite === true ||
+        !current.executablePath ||
+        isInstallerExecutableName(current.executablePath) ||
+        !fs.existsSync(current.executablePath);
+
+      if (!canOverwrite) return {};
 
       bound = true;
       return updateGameExecutablePath(current, executablePath);
@@ -1352,7 +1497,11 @@ export class GameFilesManager {
 
     const filePath = path.join(download.downloadPath, download.folderName);
     const archivePath = path.parse(download.folderName);
-    const extractedFolderName = path.join(archivePath.dir, archivePath.name);
+    // Sanitize brackets/symbols/diacritics so Wine, ISDone.dll and Unarc.dll never fail on them
+    const extractedFolderName = path.join(
+      archivePath.dir,
+      sanitizePathSegment(archivePath.name)
+    );
     const extractionPath = path.join(
       download.downloadPath,
       extractedFolderName
@@ -1394,6 +1543,12 @@ export class GameFilesManager {
         if (!extractedNestedArchives) {
           return false;
         }
+
+        await sanitizeExtractedDirectoryTree(extractionPath, {
+          sanitizeRootName: false,
+        }).catch((error) =>
+          logger.warn("[GameFilesManager] Path sanitization failed", error)
+        );
 
         if (fs.existsSync(extractionPath)) {
           if (shouldDelete) {

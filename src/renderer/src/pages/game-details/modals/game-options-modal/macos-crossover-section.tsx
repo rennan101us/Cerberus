@@ -3,16 +3,17 @@ import {
   Button,
   CheckboxField,
   SelectField,
-  TextField,
   ProgressBar,
 } from "@renderer/components";
 import type {
   LibraryGame,
+  ControllersState,
   CrossOverStatus,
   CrossOverGraphicsBackend,
   CrossOverSyncMode,
   CrossOverProvisionProgress,
 } from "@types";
+import { Gamepad2, MinusCircle, PlusCircle } from "lucide-react";
 import {
   SyncIcon,
   CheckCircleIcon,
@@ -34,9 +35,7 @@ export function MacOsCrossOverSection({
 
   // Settings
   const initialCompat = game.macOSCompatibility;
-  const [bottleName, setBottleName] = useState(
-    initialCompat?.bottleName || "HydraGames"
-  );
+  const [bottleName, setBottleName] = useState("Head Bottle");
   const [graphicsBackend, setGraphicsBackend] =
     useState<CrossOverGraphicsBackend>(
       initialCompat?.graphicsBackend ?? "d3dmetal"
@@ -57,13 +56,59 @@ export function MacOsCrossOverSection({
     .join("\n");
   const [envVars, setEnvVars] = useState(envString);
 
-  // CrossOver operations state
+  // Red Wine operations state
   const [provisionProgress, setProvisionProgress] =
     useState<CrossOverProvisionProgress | null>(null);
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [trialMessage, setTrialMessage] = useState<string | null>(null);
-  const [newBottleInput, setNewBottleInput] = useState("");
-  const [showNewBottle, setShowNewBottle] = useState(false);
+
+  // Per-game controller profile override (Windows via Red Wine)
+  const [controllersState, setControllersState] =
+    useState<ControllersState | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>(
+    game.controllerProfileId ?? ""
+  );
+  const [coopSlots, setCoopSlots] = useState<string[]>(() => {
+    const initial = game.playerProfileIds ?? {};
+    const keys = Object.keys(initial)
+      .map(Number)
+      .filter((n) => n >= 2 && n <= 8)
+      .sort((a, b) => a - b);
+    return keys.map((k) => initial[k] ?? "");
+  });
+  const [savingControllers, setSavingControllers] = useState(false);
+
+  useEffect(() => {
+    void globalThis.window.electron
+      .controllersGetState()
+      .then(setControllersState)
+      .catch(() => {});
+  }, []);
+
+  const persistControllerProfiles = async (
+    p1ProfileId: string,
+    nextCoop: string[]
+  ) => {
+    setSavingControllers(true);
+    try {
+      const playerMap: Record<number, string> = {};
+      if (p1ProfileId) playerMap[1] = p1ProfileId;
+      nextCoop.forEach((pid, idx) => {
+        if (pid) playerMap[idx + 2] = pid;
+      });
+      await globalThis.window.electron.controllersSetGameProfiles(
+        game.shop,
+        game.objectId,
+        p1ProfileId || null,
+        Object.keys(playerMap).length > 0 ? playerMap : null
+      );
+      onUpdateGame?.();
+    } catch {
+      // ignore
+    } finally {
+      setSavingControllers(false);
+    }
+  };
 
   const fetchStatus = useCallback(
     async (forceRefresh = false) => {
@@ -156,7 +201,7 @@ export function MacOsCrossOverSection({
     setProvisionProgress({
       phase: "checking",
       progress: 0,
-      message: "Starting CrossOver installation...",
+      message: "Starting Red Wine installation...",
     });
     try {
       await globalThis.window.electron.installCrossOverDemo();
@@ -176,43 +221,27 @@ export function MacOsCrossOverSection({
       setTrialMessage(res.message);
       setTimeout(() => setTrialMessage(null), 4000);
     } catch {
-      setTrialMessage("Trial reset failed");
+      setTrialMessage("Falha ao atualizar ambiente Red Wine");
       setTimeout(() => setTrialMessage(null), 4000);
     }
   };
 
-  const handleCreateBottle = async () => {
-    if (!newBottleInput.trim()) return;
-    try {
-      const res = await globalThis.window.electron.createCrossOverBottle(
-        newBottleInput.trim()
-      );
-      if (res.bottleDir) {
-        setBottleName(newBottleInput.trim());
-        setShowNewBottle(false);
-        setNewBottleInput("");
-        await fetchStatus(true);
-        handleSaveSettings({ bottle: newBottleInput.trim() });
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  const bottleOptions = (status?.bottles ?? ["HydraGames"]).map((b) => ({
-    key: b,
-    value: b,
-    label: b === "HydraGames" ? `${b} (Default)` : b,
-  }));
+  const bottleOptions = [
+    {
+      key: "Head Bottle",
+      value: "Head Bottle",
+      label: "Head Bottle (Default)",
+    },
+  ];
 
   return (
     <div className="macos-crossover-section">
-      {/* 1. Fine Wine Status & Provisioning */}
+      {/* 1. Red Wine Status & Provisioning */}
       <div className="macos-crossover-section__card">
         <div className="macos-crossover-section__card-header">
           <div>
             <h4 className="macos-crossover-section__card-title">
-              Fine Wine Engine
+              Red Wine Engine
             </h4>
             <p className="macos-crossover-section__card-desc">
               Executes Windows (.exe) games and repacks natively on Apple
@@ -226,7 +255,7 @@ export function MacOsCrossOverSection({
               </span>
             ) : status?.installed ? (
               <span className="macos-crossover-section__status-badge macos-crossover-section__status-badge--installed">
-                Fine Wine {status.version ? `v${status.version}` : "(Ready)"}
+                Red Wine {status.version ? `v${status.version}` : "(Ready)"}
               </span>
             ) : (
               <span className="macos-crossover-section__status-badge macos-crossover-section__status-badge--missing">
@@ -251,7 +280,7 @@ export function MacOsCrossOverSection({
             <ProgressBar
               now={provisionProgress.progress}
               max={100}
-              label="Fine Wine setup progress"
+              label="Red Wine setup progress"
               completed={provisionProgress.progress === 100}
             />
           </div>
@@ -267,7 +296,7 @@ export function MacOsCrossOverSection({
               <span style={{ marginRight: "6px", display: "inline-flex" }}>
                 <DownloadIcon size={14} />
               </span>
-              Download & Setup Fine Wine
+              Download & Setup Red Wine
             </Button>
           ) : status.updateAvailable ? (
             <Button
@@ -278,7 +307,7 @@ export function MacOsCrossOverSection({
               <span style={{ marginRight: "6px", display: "inline-flex" }}>
                 <SyncIcon size={14} />
               </span>
-              Update Fine Wine Engine (v{status.latestVersion})
+              Update Red Wine Engine (v{status.latestVersion})
             </Button>
           ) : null}
 
@@ -290,7 +319,7 @@ export function MacOsCrossOverSection({
             <span style={{ marginRight: "6px", display: "inline-flex" }}>
               <CheckCircleIcon size={14} />
             </span>
-            Fine Reset
+            Renovar Ambiente
           </Button>
 
           {trialMessage && (
@@ -304,47 +333,23 @@ export function MacOsCrossOverSection({
       {/* 2. Bottle Selection */}
       <div className="macos-crossover-section__card">
         <h4 className="macos-crossover-section__card-title">
-          Fine Wine Environment (Bottle)
+          Red Wine Environment (Bottle)
         </h4>
         <p className="macos-crossover-section__card-desc">
-          Windows virtual environment containing your game files and libraries
+          Ambiente unificado Head Bottle (Default) com Steam, Epic Games,
+          Visual C++ Redistributable e DirectX pré-configurados
         </p>
 
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <div style={{ flex: 1 }}>
-            <SelectField
-              label="Selected Environment"
-              value={bottleName}
-              options={bottleOptions}
-              onChange={(e) => {
-                setBottleName(e.target.value);
-                handleSaveSettings({ bottle: e.target.value });
-              }}
-            />
-          </div>
-          <Button
-            theme="outline"
-            style={{ marginTop: "22px" }}
-            onClick={() => setShowNewBottle(!showNewBottle)}
-          >
-            {showNewBottle ? "Cancel" : "+ New Environment"}
-          </Button>
-        </div>
-
-        {showNewBottle && (
-          <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
-            <div style={{ flex: 1 }}>
-              <TextField
-                placeholder="New environment name (e.g. RPGs, Steam)"
-                value={newBottleInput}
-                onChange={(e) => setNewBottleInput(e.target.value)}
-              />
-            </div>
-            <Button theme="outline" onClick={handleCreateBottle}>
-              Create
-            </Button>
-          </div>
-        )}
+        <SelectField
+          label="Selected Environment"
+          value={bottleName}
+          options={bottleOptions}
+          disabled
+          onChange={(e) => {
+            setBottleName(e.target.value);
+            handleSaveSettings({ bottle: e.target.value });
+          }}
+        />
 
         {status?.bottlesDir && (
           <span style={{ fontSize: "11px", color: "#777777" }}>
@@ -531,7 +536,115 @@ export function MacOsCrossOverSection({
         </div>
       </div>
 
-      {/* 6. Custom Environment Variables */}
+      {/* 6. Controller & Co-op Profile (Red Wine SDL_GAMECONTROLLERCONFIG) */}
+      {controllersState && (
+        <div className="macos-crossover-section__card">
+          <div className="macos-crossover-section__card-header">
+            <div>
+              <h4 className="macos-crossover-section__card-title">
+                <Gamepad2
+                  size={15}
+                  style={{ verticalAlign: "middle", marginRight: "6px" }}
+                />
+                Perfil de Controle e Co-op (Red Wine)
+              </h4>
+              <p className="macos-crossover-section__card-desc">
+                Aplica o remapeamento via SDL_GAMECONTROLLERCONFIG ao iniciar
+                este jogo no Windows/Red Wine.
+              </p>
+            </div>
+            {coopSlots.length < 7 && (
+              <Button
+                theme="outline"
+                disabled={savingControllers}
+                onClick={() => {
+                  const defaultPid =
+                    controllersState.activeProfileId ||
+                    controllersState.profiles[0]?.id ||
+                    "";
+                  const next = [...coopSlots, defaultPid];
+                  setCoopSlots(next);
+                  void persistControllerProfiles(selectedProfileId, next);
+                }}
+              >
+                <PlusCircle size={14} style={{ marginRight: "6px" }} />
+                Adicionar Jogador (P{coopSlots.length + 2})
+              </Button>
+            )}
+          </div>
+
+          <SelectField
+            label="Jogador 1 (P1)"
+            value={selectedProfileId}
+            disabled={savingControllers}
+            options={[
+              {
+                key: "",
+                value: "",
+                label: "Usar perfil global ativo da aba Controles",
+              },
+              ...controllersState.profiles.map((p) => ({
+                key: p.id,
+                value: p.id,
+                label: p.targetDeviceName
+                  ? `${p.name} (${p.targetDeviceName})`
+                  : p.name,
+              })),
+            ]}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedProfileId(val);
+              void persistControllerProfiles(val, coopSlots);
+            }}
+          />
+
+          {coopSlots.map((slotProfileId, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                gap: "8px",
+                alignItems: "flex-end",
+                marginTop: "8px",
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <SelectField
+                  label={`Jogador ${idx + 2} (P${idx + 2})`}
+                  value={slotProfileId}
+                  disabled={savingControllers}
+                  options={controllersState.profiles.map((p) => ({
+                    key: p.id,
+                    value: p.id,
+                    label: p.targetDeviceName
+                      ? `${p.name} (${p.targetDeviceName})`
+                      : p.name,
+                  }))}
+                  onChange={(e) => {
+                    const next = [...coopSlots];
+                    next[idx] = e.target.value;
+                    setCoopSlots(next);
+                    void persistControllerProfiles(selectedProfileId, next);
+                  }}
+                />
+              </div>
+              <Button
+                theme="outline"
+                disabled={savingControllers}
+                onClick={() => {
+                  const next = coopSlots.filter((_, i) => i !== idx);
+                  setCoopSlots(next);
+                  void persistControllerProfiles(selectedProfileId, next);
+                }}
+              >
+                <MinusCircle size={14} />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 7. Custom Environment Variables */}
       <div className="macos-crossover-section__card">
         <h4 className="macos-crossover-section__card-title">
           Environment Variables

@@ -1,19 +1,9 @@
 import { updateGameRecord } from "@main/services/game-record-updater";
 import { registerEvent } from "../register-event";
-import { createGame } from "@main/services/library-sync";
 import { gamesSublevel, levelKeys } from "@main/level";
-import { HydraApi, logger } from "@main/services";
+import { logger } from "@main/services";
 import { pickLibraryCollectionPositions } from "@shared";
 import type { GameShop } from "@types";
-
-const isGameNotFoundError = (error: unknown) => {
-  if (typeof error !== "object" || error === null) return false;
-
-  const response = (error as { response?: { data?: { message?: unknown } } })
-    .response;
-
-  return response?.data?.message === "game/not-found";
-};
 
 const assignGameToCollection = async (
   _event: Electron.IpcMainInvokeEvent,
@@ -29,24 +19,6 @@ const assignGameToCollection = async (
   }
 
   try {
-    if (shop !== "custom") {
-      const syncCollection = () =>
-        HydraApi.put(`/profile/games/${shop}/${objectId}/collection`, {
-          collectionIds,
-        });
-
-      try {
-        await syncCollection();
-      } catch (error) {
-        if (!isGameNotFoundError(error)) {
-          throw error;
-        }
-
-        await createGame(game);
-        await syncCollection();
-      }
-    }
-
     await updateGameRecord(gameKey, (latest) => ({
       collectionIds,
       collectionPositions: pickLibraryCollectionPositions(

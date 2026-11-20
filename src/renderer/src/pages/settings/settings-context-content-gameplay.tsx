@@ -1,20 +1,9 @@
 import { useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  Button,
-  CheckboxField,
-  ConfirmationModal,
-  GuideLink,
-  HydraCloudBadge,
-  TextField,
-} from "@renderer/components";
+import { CheckboxField } from "@renderer/components";
 import { settingsContext } from "@renderer/context";
-import { useAppSelector, useFeature, useUserDetails } from "@renderer/hooks";
-import { useSubscription } from "@renderer/hooks/use-subscription";
-import { FileDirectoryIcon, HistoryIcon } from "@primer/octicons-react";
-import { useLocation } from "react-router-dom";
-import { isAchievementSouvenirsEnabled } from "@shared";
+import { useAppSelector } from "@renderer/hooks";
 import type { UserPreferences } from "@types";
 
 import "./settings-context-content-gameplay.scss";
@@ -22,14 +11,6 @@ import "./settings-context-content-gameplay.scss";
 const buildForm = (preferences: UserPreferences | null) => ({
   autoplayGameTrailers: preferences?.autoplayGameTrailers ?? true,
   disableNsfwAlert: preferences?.disableNsfwAlert ?? false,
-  showSensitiveScreenshots: preferences?.showSensitiveScreenshots ?? false,
-  showHiddenAchievementsDescription:
-    preferences?.showHiddenAchievementsDescription ?? false,
-  enableSteamAchievements: preferences?.enableSteamAchievements ?? false,
-  enableAchievementSouvenirs: isAchievementSouvenirsEnabled(
-    preferences?.enableAchievementSouvenirs,
-    window.electron.platform
-  ),
   enableNewDownloadOptionsBadges:
     preferences?.enableNewDownloadOptionsBadges ?? true,
   hideClassicsBookmark: preferences?.hideClassicsBookmark ?? false,
@@ -39,8 +20,6 @@ const buildForm = (preferences: UserPreferences | null) => ({
   hideLibraryClassicsBadges: preferences?.hideLibraryClassicsBadges ?? false,
   hideSteamLibraryBadges: preferences?.hideSteamLibraryBadges ?? false,
   hideEpicLibraryBadges: preferences?.hideEpicLibraryBadges ?? false,
-  hideLibraryAchievementProgress:
-    preferences?.hideLibraryAchievementProgress ?? false,
   autoplayAnimatedArtwork: preferences?.autoplayAnimatedArtwork ?? false,
   persistFiltersAndSorting: preferences?.persistFiltersAndSorting ?? false,
 });
@@ -48,26 +27,12 @@ const buildForm = (preferences: UserPreferences | null) => ({
 export function SettingsContextContentGameplay() {
   const { t } = useTranslation("settings");
   const { updateUserPreferences } = useContext(settingsContext);
-  const { hasActiveSubscription } = useUserDetails();
-  const { showHydraCloudModal } = useSubscription();
-  const { hash } = useLocation();
-  const { isFeatureEnabled, Feature } = useFeature();
-  const isScreenshotsEnabled = isFeatureEnabled(Feature.Screenshots);
 
   const userPreferences = useAppSelector(
     (state) => state.userPreferences.value
   );
 
   const [form, setForm] = useState(() => buildForm(userPreferences));
-  const [showWaylandSouvenirsWarning, setShowWaylandSouvenirsWarning] =
-    useState(false);
-  const [screenshotsPath, setScreenshotsPath] = useState("");
-  const canManageScreenshots =
-    hasActiveSubscription && form.enableAchievementSouvenirs;
-
-  useEffect(() => {
-    void window.electron.getScreenshotsPath().then(setScreenshotsPath);
-  }, []);
 
   useEffect(() => {
     if (!userPreferences) return;
@@ -75,77 +40,10 @@ export function SettingsContextContentGameplay() {
     setForm(buildForm(userPreferences));
   }, [userPreferences]);
 
-  useEffect(() => {
-    if (hash !== "#achievement-souvenirs") return;
-
-    const frameId = window.requestAnimationFrame(() => {
-      const souvenirToggle = document.getElementById("achievement-souvenirs");
-      souvenirToggle?.scrollIntoView({ block: "center" });
-      souvenirToggle?.focus();
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [hash, hasActiveSubscription]);
-
   const handleChange = (values: Partial<typeof form>) => {
     setForm((prev) => ({ ...prev, ...values }));
     updateUserPreferences(values);
   };
-
-  const handleAchievementSouvenirsChange = () => {
-    if (form.enableAchievementSouvenirs) {
-      handleChange({ enableAchievementSouvenirs: false });
-      return;
-    }
-
-    if (window.electron.isWayland) {
-      setShowWaylandSouvenirsWarning(true);
-      return;
-    }
-
-    handleChange({ enableAchievementSouvenirs: true });
-  };
-
-  const handleWaylandSouvenirsConfirm = () => {
-    setShowWaylandSouvenirsWarning(false);
-    handleChange({ enableAchievementSouvenirs: true });
-  };
-
-  const handleChooseScreenshotsPath = async () => {
-    if (!canManageScreenshots) return;
-
-    const { canceled, filePaths } = await window.electron.showOpenDialog({
-      defaultPath: screenshotsPath || undefined,
-      properties: ["openDirectory"],
-    });
-    const selectedPath = filePaths[0];
-
-    if (canceled || !selectedPath) return;
-
-    setScreenshotsPath(selectedPath);
-    await updateUserPreferences({
-      achievementScreenshotsPath: selectedPath,
-    });
-  };
-
-  const handleOpenScreenshotsPath = async () => {
-    if (!canManageScreenshots) return;
-
-    const currentPath =
-      screenshotsPath || (await window.electron.getScreenshotsPath());
-    await window.electron.openFolder(currentPath);
-  };
-
-  const handleResetScreenshotsPath = async () => {
-    if (!canManageScreenshots) return;
-
-    await updateUserPreferences({ achievementScreenshotsPath: undefined });
-    setScreenshotsPath(await window.electron.getScreenshotsPath());
-  };
-
-  const hasCustomScreenshotsPath = Boolean(
-    userPreferences?.achievementScreenshotsPath
-  );
 
   return (
     <div className="settings-context-panel">
@@ -167,29 +65,6 @@ export function SettingsContextContentGameplay() {
           checked={form.disableNsfwAlert}
           onChange={() =>
             handleChange({ disableNsfwAlert: !form.disableNsfwAlert })
-          }
-        />
-
-        {isScreenshotsEnabled && (
-          <CheckboxField
-            label={t("screenshots_show_sensitive")}
-            checked={form.showSensitiveScreenshots}
-            onChange={() =>
-              handleChange({
-                showSensitiveScreenshots: !form.showSensitiveScreenshots,
-              })
-            }
-          />
-        )}
-
-        <CheckboxField
-          label={t("show_hidden_achievement_description")}
-          checked={form.showHiddenAchievementsDescription}
-          onChange={() =>
-            handleChange({
-              showHiddenAchievementsDescription:
-                !form.showHiddenAchievementsDescription,
-            })
           }
         />
 
@@ -216,92 +91,6 @@ export function SettingsContextContentGameplay() {
       </div>
 
       <div className="settings-context-panel__group">
-        <h3>{t("gameplay_metadata")}</h3>
-
-        <CheckboxField
-          label={
-            <GuideLink article="steam-achievements">
-              {t("enable_steam_achievements")}
-            </GuideLink>
-          }
-          checked={form.enableSteamAchievements}
-          onChange={() =>
-            handleChange({
-              enableSteamAchievements: !form.enableSteamAchievements,
-            })
-          }
-        />
-
-        {hasActiveSubscription ? (
-          <CheckboxField
-            id="achievement-souvenirs"
-            label={t("enable_achievement_souvenirs")}
-            checked={form.enableAchievementSouvenirs}
-            onChange={handleAchievementSouvenirsChange}
-          />
-        ) : (
-          <button
-            type="button"
-            className="settings-context-content-gameplay__hydra-cloud-row"
-            onClick={() => showHydraCloudModal("achievements")}
-          >
-            <CheckboxField
-              id="achievement-souvenirs"
-              label={t("enable_achievement_souvenirs")}
-              checked={false}
-              disabled
-              readOnly
-            />
-
-            <HydraCloudBadge />
-          </button>
-        )}
-
-        <div className="settings-context-content-gameplay__screenshots-directory">
-          <TextField
-            label={t("screenshots_directory")}
-            value={screenshotsPath}
-            readOnly
-            disabled
-            rightContent={
-              <>
-                <Button
-                  theme="outline"
-                  disabled={!canManageScreenshots}
-                  onClick={handleChooseScreenshotsPath}
-                >
-                  <FileDirectoryIcon size={14} />
-                  {t("change_screenshots_directory")}
-                </Button>
-                {hasCustomScreenshotsPath && (
-                  <Button
-                    className="settings-context-content-gameplay__reset-screenshots-button"
-                    theme="outline"
-                    disabled={!canManageScreenshots}
-                    tooltip={t("reset_screenshots_directory")}
-                    aria-label={t("reset_screenshots_directory")}
-                    onClick={handleResetScreenshotsPath}
-                  >
-                    <HistoryIcon size={14} />
-                  </Button>
-                )}
-              </>
-            }
-          />
-
-          <Button
-            className="settings-context-content-gameplay__open-screenshots-button"
-            theme="outline"
-            disabled={!canManageScreenshots}
-            onClick={handleOpenScreenshotsPath}
-          >
-            <FileDirectoryIcon size={14} />
-            {t("open_screenshots_directory")}
-          </Button>
-        </div>
-      </div>
-
-      <div className="settings-context-panel__group">
         <h3>{t("library_appearance")}</h3>
 
         <CheckboxField
@@ -325,16 +114,6 @@ export function SettingsContextContentGameplay() {
         />
 
         <CheckboxField
-          label={t("hide_library_classics_badges")}
-          checked={form.hideLibraryClassicsBadges}
-          onChange={() =>
-            handleChange({
-              hideLibraryClassicsBadges: !form.hideLibraryClassicsBadges,
-            })
-          }
-        />
-
-        <CheckboxField
           label={t("hide_library_steam_badges")}
           checked={form.hideSteamLibraryBadges}
           onChange={() =>
@@ -353,17 +132,6 @@ export function SettingsContextContentGameplay() {
         />
 
         <CheckboxField
-          label={t("hide_library_achievement_progress")}
-          checked={form.hideLibraryAchievementProgress}
-          onChange={() =>
-            handleChange({
-              hideLibraryAchievementProgress:
-                !form.hideLibraryAchievementProgress,
-            })
-          }
-        />
-
-        <CheckboxField
           label={t("autoplay_animated_artwork")}
           checked={form.autoplayAnimatedArtwork}
           onChange={() =>
@@ -373,40 +141,6 @@ export function SettingsContextContentGameplay() {
           }
         />
       </div>
-
-      <div className="settings-context-panel__group">
-        <h3>{t("classics_appearance")}</h3>
-
-        <CheckboxField
-          label={t("hide_classics_bookmark")}
-          checked={form.hideClassicsBookmark}
-          onChange={() =>
-            handleChange({
-              hideClassicsBookmark: !form.hideClassicsBookmark,
-            })
-          }
-        />
-
-        <CheckboxField
-          label={t("classics_use_hero_layout")}
-          checked={form.classicsUseHeroLayout}
-          onChange={() =>
-            handleChange({
-              classicsUseHeroLayout: !form.classicsUseHeroLayout,
-            })
-          }
-        />
-      </div>
-      <ConfirmationModal
-        visible={showWaylandSouvenirsWarning}
-        title={t("wayland_souvenirs_warning_title")}
-        descriptionText={t("wayland_souvenirs_warning_description")}
-        cancelButtonLabel={t("wayland_souvenirs_warning_cancel")}
-        confirmButtonLabel={t("wayland_souvenirs_warning_confirm")}
-        clickOutsideToClose={false}
-        onConfirm={handleWaylandSouvenirsConfirm}
-        onClose={() => setShowWaylandSouvenirsWarning(false)}
-      />
     </div>
   );
 }

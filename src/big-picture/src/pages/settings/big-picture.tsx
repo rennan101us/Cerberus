@@ -1,17 +1,14 @@
 import "./big-picture.scss";
 
-import type { BigPictureDiagnosticsPosition, UserPreferences } from "@types";
+import type { UserPreferences } from "@types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Checkbox, DropdownSelect, VerticalFocusGroup } from "../../components";
-import type { DropdownSelectOption } from "../../components/common/dropdown-select";
+import { Checkbox, VerticalFocusGroup } from "../../components";
 import { useUserPreferences } from "../../hooks";
 import type { FocusOverrideTarget, FocusOverrides } from "../../services";
 import {
   BIG_PICTURE_AUDIO_SECTION_REGION_ID,
-  BIG_PICTURE_DIAGNOSTICS_POSITION_SELECT_ID,
-  BIG_PICTURE_DIAGNOSTICS_SECTION_REGION_ID,
   BIG_PICTURE_ITEM_FOCUS_IDS,
   BIG_PICTURE_SECTION_REGION_ID,
   BIG_PICTURE_STARTUP_SECTION_REGION_ID,
@@ -28,8 +25,6 @@ interface BigPictureForm {
   bigPictureLaunchToLibraryPage: boolean;
   bigPictureSoundsEnabled: boolean;
   bigPictureVirtualKeyboardEnabled: boolean;
-  bigPictureDiagnosticsEnabled: boolean;
-  bigPictureDiagnosticsPosition: BigPictureDiagnosticsPosition;
 }
 
 interface BigPictureItem {
@@ -45,8 +40,6 @@ const DEFAULT_FORM: BigPictureForm = {
   bigPictureLaunchToLibraryPage: false,
   bigPictureSoundsEnabled: true,
   bigPictureVirtualKeyboardEnabled: true,
-  bigPictureDiagnosticsEnabled: false,
-  bigPictureDiagnosticsPosition: "bottom-center",
 };
 
 const buildForm = (preferences: UserPreferences | null): BigPictureForm =>
@@ -60,19 +53,8 @@ const buildForm = (preferences: UserPreferences | null): BigPictureForm =>
         bigPictureSoundsEnabled: preferences.bigPictureSoundsEnabled ?? true,
         bigPictureVirtualKeyboardEnabled:
           preferences.bigPictureVirtualKeyboardEnabled ?? true,
-        bigPictureDiagnosticsEnabled:
-          preferences.bigPictureDiagnosticsEnabled ?? false,
-        bigPictureDiagnosticsPosition:
-          preferences.bigPictureDiagnosticsPosition ?? "bottom-center",
       }
     : DEFAULT_FORM;
-
-function getPositionLabel(
-  position: BigPictureDiagnosticsPosition,
-  t: (key: string) => string
-) {
-  return t(`settings_diagnostics_position_${position.replace(/-/g, "_")}`);
-}
 
 export function BigPictureSettingsSection({
   className,
@@ -126,20 +108,6 @@ export function BigPictureSettingsSection({
     [updateUserPreferences]
   );
 
-  const handleDiagnosticsEnabledChange = useCallback(
-    (checked: boolean) => {
-      updateUserPreferences({ bigPictureDiagnosticsEnabled: checked });
-    },
-    [updateUserPreferences]
-  );
-
-  const handleDiagnosticsPositionChange = useCallback(
-    (position: BigPictureDiagnosticsPosition) => {
-      updateUserPreferences({ bigPictureDiagnosticsPosition: position });
-    },
-    [updateUserPreferences]
-  );
-
   const startupItems = useMemo<BigPictureItem[]>(() => {
     return [
       {
@@ -162,6 +130,7 @@ export function BigPictureSettingsSection({
     form.bigPictureLaunchToLibraryPage,
     handleLaunchInBigPictureChange,
     handleLaunchToLibraryPageChange,
+    t,
   ]);
 
   const inputItems = useMemo<BigPictureItem[]>(() => {
@@ -174,7 +143,7 @@ export function BigPictureSettingsSection({
         onChange: handleVirtualKeyboardChange,
       },
     ];
-  }, [form.bigPictureVirtualKeyboardEnabled, handleVirtualKeyboardChange]);
+  }, [form.bigPictureVirtualKeyboardEnabled, handleVirtualKeyboardChange, t]);
 
   const audioItems = useMemo<BigPictureItem[]>(() => {
     return [
@@ -186,37 +155,7 @@ export function BigPictureSettingsSection({
         onChange: handleBigPictureSoundsChange,
       },
     ];
-  }, [form.bigPictureSoundsEnabled, handleBigPictureSoundsChange]);
-
-  const diagnosticsItems = useMemo<BigPictureItem[]>(() => {
-    return [
-      {
-        id: "enable-diagnostics",
-        focusId: BIG_PICTURE_ITEM_FOCUS_IDS.enableDiagnostics,
-        label: t("settings_enable_diagnostics"),
-        checked: form.bigPictureDiagnosticsEnabled,
-        onChange: handleDiagnosticsEnabledChange,
-      },
-    ];
-  }, [form.bigPictureDiagnosticsEnabled, handleDiagnosticsEnabledChange]);
-
-  const diagnosticsPositionOptions = useMemo<
-    Array<DropdownSelectOption<BigPictureDiagnosticsPosition>>
-  >(() => {
-    return (
-      [
-        "top-left",
-        "top-center",
-        "top-right",
-        "bottom-left",
-        "bottom-center",
-        "bottom-right",
-      ] as BigPictureDiagnosticsPosition[]
-    ).map((position) => ({
-      value: position,
-      label: getPositionLabel(position, t),
-    }));
-  }, []);
+  }, [form.bigPictureSoundsEnabled, handleBigPictureSoundsChange, t]);
 
   const inputNavigationOverridesByFocusId = useMemo<
     Record<string, FocusOverrides>
@@ -246,8 +185,7 @@ export function BigPictureSettingsSection({
                   itemId: nextItem.focusId,
                 }
               : {
-                  type: "item",
-                  itemId: BIG_PICTURE_ITEM_FOCUS_IDS.enableDiagnostics,
+                  type: "block",
                 },
           } satisfies FocusOverrides,
         ];
@@ -323,59 +261,6 @@ export function BigPictureSettingsSection({
       })
     );
   }, [startupItems]);
-
-  const diagnosticsNavigationOverridesByFocusId = useMemo<
-    Record<string, FocusOverrides>
-  >(() => {
-    const previousFallback: FocusOverrideTarget = {
-      type: "item",
-      itemId: BIG_PICTURE_ITEM_FOCUS_IDS.enableVirtualKeyboard,
-    };
-
-    return Object.fromEntries(
-      diagnosticsItems.map((item, index) => {
-        const previousItem = diagnosticsItems[index - 1];
-        const nextItem = diagnosticsItems[index + 1];
-
-        return [
-          item.focusId,
-          {
-            up: previousItem
-              ? {
-                  type: "item",
-                  itemId: previousItem.focusId,
-                }
-              : previousFallback,
-            down: (() => {
-              if (nextItem) {
-                return { type: "item" as const, itemId: nextItem.focusId };
-              }
-              if (form.bigPictureDiagnosticsEnabled) {
-                return {
-                  type: "item" as const,
-                  itemId: BIG_PICTURE_DIAGNOSTICS_POSITION_SELECT_ID,
-                };
-              }
-              return { type: "block" as const };
-            })(),
-          } satisfies FocusOverrides,
-        ];
-      })
-    );
-  }, [diagnosticsItems, form.bigPictureDiagnosticsEnabled]);
-
-  const diagnosticsSelectNavigationOverrides = useMemo<FocusOverrides>(
-    () => ({
-      up: {
-        type: "item",
-        itemId: BIG_PICTURE_ITEM_FOCUS_IDS.enableDiagnostics,
-      },
-      down: {
-        type: "block",
-      },
-    }),
-    []
-  );
 
   return (
     <div
@@ -459,44 +344,6 @@ export function BigPictureSettingsSection({
                 onChange={item.onChange}
               />
             ))}
-          </div>
-        </VerticalFocusGroup>
-      </SettingsSection>
-
-      <SettingsSection
-        title={t("settings_diagnostics_section_title")}
-        description={t("settings_diagnostics_section_description")}
-      >
-        <VerticalFocusGroup
-          regionId={BIG_PICTURE_DIAGNOSTICS_SECTION_REGION_ID}
-          asChild
-        >
-          <div className="big-picture-settings-section__content">
-            {diagnosticsItems.map((item) => (
-              <Checkbox
-                key={item.id}
-                id={item.id}
-                label={item.label}
-                checked={item.checked}
-                focusId={item.focusId}
-                navigationOverrides={
-                  diagnosticsNavigationOverridesByFocusId[item.focusId]
-                }
-                block
-                onChange={item.onChange}
-              />
-            ))}
-
-            <DropdownSelect
-              className="big-picture-settings-section__select"
-              label={t("settings_diagnostics_position")}
-              value={form.bigPictureDiagnosticsPosition}
-              options={diagnosticsPositionOptions}
-              disabled={!form.bigPictureDiagnosticsEnabled}
-              focusId={BIG_PICTURE_DIAGNOSTICS_POSITION_SELECT_ID}
-              focusNavigationOverrides={diagnosticsSelectNavigationOverrides}
-              onValueChange={handleDiagnosticsPositionChange}
-            />
           </div>
         </VerticalFocusGroup>
       </SettingsSection>

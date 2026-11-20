@@ -218,4 +218,19 @@ test("hides stale exclusive imports and preserves Hydra data across A to B to A"
     );
   }
   assert.equal(getContextualEpicGame(game, context), game);
+
+  const localCerberusEpicGame = {
+    ...game,
+    source: "epic",
+    epicImportScope: undefined,
+  } as Game;
+  assert.equal(
+    getContextualEpicGame(localCerberusEpicGame, null).isDeleted ?? false,
+    false
+  );
+  assert.equal(
+    getContextualEpicGame(localCerberusEpicGame, { ...context, userId: "B" })
+      .isDeleted ?? false,
+    false
+  );
 });

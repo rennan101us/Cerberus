@@ -9,8 +9,9 @@ import type {
   ChatAttachmentUploadRequest,
 } from "@types";
 
-// Friend ids are interpolated into an API path, so only hashids get through.
-const FRIEND_ID_PATTERN = /^[A-Za-z0-9]{8}$/;
+// Accept provider-prefixed Steam/Epic IDs as well as legacy 8-char IDs.
+const FRIEND_ID_PATTERN =
+  /^(?:steam|epic):[A-Za-z0-9_-]{3,128}$|^[A-Za-z0-9]{8}$/;
 const UPLOAD_ID_MAX_LENGTH = 128;
 const PROGRESS_STEP = 0.02;
 // The upload URL expires after five minutes, so a slower upload can't succeed.

@@ -44,12 +44,11 @@ import {
   useToast,
   useUserDetails,
 } from "@renderer/hooks";
-import { useSubscription } from "@renderer/hooks/use-subscription";
 import { useGameLinuxCompatibility } from "@renderer/hooks/use-game-linux-compatibility";
 import { RemoveGameFromLibraryModal } from "./remove-from-library-modal";
-import { ResetAchievementsModal } from "./reset-achievements-modal";
 import { ChangeGamePlaytimeModal } from "./change-game-playtime-modal";
 import { ResetPlaytimeModal } from "./reset-playtime-modal";
+import { ICloudSaveSection } from "./game-options-modal/icloud-save-section";
 import {
   AlertIcon,
   CloudIcon,
@@ -59,7 +58,7 @@ import {
   HistoryIcon,
   ImageIcon,
 } from "@primer/octicons-react";
-import { Wrench } from "lucide-react";
+import { Gamepad2, Wrench } from "lucide-react";
 import EpicLogo from "@renderer/assets/epic-integration-logo.svg?react";
 import { GameAssetsSettings } from "./game-assets-settings";
 import { debounce } from "lodash-es";
@@ -71,8 +70,11 @@ import { GameOptionsSidebar } from "./game-options-modal/sidebar";
 import { GeneralSettingsSection } from "./game-options-modal/general-section";
 import { CompatibilitySettingsSection } from "./game-options-modal/compatibility-section";
 import { MacOsCrossOverSection } from "./game-options-modal/macos-crossover-section";
+import { SwitchGameSettingsSection } from "./game-options-modal/switch-game-settings-section";
+import { SwitchPortModal } from "./switch-port-modal/switch-port-modal";
 import { DownloadsSettingsSection } from "./game-options-modal/downloads-section";
 import { DangerZoneSection } from "./game-options-modal/danger-zone-section";
+import { UninstallGameModal } from "./game-options-modal/uninstall-game-modal";
 import { HydraCloudLegacySettingsSection } from "./game-options-modal/hydra-cloud-section";
 import { HydraCloudV2SettingsSection } from "./game-options-modal/hydra-cloud-v2-section";
 import { EpicCloudSettingsSection } from "./game-options-modal/epic-cloud-section";
@@ -130,7 +132,6 @@ export function GameOptionsModal({
     setShowRepacksModal,
     repacks,
     selectGameExecutable,
-    achievements,
     shopDetails,
     isTransferring,
     isGameRunning,
@@ -145,14 +146,12 @@ export function GameOptionsModal({
   const [pendingRemoveFilesTarget, setPendingRemoveFilesTarget] =
     useState<RemoveFilesTarget | null>(null);
   const [showRemoveGameModal, setShowRemoveGameModal] = useState(false);
+  const [showUninstallModal, setShowUninstallModal] = useState(false);
   const [gameTitle, setGameTitle] = useState(game.title ?? "");
   const [updatingGameTitle, setUpdatingGameTitle] = useState(false);
   const [launchOptions, setLaunchOptions] = useState(game.launchOptions ?? "");
-  const [showResetAchievementsModal, setShowResetAchievementsModal] =
-    useState(false);
   const [showChangePlaytimeModal, setShowChangePlaytimeModal] = useState(false);
   const [showResetPlaytimeModal, setShowResetPlaytimeModal] = useState(false);
-  const [isDeletingAchievements, setIsDeletingAchievements] = useState(false);
   const [automaticCloudSync, setAutomaticCloudSync] = useState(
     game.automaticCloudSync ?? false
   );
@@ -183,6 +182,7 @@ export function GameOptionsModal({
     string | null
   >(null);
   const [showSteamShortcutModal, setShowSteamShortcutModal] = useState(false);
+  const [showSwitchPortModal, setShowSwitchPortModal] = useState(false);
   const [steamShortcutExists, setSteamShortcutExists] = useState(false);
   const [downloadingLegacySaveArtifactId, setDownloadingLegacySaveArtifactId] =
     useState<string | null>(null);
@@ -264,7 +264,6 @@ export function GameOptionsModal({
     useDownload();
   const { userDetails, hasActiveSubscription } = useUserDetails();
   const { artifacts } = useContext(cloudSyncContext);
-  const { showHydraCloudModal } = useSubscription();
   const cloudSaveAccessAction = getCloudSaveAccessAction(
     Boolean(userDetails),
     hasActiveSubscription
@@ -285,8 +284,6 @@ export function GameOptionsModal({
 
   const globalAutoRunGamemode = userPreferences?.autoRunGamemode === true;
   const globalAutoRunMangohud = userPreferences?.autoRunMangohud === true;
-  const hasAchievements =
-    (achievements?.filter((a) => a.unlocked).length ?? 0) > 0;
   const hydraRemoveFilesTarget = useMemo(
     () => getRemoveFilesTarget(presentation ?? game, false),
     [presentation, game]
@@ -971,13 +968,18 @@ export function GameOptionsModal({
   };
 
   const isLaunchbox = game.shop === "launchbox";
+  const isSwitchGame = game.shop === "switch1" || game.shop === "switch2";
+  const isMacNativeGame = game.shop === "mac_native";
+  const isWindowsGameForICloud =
+    game.shop === "steam" || game.shop === "epic" || game.shop === "custom";
   const hasClassicsExecutable = Boolean(
     game.discs?.some((disc) => disc.isExecutable)
   );
-  const showDownloadSettings = game.shop !== "custom";
+  const showDownloadSettings = game.shop !== "custom" && !isSwitchGame;
   const isLinux = globalThis.window.electron.platform === "linux";
   const isDarwin = globalThis.window.electron.platform === "darwin";
-  const shouldShowWinePrefixConfiguration = isLinux || isDarwin;
+  const shouldShowWinePrefixConfiguration =
+    (isLinux || isDarwin) && !isSwitchGame && !isMacNativeGame;
   const defaultHydraWinePrefixPath =
     game.shop !== "epic" && defaultWinePrefixPath
       ? `${defaultWinePrefixPath}/${game.objectId}`
@@ -994,6 +996,18 @@ export function GameOptionsModal({
         label: t("settings_category_general"),
         icon: <GearIcon size={16} />,
       },
+      ...(isSwitchGame
+        ? [
+            {
+              id: "switch_settings" as const,
+              label:
+                game.shop === "switch2" || game.switchGeneration === "switch2"
+                  ? "Switch 2"
+                  : "Switch 1",
+              icon: <Gamepad2 size={16} />,
+            },
+          ]
+        : []),
       ...(isLaunchbox
         ? []
         : [
@@ -1008,6 +1022,15 @@ export function GameOptionsModal({
         label: t("settings_category_customization"),
         icon: <ImageIcon size={16} />,
       },
+      ...(isWindowsGameForICloud
+        ? [
+            {
+              id: "icloud_save" as const,
+              label: "Salvamento no iCloud",
+              icon: <CloudIcon size={16} />,
+            },
+          ]
+        : []),
       ...getCloudGameSettingsCategories(
         {
           cloudSaveAccessAction,
@@ -1061,7 +1084,10 @@ export function GameOptionsModal({
     ],
     [
       cloudSaveAccessAction,
+      game.shop,
+      game.switchGeneration,
       isLaunchbox,
+      isSwitchGame,
       legacyPurpose,
       showCloudSaveV2Settings,
       showLegacyCloudSaveSettings,
@@ -1083,6 +1109,10 @@ export function GameOptionsModal({
     if (!shouldInitialize) return;
 
     const category = initialCategory ?? "general";
+    if (category === "icloud_save" && isWindowsGameForICloud) {
+      setSelectedCategory("icloud_save");
+      return;
+    }
     const availableCategory = getAvailableGameSettingsCategory(category, {
       cloudSaveAccessAction,
       showCloudSaveV2Settings,
@@ -1092,42 +1122,35 @@ export function GameOptionsModal({
     });
 
     setSelectedCategory(availableCategory);
-
-    const isRequestedCloudCategoryAvailable =
-      (category === "hydra_cloud" && showCloudSaveV2Settings) ||
-      (category === "hydra_cloud_legacy" && showLegacyCloudSaveSettings);
-
-    if (
-      isRequestedCloudCategoryAvailable &&
-      cloudSaveAccessAction === "paywall"
-    ) {
-      showHydraCloudModal("backup");
-    }
   }, [
     cloudSaveAccessAction,
     initialCategory,
+    isWindowsGameForICloud,
     showDownloadSettings,
     showCloudSaveV2Settings,
     showLegacyCloudSaveSettings,
     showEpicCloudSettings,
-    showHydraCloudModal,
     visible,
   ]);
 
   useEffect(() => {
     if (!visible) return;
 
-    setSelectedCategory((currentCategory) =>
-      getAvailableGameSettingsCategory(currentCategory, {
+    setSelectedCategory((currentCategory) => {
+      if (currentCategory === "icloud_save" && isWindowsGameForICloud) {
+        return "icloud_save";
+      }
+      return getAvailableGameSettingsCategory(currentCategory, {
         cloudSaveAccessAction,
         showCloudSaveV2Settings,
         showLegacyCloudSaveSettings,
         showEpicCloudSettings,
         showDownloadSettings,
-      })
-    );
+      });
+    });
   }, [
     cloudSaveAccessAction,
+    isWindowsGameForICloud,
     showCloudSaveV2Settings,
     showLegacyCloudSaveSettings,
     showEpicCloudSettings,
@@ -1144,42 +1167,10 @@ export function GameOptionsModal({
       return;
     }
 
-    if (
-      (category === "hydra_cloud" || category === "hydra_cloud_legacy") &&
-      cloudSaveAccessAction !== "open"
-    ) {
-      if (cloudSaveAccessAction === "paywall") {
-        showHydraCloudModal("backup");
-      }
-      return;
-    }
     setSelectedCategory(category);
   };
   const shouldShowCreateStartMenuShortcut =
     globalThis.window.electron.platform === "win32";
-
-  const handleResetAchievements = async () => {
-    setIsDeletingAchievements(true);
-    try {
-      await globalThis.window.electron.resetGameAchievements(
-        game.shop,
-        game.objectId
-      );
-      await updateGame();
-      showSuccessToast(t("reset_achievements_success"));
-    } catch (error) {
-      showErrorToast(
-        t(
-          error instanceof Error &&
-            error.message.includes("reset_achievements_game_running")
-            ? "reset_achievements_game_running"
-            : "reset_achievements_error"
-        )
-      );
-    } finally {
-      setIsDeletingAchievements(false);
-    }
-  };
 
   const handleChangePlaytime = async (sec: number) => {
     try {
@@ -1342,11 +1333,14 @@ export function GameOptionsModal({
         removeGameFromLibrary={handleRemoveGameFromLibrary}
         game={game}
       />
-      <ResetAchievementsModal
-        visible={showResetAchievementsModal}
-        onClose={() => setShowResetAchievementsModal(false)}
-        resetAchievements={handleResetAchievements}
+      <UninstallGameModal
+        visible={showUninstallModal}
         game={game}
+        onClose={() => setShowUninstallModal(false)}
+        onUninstalled={() => {
+          void updateLibrary();
+          void updateGame();
+        }}
       />
       <ChangeGamePlaytimeModal
         visible={showChangePlaytimeModal}
@@ -1368,6 +1362,13 @@ export function GameOptionsModal({
         onClose={() => setShowSteamShortcutModal(false)}
         onConfirm={handleCreateSteamShortcut}
       />
+      {isSwitchGame && (
+        <SwitchPortModal
+          visible={showSwitchPortModal}
+          game={game}
+          onClose={() => setShowSwitchPortModal(false)}
+        />
+      )}
 
       <Modal
         visible={visible}
@@ -1399,7 +1400,17 @@ export function GameOptionsModal({
                 {...baseGeneralSettingsProps}
                 showExecutableSection={isLaunchbox}
                 showTransferSection={false}
-                showLaunchOptionsSection={!isLaunchbox || hasClassicsExecutable}
+                showShortcutsSection={!isSwitchGame}
+                showSteamPlaytimeSection={!isSwitchGame}
+                showLaunchOptionsSection={
+                  !isSwitchGame && (!isLaunchbox || hasClassicsExecutable)
+                }
+              />
+            )}
+            {selectedCategory === "switch_settings" && isSwitchGame && (
+              <SwitchGameSettingsSection
+                game={game}
+                onOpenPortModal={() => setShowSwitchPortModal(true)}
               />
             )}
             {selectedCategory === "locations" && (
@@ -1408,6 +1419,9 @@ export function GameOptionsModal({
                 onAddTrackingExecutable={handleAddTrackingExecutable}
                 onRemoveTrackingExecutable={handleRemoveTrackingExecutable}
                 showTitleSection={false}
+                showExecutableSection={!isSwitchGame}
+                showTransferSection={!isSwitchGame}
+                showSwitchLocationsSection={isSwitchGame}
                 showShortcutsSection={false}
                 showLaunchOptionsSection={false}
                 showSteamPlaytimeSection={false}
@@ -1420,6 +1434,9 @@ export function GameOptionsModal({
                 shopDetails={shopDetails}
                 onGameUpdated={updateGame}
               />
+            )}
+            {selectedCategory === "icloud_save" && isWindowsGameForICloud && (
+              <ICloudSaveSection game={game} />
             )}
             {selectedCategory === "hydra_cloud" && showCloudSaveV2Settings && (
               <HydraCloudV2SettingsSection
@@ -1504,20 +1521,19 @@ export function GameOptionsModal({
               <DangerZoneSection
                 game={game}
                 deleting={deleting}
-                isDeletingAchievements={isDeletingAchievements}
-                hasAchievements={hasAchievements}
                 isGameDownloading={isGameDownloading}
+                canUninstallGame={Boolean(
+                  game.executablePath || game.switchPortedAppPath
+                )}
                 removeFilesTarget={removeFilesTarget}
                 userDetails={userDetails}
                 onOpenRemoveFromLibrary={() => setShowRemoveGameModal(true)}
-                onOpenResetAchievements={() =>
-                  setShowResetAchievementsModal(true)
-                }
                 onOpenChangePlaytime={() => setShowChangePlaytimeModal(true)}
                 onOpenResetPlaytime={() => setShowResetPlaytimeModal(true)}
                 onOpenRemoveFiles={(target) =>
                   setPendingRemoveFilesTarget(target)
                 }
+                onOpenUninstallGame={() => setShowUninstallModal(true)}
               />
             )}
           </div>

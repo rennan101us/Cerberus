@@ -25,16 +25,14 @@ const games = [
   { id: "steam-local", shop: "steam", hasActiveSteamImport: false },
   { id: "custom", shop: "custom" },
   {
-    id: "snes",
-    shop: "launchbox",
-    hasActiveSteamImport: false,
-    platform: "SNES",
+    id: "switch-mac",
+    shop: "switch2",
+    switchPortedAppPath: "/Volumes/SSD FN501 PRO/Emulations/Nx Ports/OOT.app",
   },
   {
-    id: "n64",
-    shop: "launchbox",
-    hasActiveSteamImport: false,
-    platform: "N64",
+    id: "native-mac",
+    shop: "custom",
+    executablePath: "/Applications/Baldur.app",
   },
 ];
 
@@ -49,7 +47,7 @@ describe("Library categories", () => {
       availableShops: ["steam", "epic"],
       members: [{ shop: "epic", hasActiveEpicImport: true }],
     };
-    const filters = { category: "pc" as const, platforms: [] };
+    const filters = { category: "windows" as const, platforms: [] };
     assert.deepEqual(
       ids(filterLibraryGames([epicOwned], { ...filters, sources: ["epic"] })),
       ["group"]
@@ -81,26 +79,39 @@ describe("Library categories", () => {
       ["group"]
     );
   });
-  it("splits PC and classics games", () => {
-    assert.deepEqual(ids(filterLibraryGamesByCategory(games, "pc")), [
+
+  it("splits Mac and Windows games", () => {
+    assert.deepEqual(ids(filterLibraryGamesByCategory(games, "windows")), [
       "steam-import",
       "steam-local",
       "custom",
     ]);
-    assert.deepEqual(ids(filterLibraryGamesByCategory(games, "classics")), [
-      "snes",
-      "n64",
+    assert.deepEqual(ids(filterLibraryGamesByCategory(games, "mac")), [
+      "switch-mac",
+      "native-mac",
     ]);
     assert.equal(filterLibraryGamesByCategory(games, "all"), games);
   });
 
-  it("migrates the removed Steam Library category to PC with the Steam library", () => {
+  it("migrates legacy categories to Windows or All", () => {
     assert.deepEqual(resolveStoredLibraryCategory("steam_library"), {
-      category: "pc",
+      category: "windows",
       sources: ["steam"],
     });
+    assert.deepEqual(resolveStoredLibraryCategory("pc"), {
+      category: "windows",
+      sources: null,
+    });
     assert.deepEqual(resolveStoredLibraryCategory("classics"), {
-      category: "classics",
+      category: "all",
+      sources: null,
+    });
+    assert.deepEqual(resolveStoredLibraryCategory("mac"), {
+      category: "mac",
+      sources: null,
+    });
+    assert.deepEqual(resolveStoredLibraryCategory("windows"), {
+      category: "windows",
       sources: null,
     });
     assert.deepEqual(resolveStoredLibraryCategory("unknown"), {
@@ -121,13 +132,13 @@ describe("Library categories", () => {
     };
 
     assert.deepEqual(readStoredLibraryFilters(storage, "category", "sources"), {
-      category: "pc",
+      category: "windows",
       sources: ["steam"],
     });
-    assert.equal(values.get("category"), "pc");
+    assert.equal(values.get("category"), "windows");
     assert.equal(values.get("sources"), '["steam"]');
     assert.deepEqual(readStoredLibraryFilters(storage, "category", "sources"), {
-      category: "pc",
+      category: "windows",
       sources: ["steam"],
     });
   });
@@ -148,15 +159,12 @@ describe("Library categories", () => {
   });
 });
 
-describe("Library and console filters", () => {
-  it("uses the selected hidden library's sources and consoles independently", () => {
+describe("Library and source filters", () => {
+  it("uses the selected hidden library's sources independently", () => {
     const visibleGames = [{ id: "visible-pc", shop: "steam" }];
     const hiddenGames = [
       { id: "hidden-steam", shop: "steam", hasActiveSteamImport: true },
       { id: "hidden-hydra", shop: "steam" },
-      { id: "hidden-snes", shop: "launchbox", platform: "SNES" },
-      { id: "hidden-n64", shop: "launchbox", platform: "N64" },
-      { id: "hidden-n64-2", shop: "launchbox", platform: "N64" },
     ];
 
     assert.deepEqual(getLibraryFilterOptions(visibleGames), {
@@ -167,23 +175,18 @@ describe("Library and console filters", () => {
     assert.deepEqual(getLibraryFilterOptions(hiddenGames), {
       hasImportedGames: true,
       sources: ["hydra", "steam"],
-      platforms: ["N64", "SNES"],
+      platforms: [],
     });
     assert.deepEqual(
       ids(
         filterLibraryGames(hiddenGames, {
           category: "all",
           sources: ["steam"],
-          platforms: ["SNES"],
+          platforms: [],
         })
       ),
-      ["hidden-steam", "hidden-snes"]
+      ["hidden-steam"]
     );
-    assert.deepEqual(getLibraryFilterOptions([]), {
-      hasImportedGames: false,
-      sources: ["hydra"],
-      platforms: [],
-    });
   });
 
   it("offers only the libraries that have imported games", () => {
@@ -219,11 +222,11 @@ describe("Library and console filters", () => {
     );
   });
 
-  it("filters PC games by library", () => {
+  it("filters Windows games by library", () => {
     assert.deepEqual(
       ids(
         filterLibraryGames(games, {
-          category: "pc",
+          category: "windows",
           sources: ["steam"],
           platforms: [],
         })
@@ -233,7 +236,7 @@ describe("Library and console filters", () => {
     assert.deepEqual(
       ids(
         filterLibraryGames(games, {
-          category: "pc",
+          category: "windows",
           sources: ["hydra"],
           platforms: [],
         })
@@ -243,68 +246,12 @@ describe("Library and console filters", () => {
     assert.deepEqual(
       ids(
         filterLibraryGames(games, {
-          category: "pc",
+          category: "windows",
           sources: ["hydra", "steam"],
           platforms: [],
         })
       ),
       ["steam-import", "steam-local", "custom"]
-    );
-  });
-
-  it("ignores consoles on PC and libraries on classics", () => {
-    assert.deepEqual(
-      ids(
-        filterLibraryGames(games, {
-          category: "pc",
-          sources: [],
-          platforms: ["SNES"],
-        })
-      ),
-      ["steam-import", "steam-local", "custom"]
-    );
-    assert.deepEqual(
-      ids(
-        filterLibraryGames(games, {
-          category: "classics",
-          sources: ["steam"],
-          platforms: ["N64"],
-        })
-      ),
-      ["n64"]
-    );
-  });
-
-  it("narrows each side independently on All", () => {
-    assert.deepEqual(
-      ids(
-        filterLibraryGames(games, {
-          category: "all",
-          sources: ["steam"],
-          platforms: [],
-        })
-      ),
-      ["steam-import", "snes", "n64"]
-    );
-    assert.deepEqual(
-      ids(
-        filterLibraryGames(games, {
-          category: "all",
-          sources: [],
-          platforms: ["SNES"],
-        })
-      ),
-      ["steam-import", "steam-local", "custom", "snes"]
-    );
-    assert.deepEqual(
-      ids(
-        filterLibraryGames(games, {
-          category: "all",
-          sources: ["hydra"],
-          platforms: ["N64"],
-        })
-      ),
-      ["steam-local", "custom", "n64"]
     );
   });
 
@@ -316,11 +263,11 @@ describe("Library and console filters", () => {
 
 describe("Profile library filter", () => {
   it("maps profile platforms to shops", () => {
-    assert.deepEqual(getProfileLibraryFilter("pc"), {
+    assert.deepEqual(getProfileLibraryFilter("windows"), {
       shops: ["steam", "epic"],
     });
-    assert.deepEqual(getProfileLibraryFilter("classics"), {
-      shops: ["launchbox"],
+    assert.deepEqual(getProfileLibraryFilter("mac"), {
+      shops: ["switch1", "switch2"],
     });
 
     const params = new URLSearchParams();
@@ -389,41 +336,6 @@ describe("Steam badge", () => {
       }),
       "steam"
     );
-    assert.deepEqual(catalogue.catalogueGame, {
-      shop: "steam",
-      objectId: "123",
-    });
-    assert.deepEqual(catalogue.availableShops, ["steam", "epic"]);
-  });
-
-  it("uses active real members and updates the badge when an import is removed", () => {
-    const epic = { shop: "epic", hasActiveEpicImport: true };
-    const steam = { shop: "steam", hasActiveSteamImport: true };
-    const group = {
-      shop: "steam",
-      hasActiveSteamImport: true,
-      hasActiveEpicImport: true,
-      members: [steam, epic],
-    };
-    assert.equal(getLibraryPresentationBadgeSource(group), "steam");
-    assert.equal(
-      getLibraryPresentationBadgeSource({
-        ...group,
-        members: [{ ...steam, isDeleted: true }, epic],
-      }),
-      "epic"
-    );
-    assert.equal(
-      getLibraryPresentationBadgeSource({
-        ...group,
-        members: [{ ...steam, hasActiveSteamImport: false }, epic],
-      }),
-      "epic"
-    );
-    assert.equal(
-      getLibraryPresentationBadgeSource({ ...group, members: [] }),
-      null
-    );
   });
 
   it("hides Steam badges without changing import membership", () => {
@@ -436,26 +348,26 @@ describe("Steam badge", () => {
 });
 
 it("keeps Epic imports distinct and preserves two selected sources", () => {
-  const games = [
+  const sampleGames = [
     { shop: "epic", hasActiveEpicImport: true },
     { shop: "epic", hasActiveEpicImport: false },
     { shop: "steam", hasActiveSteamImport: true },
   ];
   assert.deepEqual(
-    filterLibraryGames(games, {
-      category: "pc",
+    filterLibraryGames(sampleGames, {
+      category: "windows",
       sources: ["epic"],
       platforms: [],
     }),
-    [games[0]]
+    [sampleGames[0]]
   );
   assert.deepEqual(
-    filterLibraryGames(games, {
-      category: "pc",
+    filterLibraryGames(sampleGames, {
+      category: "windows",
       sources: ["epic", "steam"],
       platforms: [],
     }),
-    [games[0], games[2]]
+    [sampleGames[0], sampleGames[2]]
   );
   assert.deepEqual(parseStoredLibrarySources('["epic","hydra"]'), [
     "hydra",

@@ -65,7 +65,7 @@ export default function ThemeEditor() {
   }, [t, i18n.language, notificationVariation, notificationAlignment]);
 
   useEffect(() => {
-    window.document.title = "Hydra - Theme Editor";
+    window.document.title = "Cerberus - Theme Editor";
   }, []);
 
   useEffect(() => {

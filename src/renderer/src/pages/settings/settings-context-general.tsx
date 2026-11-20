@@ -11,7 +11,7 @@ import {
 } from "@renderer/components";
 import type { DownloadDirectoryPreference, UserPreferences } from "@types";
 import { settingsContext } from "@renderer/context";
-import { useAppSelector } from "@renderer/hooks";
+import { useAppSelector, useToast } from "@renderer/hooks";
 import languageResources from "@locales";
 import {
   prepareDefaultDownloadPathSync,
@@ -75,6 +75,8 @@ const buildForm = (
   enableAutoInstall: preferences?.enableAutoInstall ?? false,
   useNativeWindowDecorations: preferences?.useNativeWindowDecorations ?? false,
   openFriendsWindowOnStartup: preferences?.openFriendsWindowOnStartup ?? false,
+  enableDoh: preferences?.enableDoh ?? true,
+  networkProxyUrl: preferences?.networkProxyUrl ?? "",
 });
 
 export function SettingsContextGeneral({
@@ -87,6 +89,7 @@ export function SettingsContextGeneral({
     (state) => state.userPreferences.value
   );
 
+  const { showSuccessToast } = useToast();
   const [defaultDownloadsPath, setDefaultDownloadsPath] = useState("");
   const showRunAtStartup = !window.electron.isPortableVersion;
   const [downloadDirectoryReplacement, setDownloadDirectoryReplacement] =
@@ -311,6 +314,43 @@ export function SettingsContextGeneral({
           />
         </div>
       )}
+
+      <div className="settings-context-panel__group">
+        <h3>Rede &amp; Conectividade (Redes Restritas / Universitárias)</h3>
+        <CheckboxField
+          label="Ativar DNS-over-HTTPS (Cloudflare / Google DoH) para evitar bloqueios de DNS em catálogos e downloads HTTPS"
+          checked={form.enableDoh}
+          onChange={() => handleChange({ enableDoh: !form.enableDoh })}
+        />
+        <TextField
+          label="Proxy HTTP/SOCKS5 opcional (ex.: socks5://127.0.0.1:1080 ou http://proxy:8080)"
+          theme="dark"
+          value={form.networkProxyUrl}
+          placeholder="Direto (sem proxy)"
+          onChange={(e) => handleChange({ networkProxyUrl: e.target.value })}
+        />
+      </div>
+
+      <div className="settings-context-panel__group">
+        <h3>Metadados IGDB (Switch 1, Switch 2 &amp; Mac Native)</h3>
+        <p style={{ fontSize: 13, opacity: 0.78, margin: "0 0 8px" }}>
+          Capas em alta resolução, hero 1080p, trailers, screenshots, sinopse,
+          idiomas e jogos similares ativos automaticamente via credencial interna
+          criptografada do Cerberus Launcher.
+        </p>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <Button
+            theme="outline"
+            onClick={async () => {
+              await window.electron.igdbClearCache();
+              showSuccessToast("Cache de metadados IGDB limpo.");
+            }}
+          >
+            Limpar Cache IGDB
+          </Button>
+        </div>
+      </div>
 
       <div className="settings-context-panel__group">
         <h3>{t("appearance")}</h3>

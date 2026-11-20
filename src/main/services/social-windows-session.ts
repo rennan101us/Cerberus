@@ -5,14 +5,14 @@ import type {
 } from "@types";
 
 import { db, levelKeys } from "@main/level";
-import { HydraApi } from "./hydra-api";
+import { SocialHubService } from "./social/social-hub-service";
 import { logger } from "./logger";
 import { WindowManager } from "./window-manager";
 import { FriendsSnapshotCache } from "./friends-snapshot";
 import { getSocialWindowsRestorePlan } from "./social-windows-restore-plan";
 
 export const saveSocialWindowsSession = async () => {
-  if (!HydraApi.isLoggedIn()) return;
+  if (!SocialHubService.hasConnectedAccount()) return;
 
   try {
     await WindowManager.saveOpenSocialWindowsBounds();
@@ -54,7 +54,7 @@ export const restoreSocialWindows = async () => {
       .catch(() => null),
   ]);
 
-  if (!HydraApi.isLoggedIn()) return;
+  if (!SocialHubService.hasConnectedAccount()) return;
 
   await db.del(levelKeys.socialWindowsSession).catch(() => undefined);
 

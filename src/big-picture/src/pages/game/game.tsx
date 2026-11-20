@@ -55,13 +55,13 @@ import {
   ControllerSupportBox,
   GameReviews,
   GameSettingsModal,
+  GamePlayModesBox,
   Hero,
   HowLongToBeatBox,
   PlaytimeBar,
   ProtonDBSection,
   RequirementsToPlay,
   ScreenshotCarousel,
-  GameMyScreenshots,
   SupportedLanguages,
 } from "../../components/pages/game";
 import { useGameSettingsModalState } from "../../components/pages/game/game-settings-modal/use-game-settings-modal-state";
@@ -90,6 +90,7 @@ import {
   GAME_SIDEBAR_HLTB_ID,
   GAME_SIDEBAR_LANGUAGES_ID,
   GAME_SIDEBAR_METADATA_ID,
+  GAME_SIDEBAR_PLAY_MODES_ID,
   GAME_SIDEBAR_PROTONDB_ID,
   GAME_SIDEBAR_REGION_ID,
   GAME_SIDEBAR_REQUIREMENTS_ID,
@@ -2087,18 +2088,6 @@ export default function Game() {
                   </FocusItem>
                 )}
 
-                <GameMyScreenshots
-                  shop={game?.shop ?? shop!}
-                  objectId={game?.objectId ?? objectId!}
-                  communityShop={shop!}
-                  communityObjectId={objectId!}
-                  navigationOrder={0.5}
-                  leftTarget={
-                    descriptionEntryTarget ??
-                    sidebarCarouselLeftNavigationTarget
-                  }
-                />
-
                 {(howLongToBeat?.length ?? 0) > 0 && (
                   <HowLongToBeatBox
                     howLongToBeat={howLongToBeat ?? []}
@@ -2225,6 +2214,17 @@ export default function Game() {
                     )}
                   </section>
                 </FocusItem>
+
+                {shopDetails && (
+                  <GamePlayModesBox
+                    shopDetails={shopDetails}
+                    focusId={GAME_SIDEBAR_PLAY_MODES_ID}
+                    focusNavigationOrder={5.5}
+                    focusNavigationOverrides={
+                      sidebarCarouselNavigationOverrides
+                    }
+                  />
+                )}
 
                 {!isLaunchboxGame && !isCustomGame ? ( // NOSONAR
                   <RequirementsToPlay

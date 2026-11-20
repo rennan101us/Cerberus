@@ -234,22 +234,6 @@ describe("AchievementNotificationPresenter", () => {
     });
   });
 
-  it("applies content protection to screenshot notifications", async () => {
-    const harness = new PresenterHarness();
-
-    harness.presenter.enqueueScreenshot("top-left", achievement("shot"));
-    await harness.flush();
-    harness.presenter.handleRendererEvent(harness.host.webContentsId, {
-      type: "host-ready",
-    });
-    await harness.flush();
-
-    const requestId = harness.latestPreparedRequestId();
-    await harness.contentReady(requestId);
-
-    assert.deepEqual(harness.host.contentProtection, [true]);
-  });
-
   it("does not apply content protection to achievement notifications", async () => {
     const harness = new PresenterHarness();
 

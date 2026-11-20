@@ -10,8 +10,9 @@ import {
   PowerIcon,
   SquaresFourIcon,
   StarIcon,
+  UsersIcon,
 } from "@phosphor-icons/react";
-import { AuthPage, getDisplayedPlayTimeInMilliseconds } from "@shared";
+import { getDisplayedPlayTimeInMilliseconds } from "@shared";
 import {
   type FocusEvent,
   forwardRef,
@@ -37,7 +38,7 @@ import {
   useBigPictureRunningGames,
   useNavigationActions,
   useSearch,
-  useUserDetails,
+  useUserPreferences,
   useBigPictureToast,
 } from "../../hooks";
 import {
@@ -370,6 +371,12 @@ function SidebarRouter() {
         label: "Download",
         path: `${basePath}/downloads`,
         icon: DownloadSimpleIcon,
+      },
+      {
+        key: "friends",
+        label: "Amigos",
+        path: `${basePath}/friends`,
+        icon: UsersIcon,
       },
       {
         key: "settings",
@@ -768,7 +775,20 @@ function SidebarProfile({
 }: Readonly<SidebarProfileProps>) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { userDetails } = useUserDetails();
+  const userPreferences = useUserPreferences();
+  const [systemUsername, setSystemUsername] = useState("");
+
+  useEffect(() => {
+    globalThis.window.electron
+      .getSystemUsername?.()
+      .then((username) => {
+        if (username) setSystemUsername(username);
+      })
+      .catch(() => {});
+  }, []);
+
+  const effectivePlayerName =
+    userPreferences?.playerName?.trim() || systemUsername || "Jogador";
   const notificationsButtonRef = useRef<HTMLButtonElement>(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const contentEntryTarget =
@@ -792,14 +812,9 @@ function SidebarProfile({
     onNotificationsOpenChange(false);
   }, [onNotificationsOpenChange]);
   const handleProfileClick = useCallback(() => {
-    if (!userDetails?.id) {
-      void globalThis.window.electron.openAuthWindow(AuthPage.SignIn);
-      return;
-    }
-
     const basePath = IS_DESKTOP ? "/big-picture" : "";
-    navigate(`${basePath}/profile/${userDetails.id}`);
-  }, [navigate, userDetails?.id]);
+    navigate(`${basePath}/settings`);
+  }, [navigate]);
 
   const profileFocusNavigationOverrides: FocusOverrides = {
     up: {
@@ -825,10 +840,10 @@ function SidebarProfile({
     <>
       <div className="sidebar-profile">
         <UserProfile
-          image={userDetails?.profileImageUrl}
+          image={null}
           backgroundImageUrl={runningGameBackgroundImageUrl}
-          name={userDetails?.displayName ?? "Sign in"}
-          friendCode={userDetails?.id ?? "Not signed in"}
+          name={effectivePlayerName}
+          friendCode=""
           profileFocusId={BIG_PICTURE_SIDEBAR_PROFILE_ID}
           notificationsFocusId={BIG_PICTURE_SIDEBAR_NOTIFICATIONS_ID}
           notificationsFocusable={notificationsFocusable}

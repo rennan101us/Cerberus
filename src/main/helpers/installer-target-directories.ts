@@ -17,12 +17,17 @@ const WINE_DRIVE_C_GAME_FOLDERS = [
   "GOG Games",
   "Program Files",
   "Program Files (x86)",
+  "Program Files (x86)/DODI-Repacks",
+  "Program Files/DODI-Repacks",
+  "Program Files (x86)/Steam/steamapps/common",
+  "Program Files/Steam/steamapps/common",
 ];
 
 const MODIFICATION_TIME_TOLERANCE_MS = 2000;
 const MAX_CHANGED_FOLDERS = 10;
 
 const SKIPPED_FOLDERS = new Set([
+  "dodi-repacks",
   "steam",
   "steamlibrary",
   "steamapps",
@@ -137,11 +142,48 @@ const getWinePrefixTargetDirectories = (winePrefixPath: string | null) => {
   );
 };
 
+const collectBottleTargetDirs = (bottlePath: string): string[] => {
+  const dirs = WINE_DRIVE_C_GAME_FOLDERS.map((folder) =>
+    path.join(bottlePath, "drive_c", folder)
+  );
+
+  const dosdevicesDir = path.join(bottlePath, "dosdevices");
+  if (fs.existsSync(dosdevicesDir)) {
+    try {
+      for (const dev of fs.readdirSync(dosdevicesDir)) {
+        const lower = dev.toLowerCase();
+        if (lower.startsWith("c") || lower.startsWith("z") || lower.includes("::")) {
+          continue;
+        }
+        try {
+          const real = fs.realpathSync(path.join(dosdevicesDir, dev));
+          for (const sub of [
+            "",
+            "Games",
+            "GOG Games",
+            "DODI-Repacks",
+            "Steam/steamapps/common",
+          ]) {
+            const target = sub ? path.join(real, sub) : real;
+            if (fs.existsSync(target)) {
+              dirs.push(target);
+            }
+          }
+        } catch {
+          // ignore broken symlink
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return dirs;
+};
+
 const getCrossOverTargetDirectories = (winePrefixPath: string | null) => {
   if (winePrefixPath) {
-    return WINE_DRIVE_C_GAME_FOLDERS.map((folder) =>
-      path.join(winePrefixPath, "drive_c", folder)
-    );
+    return collectBottleTargetDirs(winePrefixPath);
   }
 
   const homeDir = SystemPath.getPath("home");
@@ -174,9 +216,7 @@ const getCrossOverTargetDirectories = (winePrefixPath: string | null) => {
       try {
         const bottles = fs.readdirSync(bDir);
         for (const bottle of bottles) {
-          for (const folder of WINE_DRIVE_C_GAME_FOLDERS) {
-            targetDirs.push(path.join(bDir, bottle, "drive_c", folder));
-          }
+          targetDirs.push(...collectBottleTargetDirs(path.join(bDir, bottle)));
         }
       } catch {
         // ignore

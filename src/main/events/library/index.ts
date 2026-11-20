@@ -75,3 +75,6 @@ import "./get-available-drives";
 import "./get-crossover-status";
 import "./update-crossover-settings";
 import "./manage-crossover";
+import "./crossover-tools-events";
+import "./get-mac-compatibility";
+import "./uninstall-game";

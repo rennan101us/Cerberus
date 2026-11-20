@@ -1,6 +1,7 @@
 import { Trans, useTranslation } from "react-i18next";
 import {
   getClassicsDiscLabel,
+  getGameExecutableFilters,
   getNextClassicsDiscLabel,
   getRetroArchRomExtensions,
   stripFileExtension,
@@ -213,18 +214,12 @@ function ClassicsDiscSection({ game }: Readonly<ClassicsDiscSectionProps>) {
 
   const handleAddExecutable = async () => {
     setIsAddMenuOpen(false);
-    const isWindows = window.electron.platform === "win32";
     const res = await window.electron.showOpenDialog({
       properties: ["openFile"],
-      filters: isWindows
-        ? [
-            {
-              name: t("executable_label"),
-              extensions: ["exe", "bat", "cmd", "lnk"],
-            },
-            { name: t("all_files"), extensions: ["*"] },
-          ]
-        : [{ name: t("all_files"), extensions: ["*"] }],
+      filters: getGameExecutableFilters(window.electron.platform, {
+        executable: t("executable_label"),
+        allFiles: t("all_files"),
+      }),
     });
     if (res.canceled || !res.filePaths[0]) return;
     await addDiscFromPath(res.filePaths[0], true);
@@ -553,6 +548,7 @@ interface GeneralSettingsSectionProps {
   showShortcutsSection?: boolean;
   showLaunchOptionsSection?: boolean;
   showSteamPlaytimeSection?: boolean;
+  showSwitchLocationsSection?: boolean;
 }
 
 //
@@ -678,6 +674,7 @@ export function GeneralSettingsSection({
   showShortcutsSection = true,
   showLaunchOptionsSection = true,
   showSteamPlaytimeSection = true,
+  showSwitchLocationsSection = false,
 }: Readonly<GeneralSettingsSectionProps>) {
   const { t } = useTranslation("game_details");
 
@@ -1134,6 +1131,57 @@ export function GeneralSettingsSection({
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Switch 1 & 2 Local Paths */}
+      {showSwitchLocationsSection && (
+        <div className="game-options-modal__section">
+          <div className="game-options-modal__header">
+            <h2>Locais do Switch 1 &amp; 2</h2>
+            <h4 className="game-options-modal__header-description">
+              Caminhos locais da ROM e dos builds gerados pelo NxNative /
+              Nx2Android.
+            </h4>
+          </div>
+          {[
+            { label: "Pasta da ROM / Dump", targetPath: game.switchRomPath },
+            {
+              label: "App macOS (.app)",
+              targetPath: game.switchPortedAppPath || game.executablePath,
+            },
+            {
+              label: "Pacote iOS / iPadOS (.ipa)",
+              targetPath: game.switchPortedIpaPath,
+            },
+            {
+              label: "Pacote Android (.apk)",
+              targetPath: game.switchPortedApkPath,
+            },
+          ].map(({ label, targetPath }) => (
+            <div key={label} style={{ marginBottom: 12 }}>
+              <TextField
+                label={label}
+                value={targetPath || "Não configurado / Não portado"}
+                readOnly
+                theme="dark"
+                rightContent={
+                  targetPath ? (
+                    <Button
+                      type="button"
+                      theme="outline"
+                      onClick={() =>
+                        void window.electron.nxRevealInFinder(targetPath)
+                      }
+                    >
+                      <FolderOpen size={14} />
+                      Revelar
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
+          ))}
         </div>
       )}
 

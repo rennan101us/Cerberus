@@ -44,7 +44,6 @@ import { ConfirmationModal } from "../../../modals";
 import { useGamepad, useNavigationScreenActions } from "../../../../hooks";
 import { formatRelativeDate } from "../../../../helpers";
 import {
-  AuthPage,
   getPrimarySouvenirAchievement,
   getSouvenirVisualVariant,
 } from "@shared";
@@ -1017,9 +1016,7 @@ export function SouvenirLightbox({
                             }
                             onRequestReport={() => {
                               if (!canLike) {
-                                void globalThis.window.electron.openAuthWindow(
-                                  AuthPage.SignIn
-                                );
+                                void 0;
                                 return;
                               }
 

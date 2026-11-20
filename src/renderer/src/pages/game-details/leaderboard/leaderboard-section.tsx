@@ -12,7 +12,6 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@renderer/components";
 import { gameDetailsContext } from "@renderer/context";
 import { useFeature } from "@renderer/hooks";
-import { AuthPage } from "@shared";
 import { SidebarSection } from "../sidebar-section/sidebar-section";
 import {
   buildMetricsRequest,
@@ -339,23 +338,6 @@ export function LeaderboardSection() {
         />
 
         {renderBody()}
-
-        {!isLoggedIn && (
-          <div className="leaderboard-section__sign-in">
-            <p className="leaderboard-section__sign-in-text">
-              {t(isExtended ? "sign_in_hint" : "sign_in_hint_position")}
-            </p>
-            <button
-              type="button"
-              className="leaderboard-section__sign-in-button"
-              onClick={() =>
-                globalThis.window.electron.openAuthWindow(AuthPage.SignIn)
-              }
-            >
-              {t("sign_in")}
-            </button>
-          </div>
-        )}
       </div>
     </SidebarSection>
   );

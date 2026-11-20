@@ -20,7 +20,6 @@ import {
 } from "@renderer/context";
 import { GameContextMenu } from "@renderer/components";
 import type { GameContextMenuGame } from "@renderer/components/game-context-menu/game-context-menu.types";
-import { ClassicsIcon } from "@renderer/pages/library/category-filter";
 import type { ProfilePlatformFilter } from "@renderer/helpers";
 import { FilterDropdown, type FilterDropdownOption } from "./filter-dropdown";
 import {
@@ -174,8 +173,8 @@ export function LibraryTab({
 
   const platformOptions: FilterDropdownOption<ProfilePlatform>[] = [
     { value: "all", label: t("platform_all"), icon: StackIcon },
-    { value: "pc", label: t("platform_pc"), icon: DeviceDesktopIcon },
-    { value: "classics", label: t("platform_classics"), icon: ClassicsIcon },
+    { value: "mac", label: "Mac", icon: DeviceDesktopIcon },
+    { value: "windows", label: "Windows", icon: DeviceDesktopIcon },
   ];
 
   const sortOptions: FilterDropdownOption<SortOption>[] = [

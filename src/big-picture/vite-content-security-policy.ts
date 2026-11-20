@@ -1,17 +1,12 @@
 import type { Plugin } from "vite";
 import { MONACO_VS_URL } from "../shared/monaco";
 
-// The external resources bundle loads the Chatwoot support chat SDK and the
-// Formbricks survey SDK from these hosts.
-const EXTERNAL_RESOURCES_SCRIPT_ORIGINS = [
-  "https://chatwoot.hydralauncher.gg",
-  "https://forms.hydralauncher.gg",
-];
+const EXTERNAL_RESOURCES_SCRIPT_ORIGINS: string[] = [];
 
 export const contentSecurityPolicy = (
   externalResourcesUrl: string | undefined
 ): Plugin => ({
-  name: "hydra:content-security-policy",
+  name: "cerberus:content-security-policy",
   transformIndexHtml: (_html, context) => {
     const scriptSources = [
       "'self'",

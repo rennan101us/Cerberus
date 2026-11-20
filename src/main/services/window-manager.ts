@@ -2,14 +2,11 @@ import { is } from "@electron-toolkit/utils";
 import { isStaging } from "@main/constants";
 import { db, gamesSublevel, levelKeys } from "@main/level";
 import icon from "@resources/icon.png?asset";
+import iconDark from "@resources/icon-dark.png?asset";
+import iconDefault from "@resources/icon-default.png?asset";
 import trayIconDark from "@resources/tray-icon-dark.png?asset";
 import trayIcon from "@resources/tray-icon.png?asset";
 import {
-  AUTH_WINDOW_CONTENT_HEIGHT,
-  AUTH_WINDOW_CONTENT_WIDTH,
-  AuthPage,
-  CUSTOM_WINDOW_BORDER_WIDTH,
-  CUSTOM_WINDOW_TITLE_BAR_HEIGHT,
   MAIN_WINDOW_TITLE_BAR_HEIGHT,
   NATIVE_WINDOW_DECORATIONS_ARGUMENT,
 } from "@shared";
@@ -31,7 +28,6 @@ import {
   MenuItem,
   MenuItemConstructorOptions,
   Tray,
-  WebContentsView,
   app,
   nativeImage,
   nativeTheme,
@@ -42,7 +38,6 @@ import { t } from "i18next";
 import { orderBy } from "lodash-es";
 import path from "node:path";
 import UserAgent from "user-agents";
-import { HydraApi } from "./hydra-api";
 import { logger } from "./logger";
 import {
   addSteamGridDbCacheControl,
@@ -99,6 +94,43 @@ export class WindowManager {
   private static retroAchievementsConnectionWindow: Electron.BrowserWindow | null =
     null;
   private static deferredMainMaximize = false;
+  private static dynamicIconListenerRegistered = false;
+
+  public static getAppIconPath(): string {
+    return nativeTheme.shouldUseDarkColors ? iconDark : iconDefault;
+  }
+
+  public static syncDynamicAppIcon(): void {
+    const activeIcon = this.getAppIconPath();
+
+    if (process.platform === "darwin") {
+      try {
+        app.dock?.setIcon(nativeImage.createFromPath(activeIcon));
+      } catch (err) {
+        logger.warn("[WindowManager] Failed to update dock icon", err);
+      }
+    } else {
+      const windows = [
+        this.mainWindowInstance,
+        this.bigPicture,
+        this.friendsWindow,
+        this.chatWindow,
+        this.gameLauncherWindowInstance,
+      ];
+      for (const win of windows) {
+        if (win && !win.isDestroyed()) {
+          win.setIcon(activeIcon);
+        }
+      }
+    }
+
+    if (!this.dynamicIconListenerRegistered) {
+      this.dynamicIconListenerRegistered = true;
+      nativeTheme.on("updated", () => {
+        this.syncDynamicAppIcon();
+      });
+    }
+  }
 
   private static isArtworkRendererRequest(
     webContentsId: number | undefined
@@ -408,16 +440,6 @@ export class WindowManager {
           return callback(details);
         }
 
-        if (details.url.includes("workwonders")) {
-          return callback({
-            ...details,
-            requestHeaders: {
-              Origin: "https://workwonders.app",
-              ...details.requestHeaders,
-            },
-          });
-        }
-
         const userAgent = new UserAgent();
 
         callback({
@@ -442,8 +464,7 @@ export class WindowManager {
         if (
           !isArtworkRendererRequest ||
           details.url.includes("featurebase") ||
-          details.url.includes("chatwoot") ||
-          details.url.includes("workwonders")
+          details.url.includes("chatwoot")
         ) {
           return callback({ ...details, responseHeaders });
         }
@@ -1153,140 +1174,6 @@ export class WindowManager {
     this.mainWindow?.webContents.send("on-open-add-friend-modal");
   }
 
-  private static bindAuthNavigation(
-    contents: Electron.WebContents,
-    closeWindow: () => void
-  ) {
-    contents.on("will-navigate", (_event, url) => {
-      if (url.startsWith("hydralauncher://auth")) {
-        closeWindow();
-
-        HydraApi.handleExternalAuth(url);
-        return;
-      }
-
-      if (url.startsWith("hydralauncher://update-account")) {
-        closeWindow();
-
-        WindowManager.sendToAppWindows("on-account-updated");
-      }
-    });
-  }
-
-  public static openAuthWindow(page: AuthPage, searchParams: URLSearchParams) {
-    const parentWindow =
-      this.bigPicture && !this.bigPicture.isDestroyed()
-        ? this.bigPicture
-        : this.mainWindow;
-
-    if (!parentWindow || parentWindow.isDestroyed()) return;
-
-    const authUrl = `${import.meta.env.MAIN_VITE_AUTH_URL}${page}?${searchParams.toString()}`;
-
-    if (process.platform === "linux") {
-      this.openLinuxAuthWindow(parentWindow, authUrl);
-      return;
-    }
-
-    const authWindow = new BrowserWindow({
-      width: AUTH_WINDOW_CONTENT_WIDTH,
-      height: AUTH_WINDOW_CONTENT_HEIGHT,
-      backgroundColor: "#1c1c1c",
-      parent: parentWindow,
-      modal: true,
-      show: false,
-      maximizable: false,
-      resizable: false,
-      minimizable: false,
-      webPreferences: {
-        sandbox: false,
-        nodeIntegrationInSubFrames: true,
-      },
-    });
-
-    authWindow.removeMenu();
-
-    if (!app.isPackaged) authWindow.webContents.openDevTools();
-
-    authWindow.loadURL(authUrl);
-
-    authWindow.once("ready-to-show", () => {
-      authWindow.show();
-    });
-
-    authWindow.once("closed", () => {
-      if (!parentWindow.isDestroyed()) {
-        parentWindow.focus();
-      }
-    });
-
-    this.bindAuthNavigation(authWindow.webContents, () => authWindow.close());
-  }
-
-  private static openLinuxAuthWindow(
-    parentWindow: Electron.BrowserWindow,
-    authUrl: string
-  ) {
-    const authWindow = new BrowserWindow({
-      width: AUTH_WINDOW_CONTENT_WIDTH + CUSTOM_WINDOW_BORDER_WIDTH * 2,
-      height:
-        AUTH_WINDOW_CONTENT_HEIGHT +
-        CUSTOM_WINDOW_TITLE_BAR_HEIGHT +
-        CUSTOM_WINDOW_BORDER_WIDTH * 2,
-      parent: parentWindow,
-      modal: true,
-      show: false,
-      maximizable: false,
-      resizable: false,
-      frame: false,
-      icon,
-      backgroundColor: "#1c1c1c",
-      webPreferences: {
-        preload: path.join(__dirname, "../preload/index.mjs"),
-        sandbox: false,
-      },
-    });
-
-    this.authWindow = authWindow;
-
-    authWindow.removeMenu();
-
-    const authView = new WebContentsView({
-      webPreferences: {
-        sandbox: false,
-        nodeIntegrationInSubFrames: true,
-      },
-    });
-
-    authWindow.contentView.addChildView(authView);
-    authView.setBounds({
-      x: CUSTOM_WINDOW_BORDER_WIDTH,
-      y: CUSTOM_WINDOW_BORDER_WIDTH + CUSTOM_WINDOW_TITLE_BAR_HEIGHT,
-      width: AUTH_WINDOW_CONTENT_WIDTH,
-      height: AUTH_WINDOW_CONTENT_HEIGHT,
-    });
-
-    this.loadWindowURL(authWindow, "auth-window");
-    authView.webContents.loadURL(authUrl);
-
-    if (!app.isPackaged) authView.webContents.openDevTools();
-
-    authWindow.once("ready-to-show", () => {
-      authWindow.show();
-    });
-
-    authWindow.once("closed", () => {
-      this.authWindow = null;
-      if (!parentWindow.isDestroyed()) {
-        parentWindow.focus();
-      }
-    });
-
-    this.bindAuthNavigation(authView.webContents, () => {
-      if (!authWindow.isDestroyed()) authWindow.close();
-    });
-  }
-
   public static minimizeAuthWindow() {
     if (this.authWindow && !this.authWindow.isDestroyed()) {
       this.authWindow.minimize();
@@ -1317,7 +1204,7 @@ export class WindowManager {
     const connectionWindow = new BrowserWindow({
       width: layout.width,
       height: layout.height,
-      title: "Hydra",
+      title: "Cerberus",
       backgroundColor: "#1c1c1c",
       parent: parentWindow,
       modal: true,
@@ -1585,7 +1472,8 @@ export class WindowManager {
     if (process.platform === "darwin") {
       const macIcon = nativeImage
         .createFromPath(trayIcon)
-        .resize({ width: 24, height: 24 });
+        .resize({ width: 20, height: 20 });
+      macIcon.setTemplateImage(false);
       tray = new Tray(macIcon);
     } else if (process.platform === "win32") {
       const getWindowsTrayIcon = () =>
@@ -1672,7 +1560,7 @@ export class WindowManager {
       tray.popUpContextMenu(contextMenu);
     };
 
-    tray.setToolTip("Hydra Launcher");
+    tray.setToolTip("Cerberus");
 
     if (process.platform === "win32") {
       await updateSystemTray();

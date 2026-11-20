@@ -77,6 +77,9 @@ function fixture({ cachedAssets = true, cachedDetails = true } = {}) {
           return selections.get(key) ?? null;
         },
       },
+      gamesSublevel: {
+        get: async () => undefined,
+      },
       gamesShopAssetsSublevel: {
         get: async (key: string) => assetsCache.get(key) ?? null,
         put: async (key: string, value: ShopAssets & { updatedAt: number }) => {
@@ -106,6 +109,21 @@ function fixture({ cachedAssets = true, cachedDetails = true } = {}) {
     },
     "@main/services/epic-store-details": {},
     "@main/services/store-shop-details": {},
+    "@main/services/nxnative/nx-artwork-service": {
+      NxArtworkService: {
+        resolveCoverForGame: async () => null,
+        resolveHeroForGame: async () => null,
+      },
+    },
+    "@main/services/nxnative/nx-compatibility-service": {
+      NxCompatibilityService: {
+        getCompatibleGames: async () => ({
+          games: [],
+          isOnline: false,
+          updatedAt: 0,
+        }),
+      },
+    },
     "@shared": { composeAssetsWithArtwork },
   };
   for (const filename of ["get-game-assets.ts", "get-game-shop-details.ts"]) {

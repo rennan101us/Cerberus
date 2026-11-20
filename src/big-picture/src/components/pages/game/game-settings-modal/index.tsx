@@ -38,24 +38,40 @@ import {
   GAME_COMPATIBILITY_SETTINGS_PRIMARY_CONTROL_ID,
 } from "./compatibility-tab";
 import {
+  GameSwitchSettingsTab,
+  GAME_SWITCH_SETTINGS_PRIMARY_CONTROL_ID,
+} from "./switch-settings-tab";
+import {
+  GameMacOsRedWineSettingsTab,
+  GAME_MACOS_RED_WINE_PRIMARY_CONTROL_ID,
+} from "./macos-red-wine-tab";
+import {
+  GameICloudSaveTab,
+  GAME_ICLOUD_SAVE_PRIMARY_CONTROL_ID,
+} from "./icloud-save-tab";
+import {
   shouldShowCloudSaveV2Tab,
   shouldShowLegacyCloudSaveTab,
 } from "./cloud-tab-visibility";
 
 type GameSettingsTabId =
+  | "switch_settings"
   | "launch"
   | "customization"
   | "hydra_cloud"
   | "hydra_cloud_legacy"
+  | "icloud_save"
   | "compatibility"
   | "downloads"
   | "danger_zone";
 
 const GAME_SETTINGS_TAB_FOCUS_IDS: Record<GameSettingsTabId, string> = {
+  switch_settings: GAME_SWITCH_SETTINGS_PRIMARY_CONTROL_ID,
   launch: GAME_LAUNCH_SETTINGS_PRIMARY_CONTROL_ID,
   customization: GAME_CUSTOMIZATION_SETTINGS_PRIMARY_CONTROL_ID,
   hydra_cloud: GAME_CLOUD_V2_SETTINGS_PRIMARY_CONTROL_ID,
   hydra_cloud_legacy: GAME_CLOUD_SETTINGS_PRIMARY_CONTROL_ID,
+  icloud_save: GAME_ICLOUD_SAVE_PRIMARY_CONTROL_ID,
   downloads: GAME_DOWNLOADS_SETTINGS_PRIMARY_CONTROL_ID,
   danger_zone: GAME_DANGER_ZONE_PRIMARY_CONTROL_ID,
   compatibility: GAME_COMPATIBILITY_SETTINGS_PRIMARY_CONTROL_ID,
@@ -81,7 +97,14 @@ export function GameSettingsModal({
   onClose,
 }: Readonly<GameSettingsModalProps>) {
   const { t } = useTranslation(["game_details", "header"]);
-  const [activeTabId, setActiveTabId] = useState<GameSettingsTabId>("launch");
+  const isSwitchGame =
+    game.shop === "switch1" || game.shop === "switch2";
+  const isDarwin = globalThis.window.electron.platform === "darwin";
+  const isLinux = globalThis.window.electron.platform === "linux";
+
+  const [activeTabId, setActiveTabId] = useState<GameSettingsTabId>(
+    isSwitchGame ? "switch_settings" : "launch"
+  );
   const { userDetails, hasActiveSubscription } = useUserDetails();
   const preferredAssets = useMemo(
     () => resolvePreferredGameAssets(game, null),
@@ -89,16 +112,26 @@ export function GameSettingsModal({
   );
   const isDev = import.meta.env.DEV;
   const shouldShowCompatibilityTab =
-    globalThis.window.electron.platform === "linux" || isDev;
+    isLinux || (isDarwin && !isSwitchGame) || isDev;
+  const shouldShowICloudTab =
+    isDarwin && !isSwitchGame && game.shop !== "mac_native";
   const shouldShowDownloadsTab = game.shop !== "custom";
   const settingsLabel = t("settings", { ns: "header" });
 
   useEffect(() => {
     if (visible) {
-      setActiveTabId("launch");
+      setActiveTabId(isSwitchGame ? "switch_settings" : "launch");
     }
-  }, [visible]);
+  }, [isSwitchGame, visible]);
 
+  const switchSettingsContent = useMemo(
+    () => <GameSwitchSettingsTab game={game} />,
+    [game]
+  );
+  const icloudSaveContent = useMemo(
+    () => <GameICloudSaveTab game={game} />,
+    [game]
+  );
   const launchContent = useMemo(
     () => <GameLaunchSettingsTab {...launchSettings} />,
     [launchSettings]
@@ -137,8 +170,13 @@ export function GameSettingsModal({
     [game, removeFilesGame, onClose]
   );
   const compatibilityContent = useMemo(
-    () => <GameCompatibilitySettingsTab game={game} />,
-    [game]
+    () =>
+      isDarwin && !isSwitchGame ? (
+        <GameMacOsRedWineSettingsTab game={game} />
+      ) : (
+        <GameCompatibilitySettingsTab game={game} />
+      ),
+    [game, isDarwin, isSwitchGame]
   );
 
   const isSignedIn = userDetails !== null;
@@ -157,22 +195,38 @@ export function GameSettingsModal({
 
   useEffect(() => {
     const isUnavailableTab =
+      (activeTabId === "switch_settings" && !isSwitchGame) ||
       (activeTabId === "hydra_cloud" && !shouldShowCloudV2Tab) ||
       (activeTabId === "hydra_cloud_legacy" && !shouldShowLegacyCloudTab) ||
+      (activeTabId === "icloud_save" && !shouldShowICloudTab) ||
+      (activeTabId === "compatibility" && !shouldShowCompatibilityTab) ||
       (activeTabId === "downloads" && !shouldShowDownloadsTab);
 
     if (isUnavailableTab) {
-      setActiveTabId("launch");
+      setActiveTabId(isSwitchGame ? "switch_settings" : "launch");
     }
   }, [
     activeTabId,
+    isSwitchGame,
     shouldShowCloudV2Tab,
-    shouldShowLegacyCloudTab,
+    shouldShowCompatibilityTab,
     shouldShowDownloadsTab,
+    shouldShowICloudTab,
+    shouldShowLegacyCloudTab,
   ]);
 
   const tabs = useMemo<SidebarModalTab<GameSettingsTabId>[]>(
     () => [
+      ...(isSwitchGame
+        ? [
+            {
+              id: "switch_settings",
+              label:
+                game.shop === "switch2" ? "Switch 2 / Portar" : "Switch / Portar",
+              content: switchSettingsContent,
+            } satisfies SidebarModalTab<GameSettingsTabId>,
+          ]
+        : []),
       {
         id: "launch",
         label: t("settings_category_launch"),
@@ -205,11 +259,23 @@ export function GameSettingsModal({
             } satisfies SidebarModalTab<GameSettingsTabId>,
           ]
         : []),
+      ...(shouldShowICloudTab
+        ? [
+            {
+              id: "icloud_save",
+              label: "iCloud Saves",
+              content: icloudSaveContent,
+            } satisfies SidebarModalTab<GameSettingsTabId>,
+          ]
+        : []),
       ...(shouldShowCompatibilityTab
         ? [
             {
               id: "compatibility",
-              label: t("settings_category_compatibility"),
+              label:
+                isDarwin && !isSwitchGame
+                  ? "Red Wine (macOS)"
+                  : t("settings_category_compatibility"),
               content: compatibilityContent,
             } satisfies SidebarModalTab<GameSettingsTabId>,
           ]
@@ -236,14 +302,25 @@ export function GameSettingsModal({
       customizationContent,
       dangerContent,
       downloadContent,
+      game.shop,
+      icloudSaveContent,
+      isDarwin,
+      isSwitchGame,
       launchContent,
       shouldShowCloudV2Tab,
-      shouldShowLegacyCloudTab,
       shouldShowCompatibilityTab,
       shouldShowDownloadsTab,
+      shouldShowICloudTab,
+      shouldShowLegacyCloudTab,
+      switchSettingsContent,
       t,
     ]
   );
+
+  const entryFocusId =
+    activeTabId === "compatibility" && isDarwin && !isSwitchGame
+      ? GAME_MACOS_RED_WINE_PRIMARY_CONTROL_ID
+      : GAME_SETTINGS_TAB_FOCUS_IDS[activeTabId];
 
   return (
     <SidebarModal
@@ -253,7 +330,7 @@ export function GameSettingsModal({
       coverImage={preferredAssets.heroSrc || undefined}
       className="game-settings-modal"
       ariaLabel={settingsLabel}
-      contentEntryFocusId={GAME_SETTINGS_TAB_FOCUS_IDS[activeTabId]}
+      contentEntryFocusId={entryFocusId}
       tabs={tabs}
       activeTabId={activeTabId}
       onActiveTabChange={setActiveTabId}

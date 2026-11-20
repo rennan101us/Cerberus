@@ -24,7 +24,10 @@ import {
   type GalleryVideoPlayerHandle,
 } from "./gallery-video-player";
 import { GalleryVideoHost, GalleryVideoSlot } from "./gallery-video-host";
-import { getSteamMovieSource } from "./gallery-media-sources";
+import {
+  getSteamMovieSource,
+  YOUTUBE_VIDEO_TYPE,
+} from "./gallery-media-sources";
 import { shouldSpaceTogglePlayback } from "./gallery-playback";
 import { useDragScroll } from "./use-drag-scroll";
 import {
@@ -65,7 +68,18 @@ export function GallerySlider() {
   );
   const autoplayEnabled = userPreferences?.autoplayGameTrailers !== false;
 
-  const hasScreenshots = shopDetails && shopDetails.screenshots?.length;
+  const hasScreenshots = Boolean(
+    shopDetails &&
+      ((shopDetails.screenshots?.length ?? 0) > 0 ||
+        (shopDetails.movies?.length ?? 0) > 0)
+  );
+  const [activeYoutubeIds, setActiveYoutubeIds] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  useEffect(() => {
+    setActiveYoutubeIds(new Set());
+  }, [shopDetails?.objectId]);
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
@@ -361,6 +375,82 @@ export function GallerySlider() {
   }
 
   const renderVideoPlayer = (item: GalleryMediaItem, index: number) => {
+    if (item.videoType === YOUTUBE_VIDEO_TYPE && item.videoSrc) {
+      const isPlaying = activeYoutubeIds.has(item.id);
+      return (
+        <div
+          className="gallery-slider__youtube-wrap"
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: "16 / 9",
+            backgroundColor: "#0a0a0d",
+            borderRadius: "8px",
+            overflow: "hidden",
+          }}
+        >
+          {isPlaying ? (
+            <iframe
+              src={`${item.videoSrc}&autoplay=1`}
+              title={item.alt}
+              style={{ width: "100%", height: "100%", border: 0 }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                setActiveYoutubeIds((prev) => new Set(prev).add(item.id))
+              }
+              aria-label={`Reproduzir ${item.alt}`}
+              style={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+                padding: 0,
+                border: 0,
+                cursor: "pointer",
+                background: "#000",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {item.poster && (
+                <img
+                  src={item.poster}
+                  alt={item.alt}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    opacity: 0.85,
+                  }}
+                />
+              )}
+              <span
+                style={{
+                  position: "absolute",
+                  width: 64,
+                  height: 64,
+                  borderRadius: "50%",
+                  background: "rgba(0,0,0,0.72)",
+                  border: "2px solid rgba(255,255,255,0.85)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fff",
+                }}
+              >
+                <Play size={28} weight="fill" />
+              </span>
+            </button>
+          )}
+        </div>
+      );
+    }
+
     const borrowed =
       lightbox !== null &&
       (item.id === viewerItemId ||

@@ -12,10 +12,7 @@ import {
 import { setHeaderTitle } from "@renderer/features";
 import { logger } from "@renderer/logger";
 import { ensureArray } from "@renderer/helpers";
-import {
-  isLeaderboardNotificationType,
-  isScreenshotNotificationType,
-} from "@shared";
+import { isLeaderboardNotificationType } from "@shared";
 
 import { NotificationItem } from "./notification-item";
 import { LocalNotificationItem } from "./local-notification-item";
@@ -34,7 +31,13 @@ type NotificationFilter = "all" | "unread";
 const STAGGER_DELAY_MS = 70;
 const EXIT_DURATION_MS = 250;
 
-export default function Notifications() {
+export interface NotificationsProps {
+  inModal?: boolean;
+}
+
+export default function Notifications({
+  inModal = false,
+}: Readonly<NotificationsProps> = {}) {
   const { t, i18n } = useTranslation("notifications_page");
   const { showSuccessToast, showErrorToast } = useToast();
   const { userDetails } = useUserDetails();
@@ -42,8 +45,10 @@ export default function Notifications() {
   const { isFeatureEnabled, Feature } = useFeature();
 
   useEffect(() => {
-    dispatch(setHeaderTitle(t("title")));
-  }, [dispatch, t]);
+    if (!inModal) {
+      dispatch(setHeaderTitle(t("title")));
+    }
+  }, [dispatch, inModal, t]);
 
   const [apiNotifications, setApiNotifications] = useState<Notification[]>([]);
   const [localNotifications, setLocalNotifications] = useState<
@@ -177,12 +182,7 @@ export default function Notifications() {
     const isShown = ({ type }: Notification) => {
       if (isLeaderboardNotificationType(type))
         return isFeatureEnabled(Feature.GlobalLeaderboards);
-      if (!isScreenshotNotificationType(type)) return true;
-      if (!isFeatureEnabled(Feature.Screenshots)) return false;
-      return (
-        type === "SCREENSHOT_LIKE" ||
-        isFeatureEnabled(Feature.ScreenshotComments)
-      );
+      return true;
     };
     return apiNotifications.filter(isShown);
   }, [Feature, apiNotifications, isFeatureEnabled]);
@@ -524,7 +524,9 @@ export default function Notifications() {
 
   const renderContent = () => {
     return (
-      <div className="notifications">
+      <div
+        className={`notifications ${inModal ? "notifications--in-modal" : ""}`}
+      >
         <div className="notifications__header">
           {renderFilterTabs()}
           <div className="notifications__actions">

@@ -1,648 +1,346 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { PersonIcon, SyncIcon } from "@primer/octicons-react";
+import { QrCode, KeyRound } from "lucide-react";
 
-import { Button, Modal } from "@renderer/components";
-import { useToast, useUserDetails } from "@renderer/hooks";
-import { LinkExternalIcon, PersonIcon, SyncIcon } from "@primer/octicons-react";
-import {
-  AuthPage,
-  isSteamReconnectRequired,
-  shouldAutoStartSteamSync,
-} from "@shared";
-import { logger } from "@renderer/logger";
-import type {
-  SteamIntegrationStatus,
-  SteamSyncFinishedPayload,
-  SteamSyncState,
-} from "@types";
+import { Button, Modal, TextField } from "@renderer/components";
+import { useToast } from "@renderer/hooks";
+import type { SteamLoginSessionStatus, StoreAccount } from "@types";
 import SteamLogo from "@renderer/assets/steam-integration-logo.svg?react";
 import {
   SettingsIntegrationCard,
   SettingsIntegrationLastSynced,
 } from "./settings-integration-card";
-import { getSteamProgressPresentation } from "./settings-integration-progress";
-import { getSteamIntegrationPresentation } from "./settings-steam-state";
-import {
-  getPendingSteamDisconnect,
-  runSteamDisconnect,
-} from "./steam-disconnect-state";
 
 import "./settings-steam.scss";
 
-const INTEGRATION_ENDPOINT = "/profile/integrations/steam";
-
-const DISCONNECTED_STATUS: SteamIntegrationStatus = {
-  connected: false,
-  snapshotPreserved: false,
-};
-
-const STATUS_ICON_SIZE = 14;
-const AVATAR_FALLBACK_ICON_SIZE = 28;
-
-const getLatestSyncRunStatus = (status: SteamIntegrationStatus) =>
-  status.connected || status.snapshotPreserved
-    ? (status.latestSyncRun?.status ?? null)
-    : null;
-
-const isLastAuthMethodError = (message?: string) => {
-  if (!message) return false;
-
-  const lower = message.toLowerCase();
-
-  return (
-    lower.includes("last-authentication") ||
-    lower.includes("last_authentication") ||
-    lower.includes("last-auth") ||
-    lower.includes("last authentication")
-  );
-};
-
-const isSteamAlreadyLinkedError = (message?: string) =>
-  Boolean(message?.toLowerCase().includes("already-linked"));
+const INITIAL_STEAM: StoreAccount = { provider: "steam", connected: false };
 
 export function SettingsSteam() {
-  const { userDetails } = useUserDetails();
+  const { t } = useTranslation("settings");
   const { showSuccessToast, showErrorToast } = useToast();
-  const { t, i18n } = useTranslation("settings");
 
-  const [isLoading, setIsLoading] = useState(
-    () => Boolean(userDetails) && !getPendingSteamDisconnect()
-  );
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDisconnecting, setIsDisconnecting] = useState(() =>
-    Boolean(getPendingSteamDisconnect())
-  );
-  const [integration, setIntegration] = useState<SteamIntegrationStatus>(
-    () => getPendingSteamDisconnect()?.integration ?? DISCONNECTED_STATUS
-  );
-  const [avatarError, setAvatarError] = useState(false);
-  const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
-  const [syncState, setSyncState] = useState<SteamSyncState>({
+  const [account, setAccount] = useState<StoreAccount>(INITIAL_STEAM);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const [authModalMode, setAuthModalMode] = useState<
+    "qr" | "credentials" | null
+  >(null);
+  const [authState, setAuthState] = useState<SteamLoginSessionStatus>({
+    sessionId: "",
     status: "idle",
   });
-  const didAutoStart = useRef(false);
-  const wasConnectedRef = useRef(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [guardCode, setGuardCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const integrationPresentation = getSteamIntegrationPresentation(
-    integration,
-    syncState
-  );
-  const { viewState: integrationViewState } = integrationPresentation;
-  const steamAccount =
-    integration.connected || integration.snapshotPreserved ? integration : null;
-  const isSyncing =
-    syncState.status === "running" || syncState.status === "cancelling";
-  const isBusy = isSubmitting || isDisconnecting;
-  const needsReconnect = integrationViewState === "reconnect-required";
-
-  useEffect(() => {
-    setAvatarError(false);
-  }, [steamAccount?.username, steamAccount?.avatarUrl]);
-
-  const getSteamErrorMessage = useCallback(
-    (
-      error: unknown,
-      fallbackKey: "steam_connect_error" | "steam_disconnect_error"
-    ) => {
-      const message = error instanceof Error ? error.message : undefined;
-
-      if (isLastAuthMethodError(message)) {
-        return t("steam_last_auth_method");
-      }
-
-      if (isSteamAlreadyLinkedError(message)) {
-        return t("steam_account_already_linked");
-      }
-
-      return t(fallbackKey);
-    },
-    [t]
-  );
-
-  const getSteamSyncErrorMessage = useCallback(
-    (message?: string) => {
-      if (message === "steam-sync-in-progress") {
-        return t("steam_sync_in_progress");
-      }
-
-      if (
-        message === "steam-profile-private" ||
-        message === "profile/steam-profile-private"
-      ) {
-        return t("steam_error_private_profile");
-      }
-
-      if (
-        message === "steam-upstream-unavailable" ||
-        message === "profile/steam-upstream-unavailable"
-      ) {
-        return t("steam_error_steam_unavailable");
-      }
-
-      if (
-        message === "steam-rate-limited" ||
-        message === "profile/steam-rate-limited"
-      ) {
-        return t("steam_error_rate_limited");
-      }
-
-      if (message === "steam-session-required") {
-        return t("steam_error_session_required");
-      }
-
-      if (message === "steam-account-mismatch") {
-        return t("steam_error_account_mismatch");
-      }
-
-      return t("steam_sync_failed");
-    },
-    [t]
-  );
-
-  const tryAutoStart = useCallback(
-    async (status: SteamIntegrationStatus) => {
-      if (didAutoStart.current) {
-        return;
-      }
-
-      const localState = await globalThis.window.electron.getSteamSyncState();
-      setSyncState(localState);
-
-      if (
-        !shouldAutoStartSteamSync({
-          connected: status.connected,
-          lastSyncedAt: status.connected ? status.lastSyncedAt : null,
-          latestSyncRunStatus: getLatestSyncRunStatus(status),
-          localOrchestratorIdle: localState.status === "idle",
-          requiresReconnect:
-            localState.status === "idle" &&
-            localState.requiresReconnect === true,
-        })
-      ) {
-        return;
-      }
-
-      didAutoStart.current = true;
-
-      try {
-        const state = await globalThis.window.electron.startSteamSync();
-        setSyncState(state);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : undefined;
-        if (isSteamReconnectRequired(message)) {
-          setSyncState({ status: "idle", requiresReconnect: true });
-        }
-        showErrorToast(getSteamSyncErrorMessage(message));
-      }
-    },
-    [getSteamSyncErrorMessage, showErrorToast]
-  );
-
-  const refreshStatus = useCallback(
-    async (options?: {
-      silent?: boolean;
-      toastOnConnect?: boolean;
-      fromMount?: boolean;
-      fromFocus?: boolean;
-    }) => {
-      if (!userDetails) {
-        setIntegration(DISCONNECTED_STATUS);
-        setIsLoading(false);
-        didAutoStart.current = false;
-        wasConnectedRef.current = false;
-        return;
-      }
-
-      if (getPendingSteamDisconnect()) {
-        setIsLoading(false);
-        return;
-      }
-
-      if (!options?.silent) {
-        setIsLoading(true);
-      }
-
-      try {
-        const status =
-          await globalThis.window.electron.hydraApi.get<SteamIntegrationStatus>(
-            INTEGRATION_ENDPOINT
-          );
-
-        setIntegration(status);
-
-        const latestSyncRunStatus = getLatestSyncRunStatus(status);
-
-        await globalThis.window.electron.reconcileSteamSyncRun(
-          latestSyncRunStatus
-        );
-
-        if (!status.connected) {
-          didAutoStart.current = false;
-        }
-
-        if (options?.toastOnConnect && status.connected) {
-          showSuccessToast(t("steam_account_linked"));
-        }
-
-        const becameConnected = !wasConnectedRef.current && status.connected;
-        const shouldAttemptAutoStart =
-          Boolean(options?.fromMount) ||
-          Boolean(options?.toastOnConnect) ||
-          (Boolean(options?.fromFocus) && becameConnected);
-
-        wasConnectedRef.current = status.connected;
-
-        if (shouldAttemptAutoStart) {
-          void tryAutoStart(status);
-        }
-      } catch (error) {
-        logger.error(error);
-
-        if (!options?.silent) {
-          setIntegration(DISCONNECTED_STATUS);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [showSuccessToast, t, tryAutoStart, userDetails]
-  );
-
-  useEffect(() => {
-    void refreshStatus({ fromMount: true });
-  }, [refreshStatus]);
-
-  useEffect(() => {
-    const pendingDisconnect = getPendingSteamDisconnect();
-    if (!pendingDisconnect) return;
-
-    let cancelled = false;
-
-    void pendingDisconnect.promise
-      .catch(() => {})
-      .finally(() => {
-        if (cancelled) return;
-
-        setIsDisconnecting(false);
-        void refreshStatus({ silent: true });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshStatus]);
-
-  useEffect(() => {
-    const unsubscribe = globalThis.window.electron.onSteamConnected(() => {
-      didAutoStart.current = false;
-      setSyncState({ status: "idle" });
-      void refreshStatus({ silent: true, toastOnConnect: true });
-    });
-
-    return unsubscribe;
-  }, [refreshStatus]);
-
-  useEffect(() => {
-    const unsubscribe = globalThis.window.electron.onSteamConnectError(
-      (code) => {
-        showErrorToast(
-          code === "already-linked"
-            ? t("steam_account_already_linked")
-            : t("steam_connect_error")
-        );
-      }
-    );
-
-    return unsubscribe;
-  }, [showErrorToast, t]);
-
-  useEffect(() => {
-    const onFocus = () => {
-      void refreshStatus({ silent: true, fromFocus: true });
-    };
-
-    globalThis.window.addEventListener("focus", onFocus);
-
-    return () => {
-      globalThis.window.removeEventListener("focus", onFocus);
-    };
-  }, [refreshStatus]);
-
-  useEffect(() => {
-    void globalThis.window.electron.getSteamSyncState().then((state) => {
-      setSyncState((current) => (current.status === "idle" ? state : current));
-    });
+  const loadAccount = useCallback(async () => {
+    try {
+      const res = await window.electron.storesGetAccounts();
+      setAccount(res.steam);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const unsubscribeProgress = globalThis.window.electron.onSteamSyncProgress(
-      (state) => {
-        setSyncState(state);
-      }
-    );
-    const unsubscribeFinished = globalThis.window.electron.onSteamSyncFinished(
-      (payload: SteamSyncFinishedPayload) => {
-        setSyncState(
-          !payload.ok && isSteamReconnectRequired(payload.message)
-            ? { status: "idle", requiresReconnect: true }
-            : { status: "idle" }
+    void loadAccount();
+    const unsubAccounts = window.electron.onStoreAccountsUpdated(() => {
+      void loadAccount();
+    });
+    const unsubAuth = window.electron.onSteamAuthState((next) => {
+      setAuthState(next);
+      if (next.status === "authenticated") {
+        setAuthModalMode(null);
+        setPassword("");
+        setGuardCode("");
+        showSuccessToast(
+          `Conta Steam conectada (${next.displayName || next.accountName || next.steamId64})! Sincronizando jogos...`
         );
-
-        if (payload.ok) {
-          setIntegration(payload.status);
-          if (payload.origin === "manual") {
-            showSuccessToast(t("steam_sync_success"));
-          }
-          return;
-        }
-
-        if (
-          payload.origin === "manual" &&
-          payload.message !== "steam-sync-aborted"
-        ) {
-          showErrorToast(getSteamSyncErrorMessage(payload.message));
-        }
-
-        void refreshStatus({ silent: true });
+      } else if (next.status === "error" && next.error) {
+        showErrorToast(next.error);
       }
-    );
-
+    });
     return () => {
-      unsubscribeProgress();
-      unsubscribeFinished();
+      unsubAccounts();
+      unsubAuth();
     };
-  }, [
-    getSteamSyncErrorMessage,
-    refreshStatus,
-    showErrorToast,
-    showSuccessToast,
-    t,
-  ]);
+  }, [loadAccount, showSuccessToast, showErrorToast]);
 
-  const handleConnect = async () => {
-    setIsSubmitting(true);
+  const handleOpenQr = async () => {
+    setAuthModalMode("qr");
+    setAuthState({ sessionId: "", status: "pending" });
+    const next = await window.electron.storesStartSteamQrLogin();
+    setAuthState(next);
+  };
 
+  const handleOpenCredentials = () => {
+    setAuthModalMode("credentials");
+    setAuthState({ sessionId: "", status: "idle" });
+    setGuardCode("");
+  };
+
+  const handleCloseModal = () => {
+    void window.electron.storesCancelSteamLogin();
+    setAuthModalMode(null);
+    setPassword("");
+    setGuardCode("");
+  };
+
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password) return;
+    setSubmitting(true);
     try {
-      await globalThis.window.electron.startSteamOAuth(i18n.language);
-    } catch (error) {
-      showErrorToast(getSteamErrorMessage(error, "steam_connect_error"));
+      const res = await window.electron.storesStartSteamCredentialsLogin({
+        username: username.trim(),
+        password,
+      });
+      setAuthState(res);
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error ? err.message : "Erro ao conectar na Steam."
+      );
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
+    }
+  };
+
+  const handleGuardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guardCode.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await window.electron.storesSubmitSteamGuardCode(
+        guardCode.trim()
+      );
+      if (!res.ok) showErrorToast(res.error || "Código Steam Guard inválido.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleSync = async () => {
+    setSyncing(true);
     try {
-      const state = await globalThis.window.electron.startSteamSync();
-      setSyncState(state);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : undefined;
-      if (isSteamReconnectRequired(message)) {
-        setSyncState({ status: "idle", requiresReconnect: true });
-      }
-      showErrorToast(getSteamSyncErrorMessage(message));
+      const { syncedGamesCount } =
+        await window.electron.storesSyncSteamLibrary();
+      showSuccessToast(
+        `Biblioteca Steam sincronizada (${syncedGamesCount} jogos).`
+      );
+      await loadAccount();
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error
+          ? err.message
+          : "Falha ao sincronizar biblioteca Steam."
+      );
+    } finally {
+      setSyncing(false);
     }
-  };
-
-  const handleCancelSync = async () => {
-    await globalThis.window.electron.cancelSteamSync();
   };
 
   const handleDisconnect = async () => {
-    setShowDeleteDataModal(false);
-    setIsSubmitting(true);
-    setIsDisconnecting(true);
-
+    setDisconnecting(true);
     try {
-      await runSteamDisconnect(integration, () =>
-        globalThis.window.electron.disconnectSteam(true)
-      );
-
-      showSuccessToast(t("steam_account_unlinked"));
-      await refreshStatus({ silent: true });
-    } catch (error) {
-      showErrorToast(getSteamErrorMessage(error, "steam_disconnect_error"));
+      await window.electron.storesDisconnectSteam();
+      setAccount(INITIAL_STEAM);
+      showSuccessToast("Conta Steam desconectada.");
     } finally {
-      setIsDisconnecting(false);
-      setIsSubmitting(false);
+      setDisconnecting(false);
     }
-  };
-
-  const renderBody = () => {
-    if (!userDetails) {
-      return <p>{t("steam_sign_in_required")}</p>;
-    }
-
-    if (isLoading) {
-      return <p>{t("steam_loading")}</p>;
-    }
-
-    if (steamAccount) {
-      const progressPresentation = getSteamProgressPresentation(syncState);
-
-      return (
-        <>
-          <div className="settings-integration-card__profile">
-            <div className="settings-integration-card__avatar">
-              {steamAccount.avatarUrl && !avatarError ? (
-                <img
-                  src={steamAccount.avatarUrl}
-                  alt={steamAccount.username}
-                  onError={() => setAvatarError(true)}
-                />
-              ) : (
-                <PersonIcon size={AVATAR_FALLBACK_ICON_SIZE} />
-              )}
-            </div>
-
-            <div className="settings-integration-card__account">
-              <span className="settings-integration-card__username">
-                {steamAccount.username}
-              </span>
-              {integration.connected ? (
-                <SettingsIntegrationLastSynced
-                  lastSyncedAt={steamAccount.lastSyncedAt}
-                />
-              ) : null}
-            </div>
-          </div>
-
-          {isDisconnecting ? (
-            <output className="settings-integration-card__progress">
-              <div className="settings-integration-card__progress-header">
-                <span>
-                  {integration.connected
-                    ? t("steam_disconnecting")
-                    : t("steam_removing_imported_data")}
-                </span>
-              </div>
-              <div className="settings-integration-card__progress-track">
-                <div className="settings-integration-card__progress-fill settings-integration-card__progress-fill--indeterminate" />
-              </div>
-            </output>
-          ) : integration.connected && needsReconnect ? (
-            <p className="settings-integration-card__message">
-              {t("steam_error_session_required")}
-            </p>
-          ) : integration.connected && isSyncing ? (
-            <div className="settings-integration-card__progress" role="status">
-              <div className="settings-integration-card__progress-header">
-                <span>
-                  {t(progressPresentation?.labelKey ?? "steam_syncing")}
-                </span>
-                {progressPresentation?.showCount &&
-                syncState.status === "running" ? (
-                  <span className="settings-integration-card__progress-count">
-                    {t("steam_sync_progress", {
-                      processed: syncState.gamesProcessed,
-                      found: syncState.gamesFound,
-                    })}
-                  </span>
-                ) : null}
-              </div>
-              <div className="settings-integration-card__progress-track">
-                <div
-                  className={`settings-integration-card__progress-fill ${
-                    progressPresentation?.mode === "determinate"
-                      ? ""
-                      : "settings-integration-card__progress-fill--indeterminate"
-                  }`}
-                  style={
-                    progressPresentation?.mode === "determinate"
-                      ? { width: `${progressPresentation.percentage}%` }
-                      : undefined
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
-        </>
-      );
-    }
-
-    return (
-      <p className="settings-integration-card__description">
-        {t("steam_integration_description")}
-      </p>
-    );
-  };
-
-  const renderActions = () => {
-    if (!userDetails) {
-      return (
-        <Button
-          onClick={() =>
-            globalThis.window.electron.openAuthWindow(AuthPage.SignIn)
-          }
-        >
-          {t("steam_sign_in")}
-        </Button>
-      );
-    }
-
-    if (isLoading) return null;
-
-    if (!steamAccount) {
-      return (
-        <Button onClick={handleConnect} disabled={isBusy}>
-          <LinkExternalIcon size={STATUS_ICON_SIZE} />
-          {t("integration_connect")}
-        </Button>
-      );
-    }
-
-    if (integrationViewState === "snapshot-preserved") {
-      return (
-        <>
-          <Button onClick={handleConnect} disabled={isBusy || isSyncing}>
-            <LinkExternalIcon size={STATUS_ICON_SIZE} />
-            {t("integration_reconnect")}
-          </Button>
-          <Button
-            theme="danger"
-            onClick={() => setShowDeleteDataModal(true)}
-            disabled={isBusy || isSyncing}
-          >
-            {t("steam_remove_imported_data")}
-          </Button>
-        </>
-      );
-    }
-
-    return (
-      <>
-        {needsReconnect ? (
-          <Button onClick={handleConnect} disabled={isBusy}>
-            <LinkExternalIcon size={STATUS_ICON_SIZE} />
-            {t("integration_reconnect")}
-          </Button>
-        ) : isSyncing ? (
-          <Button
-            theme="outline"
-            onClick={handleCancelSync}
-            disabled={syncState.status === "cancelling"}
-          >
-            {t("cancel")}
-          </Button>
-        ) : (
-          <Button theme="outline" onClick={handleSync} disabled={isBusy}>
-            <SyncIcon size={STATUS_ICON_SIZE} />
-            {t("integration_sync")}
-          </Button>
-        )}
-        <Button
-          theme="danger"
-          onClick={() => setShowDeleteDataModal(true)}
-          disabled={isBusy || isSyncing}
-        >
-          {t("integration_disconnect")}
-        </Button>
-      </>
-    );
   };
 
   return (
     <>
       <SettingsIntegrationCard
-        title={t("steam")}
-        logo={<SteamLogo />}
-        status={t(integrationPresentation.statusKey)}
-        statusTone={integrationPresentation.statusTone}
-        actions={renderActions()}
-        loading={Boolean(userDetails) && isLoading}
+        title="Steam"
+        logo={<SteamLogo width={20} height={20} />}
+        loading={loading}
+        status={account.connected ? t("connected") : t("disconnected")}
+        statusTone={account.connected ? "success" : "neutral"}
+        actions={
+          account.connected ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                theme="outline"
+                onClick={handleSync}
+                disabled={syncing || disconnecting}
+              >
+                <SyncIcon size={14} />
+                {syncing ? "Sincronizando..." : "Sincronizar"}
+              </Button>
+              <Button
+                theme="danger"
+                onClick={handleDisconnect}
+                disabled={syncing || disconnecting}
+              >
+                Desconectar
+              </Button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button theme="primary" onClick={() => void handleOpenQr()}>
+                <QrCode size={14} />
+                Conectar com QR Code
+              </Button>
+              <Button theme="outline" onClick={handleOpenCredentials}>
+                <KeyRound size={14} />
+                Senha
+              </Button>
+            </div>
+          )
+        }
       >
-        {renderBody()}
+        {account.connected ? (
+          <div className="settings-steam__account">
+            <div className="settings-steam__account-identity">
+              {account.avatarUrl ? (
+                <img
+                  src={account.avatarUrl}
+                  alt={account.displayName || "Steam"}
+                  className="settings-steam__account-avatar"
+                />
+              ) : (
+                <div className="settings-steam__account-avatar settings-steam__account-avatar--placeholder">
+                  <PersonIcon size={24} />
+                </div>
+              )}
+              <div className="settings-steam__account-meta">
+                <strong>
+                  {account.displayName ||
+                    account.accountName ||
+                    account.accountId}
+                </strong>
+                <span>
+                  SteamID: {account.accountId}
+                  {typeof account.syncedGamesCount === "number"
+                    ? ` · ${account.syncedGamesCount} jogos na biblioteca`
+                    : ""}
+                </span>
+                <SettingsIntegrationLastSynced
+                  lastSyncedAt={account.lastSyncAt}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="settings-integration-card__description">
+            Conecte sua conta Steam diretamente no Cerberus para importar sua
+            biblioteca, baixar seus jogos comprados (versão Windows via
+            DepotDownloader) e conversar/jogar com seus amigos da Steam.
+          </p>
+        )}
       </SettingsIntegrationCard>
 
       <Modal
-        visible={showDeleteDataModal}
-        onClose={() => setShowDeleteDataModal(false)}
-        clickOutsideToClose={!isDisconnecting}
+        visible={authModalMode !== null}
         title={
-          integration.connected
-            ? t("steam_delete_confirm_title")
-            : t("steam_remove_imported_data")
+          authModalMode === "qr"
+            ? "Conectar Steam via QR Code"
+            : "Conectar Steam com Usuário e Senha"
         }
-        description={t("steam_delete_confirm_description")}
+        onClose={handleCloseModal}
       >
-        <div className="settings-steam__modal-actions">
-          <Button
-            theme="outline"
-            onClick={() => setShowDeleteDataModal(false)}
-            disabled={isBusy}
+        {authModalMode === "qr" && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 14,
+              padding: "12px 0",
+              textAlign: "center",
+            }}
           >
-            {t("cancel")}
-          </Button>
-          <Button
-            theme="danger"
-            onClick={() => void handleDisconnect()}
-            disabled={isBusy}
-          >
-            {integration.connected
-              ? t("steam_delete_confirm_button")
-              : t("steam_remove_imported_data")}
-          </Button>
-        </div>
+            {authState.qrDataUrl ? (
+              <img
+                src={authState.qrDataUrl}
+                alt="Steam QR Code"
+                style={{
+                  width: 220,
+                  height: 220,
+                  borderRadius: 10,
+                  background: "#fff",
+                  padding: 8,
+                }}
+              />
+            ) : (
+              <p>Gerando QR Code da Steam...</p>
+            )}
+            <p style={{ opacity: 0.85, fontSize: 13 }}>
+              {authState.status === "expired"
+                ? "QR Code expirado. Gere um novo abaixo."
+                : authState.error
+                  ? authState.error
+                  : "Abra o app Steam no celular → Steam Guard → Escanear código QR."}
+            </p>
+            {(authState.status === "expired" ||
+              authState.status === "error") && (
+              <Button theme="primary" onClick={() => void handleOpenQr()}>
+                Gerar novo QR Code
+              </Button>
+            )}
+          </div>
+        )}
+
+        {authModalMode === "credentials" &&
+          authState.status !== "needs-guard" && (
+            <form
+              onSubmit={(e) => void handleCredentialsSubmit(e)}
+              style={{ display: "flex", flexDirection: "column", gap: 12 }}
+            >
+              <TextField
+                label="Usuário Steam"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+              <TextField
+                label="Senha"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              {authState.error && (
+                <small style={{ color: "#ff6b6b" }}>{authState.error}</small>
+              )}
+              <Button type="submit" theme="primary" disabled={submitting}>
+                {submitting ? "Conectando..." : "Entrar na Steam"}
+              </Button>
+            </form>
+          )}
+
+        {authModalMode === "credentials" &&
+          authState.status === "needs-guard" && (
+            <form
+              onSubmit={(e) => void handleGuardSubmit(e)}
+              style={{ display: "flex", flexDirection: "column", gap: 12 }}
+            >
+              <p style={{ fontSize: 13 }}>
+                {authState.guardType === "device-confirmation"
+                  ? "Confirme o login no aplicativo Steam Mobile ou informe o código Steam Guard:"
+                  : authState.guardType === "email-code"
+                    ? `Digite o código enviado ao seu e-mail (${authState.guardDomain ?? "Steam Guard"}):`
+                    : "Digite o código do aplicativo Steam Guard:"}
+              </p>
+              <TextField
+                label="Código Steam Guard"
+                value={guardCode}
+                onChange={(e) => setGuardCode(e.target.value)}
+                placeholder="Ex: R7K2P"
+              />
+              <Button type="submit" theme="primary" disabled={submitting}>
+                {submitting ? "Verificando..." : "Confirmar código"}
+              </Button>
+            </form>
+          )}
       </Modal>
     </>
   );

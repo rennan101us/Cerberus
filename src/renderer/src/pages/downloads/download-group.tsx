@@ -66,9 +66,10 @@ import {
   GraphIcon,
   GearIcon,
 } from "@primer/octicons-react";
-import { MoreVertical, FileArchive, FolderOpen } from "lucide-react";
+import { MoreVertical, FileArchive, FolderOpen, Hammer } from "lucide-react";
 import { average } from "color.js";
 import { getEpicManagedError } from "@renderer/helpers/epic-managed-error";
+import { SwitchPortModal } from "@renderer/pages/game-details/modals/switch-port-modal/switch-port-modal";
 
 function hexToRgb(hex: string): [number, number, number] {
   let h = hex.replace("#", "");
@@ -609,11 +610,16 @@ export function HeroDownloadView({
 
 type CompletedDownloadStep = FinishedDownloadStep | "checking" | "open-folder";
 
+const isStoreDownloader = (downloader?: Downloader) =>
+  downloader === Downloader.Epic ||
+  downloader === Downloader.Steam ||
+  downloader === Downloader.Gog;
+
 const isDownloadFinished = (
   game: LibraryGame
 ): game is LibraryGame & { download: Download } =>
   game.download?.progress === 1 &&
-  (game.download.downloader !== Downloader.Epic ||
+  (!isStoreDownloader(game.download.downloader) ||
     game.download.status === "complete");
 
 export interface DownloadGroupProps {
@@ -726,6 +732,7 @@ export function DownloadGroup({
     Record<string, boolean>
   >({});
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [portModalGame, setPortModalGame] = useState<LibraryGame | null>(null);
   const [pauseWarningTarget, setPauseWarningTarget] = useState<{
     shop: GameShop;
     objectId: string;
@@ -918,14 +925,25 @@ export function DownloadGroup({
     const deleting = isGameDeleting(game.id);
 
     if (isDownloadFinished(game)) {
-      const isEpic = game.download?.downloader === Downloader.Epic;
+      const isStore = isStoreDownloader(game.download?.downloader);
+      const isSwitch = game.shop === "switch1" || game.shop === "switch2";
       const step = getCompletedDownloadStep(game);
       const hasInstaller = installerAvailability[game.id] === true;
 
       const actions = [
         {
+          label: "Portar Jogo",
+          show: isSwitch && step === "port",
+          disabled: deleting,
+          icon: <Hammer size={16} />,
+          onClick: () => {
+            setPortModalGame(game);
+          },
+        },
+        {
           label: t("run_installer"),
           show:
+            !isSwitch &&
             hasInstaller &&
             step !== "install" &&
             step !== "installing" &&
@@ -938,7 +956,7 @@ export function DownloadGroup({
         },
         {
           label: t("select_executable"),
-          show: step === "install",
+          show: !isSwitch && step === "install",
           disabled: deleting,
           icon: <FileIcon size={16} />,
           onClick: () => {
@@ -947,7 +965,7 @@ export function DownloadGroup({
         },
         {
           label: tGameDetails("open_folder"),
-          show: !isEpic,
+          show: !isStore,
           disabled: deleting,
           icon: <FolderOpen size={16} />,
           onClick: () => {
@@ -959,7 +977,7 @@ export function DownloadGroup({
         },
         {
           label: t("extract"),
-          show: game.download.downloader !== Downloader.Epic,
+          show: !isSwitch && !isStore,
           disabled: game.download.extracting,
           icon: <FileArchive size={16} />,
           onClick: () => {
@@ -1046,8 +1064,8 @@ export function DownloadGroup({
       {
         label: t("integrations", { ns: "settings" }),
         show:
-          game.download?.downloader === Downloader.Epic &&
-          game.download.status === "error",
+          isStoreDownloader(game.download?.downloader) &&
+          game.download?.status === "error",
         onClick: () => navigate("/settings?tab=integrations"),
         icon: <GearIcon />,
       },
@@ -1107,7 +1125,9 @@ export function DownloadGroup({
   const getCompletedDownloadStep = (
     game: LibraryGame
   ): CompletedDownloadStep => {
-    if (game.download?.downloader === Downloader.Epic) return "open-folder";
+    if (isStoreDownloader(game.download?.downloader)) {
+      return game.executablePath ? "play" : "open-folder";
+    }
 
     const step = getFinishedDownloadStep(
       game,
@@ -1165,13 +1185,11 @@ export function DownloadGroup({
       return;
     }
 
+    const executable = game.switchPortedAppPath || game.executablePath;
+    if (!executable) return;
+
     window.electron
-      .openGame(
-        game.shop,
-        game.objectId,
-        game.executablePath!,
-        game.launchOptions
-      )
+      .openGame(game.shop, game.objectId, executable, game.launchOptions)
       .catch((error) => logger.error("Failed to start game", error));
   };
 
@@ -1236,6 +1254,20 @@ export function DownloadGroup({
         >
           <PlayIcon size={16} />
           {tGameDetails("play")}
+        </Button>
+      );
+    }
+
+    if (step === "port") {
+      return (
+        <Button
+          theme="primary"
+          onClick={() => setPortModalGame(game)}
+          disabled={disabled}
+          className="download-group__simple-action-btn"
+        >
+          <Hammer size={16} />
+          Portar Jogo
         </Button>
       );
     }
@@ -1397,6 +1429,13 @@ export function DownloadGroup({
   return (
     <>
       {pauseWarningModal}
+      {portModalGame && (
+        <SwitchPortModal
+          visible
+          game={portModalGame}
+          onClose={() => setPortModalGame(null)}
+        />
+      )}
       <ConfirmationModal
         visible={cancelModalVisible}
         title={t("cancel_download")}
@@ -1427,7 +1466,12 @@ export function DownloadGroup({
                   className="download-group__simple-thumbnail"
                 >
                   <img
-                    src={game.customCoverImageUrl || game.libraryImageUrl || ""}
+                    src={
+                      game.customCoverImageUrl ||
+                      game.libraryImageUrl ||
+                      game.iconUrl ||
+                      ""
+                    }
                     alt={game.title}
                   />
                 </button>
@@ -1505,7 +1549,7 @@ export function DownloadGroup({
                   {isDownloadFinished(game) && renderCompletedAction(game)}
                   {isQueuedGroup &&
                     (game.download?.progress !== 1 ||
-                      (game.download.downloader === Downloader.Epic &&
+                      (isStoreDownloader(game.download.downloader) &&
                         game.download.status !== "complete")) && (
                       <Button
                         theme="primary"

@@ -36,7 +36,6 @@ import type {
 
 import { HydraApi } from "../hydra-api";
 import { achievementsLogger } from "../logger";
-import { ScreenshotService } from "../screenshot";
 import { WindowManager } from "../window-manager";
 import { AchievementImageService } from "./achievement-image-service";
 import { AchievementMemoryStore } from "./achievement-memory-store";
@@ -685,7 +684,6 @@ const processPendingSouvenir = async (
         .catch(() => null);
       if (game) AchievementSouvenirStore.invalidate(game.shop, game.objectId);
       await reconcileAchievementMemory(response, authorized.ownerId);
-      await ScreenshotService.cleanupOldScreenshots();
     } catch (error) {
       achievementsLogger.error(
         "Failed to refresh local state after synchronizing grouped souvenir",

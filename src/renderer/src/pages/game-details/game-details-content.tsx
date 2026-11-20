@@ -14,21 +14,18 @@ import { HeroPanel } from "./hero";
 import { DescriptionHeader } from "./description-header/description-header";
 import { GallerySlider } from "./gallery-slider/gallery-slider";
 import { Sidebar } from "./sidebar/sidebar";
-import { GameReviews } from "./game-reviews";
-import { ReviewPromptBanner } from "./review-prompt-banner";
-import { useReviewPrompt } from "./use-review-prompt";
-import { useUserReviewStatus } from "./use-user-review-status";
+import { MacCompatibilitySection } from "./mac-compatibility-section";
+import { SteamReviewsSection } from "./steam-reviews-section";
+import { extractSteamAppId } from "@shared";
 import { GameLogo } from "./game-logo";
-import { CloudSaveWidget } from "./cloud-save-v2";
-import { getCloudSaveVisibility } from "./cloud-save-visibility";
+import { ICloudSaveWidget } from "./icloud-save/icloud-save-widget";
 import { SimilarGames } from "./similar-games/similar-games";
+import { SwitchPortBadges } from "@renderer/components/switch-port-badges/switch-port-badges";
 
-import { AuthPage, getDisplayedPlayTimeInMilliseconds } from "@shared";
-import { cloudSyncContext, gameDetailsContext } from "@renderer/context";
+import { gameDetailsContext } from "@renderer/context";
 
-import cloudIconAnimated from "@renderer/assets/icons/cloud-animated.gif";
 import tvEffectVideo from "@renderer/assets/emulation/tv-effect.mp4";
-import { useUserDetails, useLibrary, useAppSelector } from "@renderer/hooks";
+import { useAppSelector } from "@renderer/hooks";
 import {
   CLASSICS_PS_PLATFORM_LABELS,
   resolveClassicsBadge,
@@ -83,6 +80,7 @@ export function GameDetailsContent() {
     objectId,
     shopDetails,
     game,
+    gameTitle,
     presentation,
     catalogueGame,
     hasNSFWContentBlocked,
@@ -91,13 +89,12 @@ export function GameDetailsContent() {
     setGameOptionsInitialCategory,
   } = useContext(gameDetailsContext);
 
-  const { userDetails } = useUserDetails();
-  const { library } = useLibrary();
-
-  const { getGameArtifacts } = useContext(cloudSyncContext);
-  const cloudSaveVisibility = game
-    ? getCloudSaveVisibility(game.shop, game.platform)
-    : null;
+  const isWindowsGameForICloud = Boolean(
+    game &&
+      (game.shop === "steam" ||
+        game.shop === "epic" ||
+        game.shop === "custom")
+  );
 
   const aboutTheGame = useMemo(() => {
     const aboutTheGame = shopDetails?.about_the_game;
@@ -124,44 +121,6 @@ export function GameDetailsContent() {
   const [isDescriptionOverflowing, setIsDescriptionOverflowing] =
     useState(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
-
-  // Check if the current game is in the user's library
-  const isGameInLibrary = useMemo(() => {
-    if (!library || !shop || !objectId) return false;
-    return library.some(
-      (libItem) => libItem.shop === shop && libItem.objectId === objectId
-    );
-  }, [library, shop, objectId]);
-
-  const { hasUserReviewed, isCheckingUserReview, updateHasUserReviewed } =
-    useUserReviewStatus({
-      shop,
-      objectId,
-      userDetailsId: userDetails?.id,
-    });
-
-  const { showPrompt, isPromptPending, dismissPrompt } = useReviewPrompt({
-    shop,
-    objectId,
-    playTimeInMilliseconds: getDisplayedPlayTimeInMilliseconds({
-      playTimeInMilliseconds: game?.playTimeInMilliseconds ?? 0,
-      steamPlayTimeInMilliseconds: game?.steamPlayTimeInMilliseconds,
-      epicPlayTimeInMilliseconds: game?.epicPlayTimeInMilliseconds,
-    }),
-    userDetailsId: userDetails?.id,
-    isGameInLibrary,
-    hasUserReviewed,
-    isCheckingUserReview,
-  });
-
-  const handleReviewPromptYes = () => {
-    dismissPrompt({ persist: false });
-    reviewsRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const handleReviewPromptLater = () => {
-    dismissPrompt({ persist: true });
-  };
 
   useEffect(() => {
     setBackdropOpacity(1);
@@ -223,13 +182,8 @@ export function GameDetailsContent() {
     };
   }, [aboutTheGame]);
 
-  const handleLegacyCloudSaveButtonClick = () => {
-    if (!userDetails) {
-      globalThis.window.electron.openAuthWindow(AuthPage.SignIn);
-      return;
-    }
-
-    setGameOptionsInitialCategory("hydra_cloud_legacy");
+  const handleICloudSaveButtonClick = () => {
+    setGameOptionsInitialCategory("icloud_save");
     setShowGameOptionsModal(true);
   };
 
@@ -237,10 +191,6 @@ export function GameDetailsContent() {
     setGameOptionsInitialCategory("assets");
     setShowGameOptionsModal(true);
   };
-
-  useEffect(() => {
-    getGameArtifacts();
-  }, [getGameArtifacts]);
 
   // Scroll to reviews section if reviews=true in URL
   useEffect(() => {
@@ -259,15 +209,26 @@ export function GameDetailsContent() {
   const classicsUseHeroLayout = userPreferences?.classicsUseHeroLayout ?? false;
 
   const isCustomGame = game?.shop === "custom";
+  const isSwitchGame = shop === "switch1" || shop === "switch2";
+  const isMacNativeGame = shop === "mac_native";
   const isLaunchboxGame = shop === "launchbox";
   const renderClassicsHero = isLaunchboxGame && !classicsUseHeroLayout;
 
   const heroImage = isCustomGame
     ? game?.libraryHeroImageUrl || game?.iconUrl || ""
-    : getImageWithCustomPriority(
-        (presentation ?? game)?.customHeroImageUrl,
-        shopDetails?.assets?.libraryHeroImageUrl
-      );
+    : isSwitchGame || isMacNativeGame
+      ? getImageWithCustomPriority(
+          (presentation ?? game)?.customHeroImageUrl,
+          shopDetails?.assets?.libraryHeroImageUrl,
+          game?.libraryHeroImageUrl ||
+            game?.libraryImageUrl ||
+            game?.iconUrl ||
+            ""
+        )
+      : getImageWithCustomPriority(
+          (presentation ?? game)?.customHeroImageUrl,
+          shopDetails?.assets?.libraryHeroImageUrl
+        );
 
   const launchboxCover = isLaunchboxGame
     ? game?.customCoverImageUrl ||
@@ -457,6 +418,10 @@ export function GameDetailsContent() {
               )}
 
               <div className="game-details__hero-buttons game-details__hero-buttons--right">
+                {isSwitchGame && game && (
+                  <SwitchPortBadges game={game} variant="hero" />
+                )}
+
                 {game && (
                   <button
                     type="button"
@@ -468,25 +433,12 @@ export function GameDetailsContent() {
                   </button>
                 )}
 
-                {game && cloudSaveVisibility?.hero === "legacy" && (
-                  <button
-                    type="button"
-                    className="game-details__cloud-sync-button"
-                    onClick={handleLegacyCloudSaveButtonClick}
-                  >
-                    <div className="game-details__cloud-icon-container">
-                      <img
-                        src={cloudIconAnimated}
-                        alt=""
-                        className="game-details__cloud-icon"
-                      />
-                    </div>
-                    {t("cloud_save")}
-                  </button>
-                )}
-
-                {game && objectId && cloudSaveVisibility?.hero === "v2" && (
-                  <CloudSaveWidget />
+                {game && isWindowsGameForICloud && (
+                  <ICloudSaveWidget
+                    shop={game.shop}
+                    objectId={game.objectId}
+                    onOpenSettings={handleICloudSaveButtonClick}
+                  />
                 )}
               </div>
             </div>
@@ -500,14 +452,6 @@ export function GameDetailsContent() {
         <div className="game-details__description-container">
           <div className="game-details__description-content">
             <DescriptionHeader />
-
-            {(showPrompt || isPromptPending) && (
-              <ReviewPromptBanner
-                pending={!showPrompt}
-                onYesClick={handleReviewPromptYes}
-                onLaterClick={handleReviewPromptLater}
-              />
-            )}
 
             <GallerySlider />
 
@@ -544,29 +488,43 @@ export function GameDetailsContent() {
               </button>
             )}
 
-            {shop && objectId && (
-              <SimilarGames
-                objectId={catalogueGame.objectId}
-                shop={catalogueGame.shop}
-              />
-            )}
+            {shop &&
+              objectId &&
+              ((!isSwitchGame && shop !== "mac_native") ||
+                (catalogueGame.shop === "steam" &&
+                  Boolean(catalogueGame.objectId)) ||
+                (shopDetails?.igdbSimilarGames?.length ?? 0) > 0) && (
+                <SimilarGames
+                  objectId={catalogueGame.objectId}
+                  shop={catalogueGame.shop}
+                  igdbSimilarGames={shopDetails?.igdbSimilarGames}
+                />
+              )}
 
-            {shop !== "custom" && shop && objectId && (
+            {gameTitle && !isSwitchGame && shop !== "mac_native" && (
               <div ref={reviewsRef}>
-                <GameReviews
+                <MacCompatibilitySection
+                  gameTitle={gameTitle}
                   shop={shop}
                   objectId={objectId}
                   game={game}
-                  userDetailsId={userDetails?.id}
-                  hasUserReviewed={hasUserReviewed}
-                  isCheckingUserReview={isCheckingUserReview}
-                  onUserReviewedChange={updateHasUserReviewed}
                 />
+                {(() => {
+                  const steamAppId =
+                    shop === "steam"
+                      ? objectId
+                      : game?.catalogueGame?.shop === "steam"
+                        ? game.catalogueGame.objectId
+                        : extractSteamAppId(objectId);
+                  return steamAppId ? (
+                    <SteamReviewsSection appId={steamAppId} />
+                  ) : null;
+                })()}
               </div>
             )}
           </div>
 
-          {shop !== "custom" && <Sidebar />}
+          <Sidebar />
         </div>
       </section>
     </div>

@@ -1,4 +1,5 @@
 import type { LibraryGame } from "@types";
+import { extractSteamAppId, getSteamCoverFallbacks } from "@shared";
 
 export interface GameCoverImageSource {
   coverImageUrl?: string | null;
@@ -41,7 +42,19 @@ export function resolveImageSource(
 }
 
 export function getGameImageSources(game: LibraryGame) {
-  return [game.coverImageUrl, game.libraryImageUrl, game.iconUrl]
+  const steamAppId =
+    game.shop === "steam"
+      ? game.objectId
+      : (extractSteamAppId(game.coverImageUrl) ||
+         extractSteamAppId(game.libraryImageUrl));
+  const steamFallbacks = steamAppId ? getSteamCoverFallbacks(steamAppId) : [];
+
+  return [
+    game.coverImageUrl,
+    game.libraryImageUrl,
+    ...steamFallbacks,
+    game.iconUrl,
+  ]
     .map((source) => resolveImageSource(source))
     .filter((source, index, array) => {
       return source !== "" && array.indexOf(source) === index;

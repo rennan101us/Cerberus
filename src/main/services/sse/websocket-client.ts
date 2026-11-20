@@ -85,14 +85,6 @@ export type RealtimeEnvelope = RealtimeEnvelopeBase &
         event: "chatMessageHidden" | "chatMessageRestored";
         payload: { senderId: string; recipientId: string; seq: number };
       }
-    | {
-        event: "screenshotModerated";
-        payload: {
-          screenshotId: string;
-          moderationStatus: "APPROVED" | "BLOCKED";
-          moderationReason: string | null;
-        };
-      }
   );
 
 export interface RealtimeToken {

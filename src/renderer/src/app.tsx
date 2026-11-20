@@ -1,5 +1,11 @@
-import { AppTitleBar, Sidebar, Toast } from "@renderer/components";
+import {
+  AppTitleBar,
+  FirstRunOnboardingModal,
+  Sidebar,
+  Toast,
+} from "@renderer/components";
 import { AutoUpdateSubHeader } from "@renderer/components/header/auto-update-sub-header";
+import { SteamDepotAuthModal } from "@renderer/components/steam-depot-auth-modal/steam-depot-auth-modal";
 import { ScanGamesProvider } from "@renderer/context";
 import {
   useAppDispatch,
@@ -15,7 +21,6 @@ import {
 import { useDownloadOptionsListener } from "@renderer/hooks/use-download-options-listener";
 import i18n from "i18next";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { WorkWonders } from "workwonders-sdk";
 
 import {
   clearExtraction,
@@ -37,17 +42,17 @@ import {
   toggleDraggingDisabled,
   updateClassicsScanProgress,
   updateRetroArchScanProgress,
+  appendLog,
+  setLogs,
+  setNxBuildJob,
 } from "@renderer/features";
+import { applyHighlightTheme } from "./helpers/highlight-theme";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useSubscription } from "./hooks/use-subscription";
 import { ArchiveDeletionModal } from "./pages/downloads/archive-deletion-error-modal";
-import { CloudSubscriptionModal } from "./pages/shared-modals/hydra-cloud/cloud-subscription-modal";
 import { AddFriendModal } from "./pages/profile/profile-content/add-friend-modal";
 import { CloudGiftNotificationModal } from "./pages/shared-modals/cloud-gift-notification-modal";
-import { LevelUpModal } from "./components/gamification";
-import { useMissingScreenshotsToast } from "./hooks/use-missing-screenshots-toast";
-import { useScreenshotUploadFailureToast } from "./hooks/use-screenshot-upload-failure-toast";
+import { useDesktopGamepadNavigation } from "./hooks/use-desktop-gamepad-navigation";
 import { playMessageSound } from "./pages/chat-window/chat-sounds";
 
 import type { UserPreferences } from "@types";
@@ -64,13 +69,6 @@ export interface AppProps {
   children: React.ReactNode;
 }
 
-type WorkWondersWithKnowledge = WorkWonders & {
-  knowledge?: {
-    initKnowledgeWidget?: () => void;
-    showArticle?: (articleId: number) => void;
-  };
-};
-
 export function App() {
   const contentRef = useRef<HTMLDivElement>(null);
   const { updateLibrary, library, downloadLibrary } = useLibrary();
@@ -78,13 +76,11 @@ export function App() {
   // Listen for new download options updates
   useDownloadOptionsListener();
   useDragTextSelection();
+  useDesktopGamepadNavigation();
 
   const { t } = useTranslation("app");
 
   const { clearDownload, setLastPacket, lastPacket } = useDownload();
-
-  const workwondersRef = useRef<WorkWonders | null>(null);
-  const workwondersInitializingRef = useRef(false);
 
   const {
     hasActiveSubscription,
@@ -96,9 +92,6 @@ export function App() {
   useGamificationFeatureSync();
   useGamificationProgressSync();
 
-  const { hideHydraCloudModal, isHydraCloudModalVisible, hydraCloudFeature } =
-    useSubscription();
-
   const dispatch = useAppDispatch();
 
   const navigate = useNavigate();
@@ -107,18 +100,21 @@ export function App() {
   const draggingDisabled = useAppSelector(
     (state) => state.window.draggingDisabled
   );
+  const userPreferences = useAppSelector(
+    (state) => state.userPreferences.value
+  );
 
   const toast = useAppSelector((state) => state.toast);
 
   const [version, setVersion] = useState("");
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [forceOpenOnboarding, setForceOpenOnboarding] = useState(false);
 
   useEffect(() => {
     window.electron.getVersion().then(setVersion);
   }, []);
 
   const { showSuccessToast, showErrorToast, showWarningToast } = useToast();
-  useMissingScreenshotsToast();
-  useScreenshotUploadFailureToast();
 
   const [showArchiveDeletionModal, setShowArchiveDeletionModal] =
     useState(false);
@@ -130,9 +126,58 @@ export function App() {
       levelDBService.get("userPreferences", null, "json"),
       updateLibrary(),
     ]).then(([preferences]) => {
-      dispatch(setUserPreferences(preferences as UserPreferences | null));
+      const prefs = preferences as UserPreferences | null;
+      dispatch(setUserPreferences(prefs));
+      applyHighlightTheme(prefs?.highlightTheme, prefs?.customHighlightColor);
+      setPreferencesLoaded(true);
     });
-  }, [navigate, location.pathname, dispatch, updateLibrary]);
+  }, [dispatch, updateLibrary]);
+
+  useEffect(() => {
+    const openHandler = () => setForceOpenOnboarding(true);
+    window.addEventListener("cerberus:open-onboarding", openHandler);
+    return () =>
+      window.removeEventListener("cerberus:open-onboarding", openHandler);
+  }, []);
+
+  useEffect(() => {
+    window.electron
+      .logsGetAll()
+      .then((all) => dispatch(setLogs(all)))
+      .catch(() => {});
+    window.electron
+      .nxGetActiveBuildJob()
+      .then((job) => dispatch(setNxBuildJob(job)))
+      .catch(() => {});
+
+    const unsubLog = window.electron.onNxLog((entry) => {
+      dispatch(appendLog(entry));
+    });
+    const unsubBuild = window.electron.onNxBuildProgress((ev) => {
+      if (ev.phase === "done") {
+        dispatch(setNxBuildJob(null));
+        showSuccessToast(`Port de "${ev.gameTitle}" concluído com sucesso!`);
+        void updateLibrary();
+      } else if (ev.phase === "error") {
+        dispatch(setNxBuildJob(null));
+        showErrorToast(ev.error || `Falha ao portar "${ev.gameTitle}".`);
+      } else if (ev.phase === "cancelled") {
+        dispatch(setNxBuildJob(null));
+        showWarningToast(`Port de "${ev.gameTitle}" cancelado.`);
+      } else {
+        dispatch(setNxBuildJob(ev));
+      }
+    });
+    const unsubLib = window.electron.onNxLibraryUpdated(() => {
+      void updateLibrary();
+    });
+
+    return () => {
+      unsubLog();
+      unsubBuild();
+      unsubLib();
+    };
+  }, [dispatch, showErrorToast, showSuccessToast, showWarningToast, updateLibrary]);
 
   useEffect(() => {
     const unsubscribe = window.electron.onUserPreferencesUpdated(
@@ -145,6 +190,11 @@ export function App() {
         if (preferences.language && preferences.language !== i18n.language) {
           void i18n.changeLanguage(preferences.language);
         }
+
+        applyHighlightTheme(
+          preferences.highlightTheme,
+          preferences.customHighlightColor
+        );
 
         dispatch(setUserPreferences(preferences));
       }
@@ -210,136 +260,6 @@ export function App() {
     }
   }, [clearDownload, lastPacket?.gameId, downloadLibrary]);
 
-  const setupWorkWonders = useCallback(
-    async (token?: string, locale?: string) => {
-      if (workwondersRef.current || workwondersInitializingRef.current) return;
-
-      workwondersInitializingRef.current = true;
-
-      const possibleLocales = ["en", "pt", "ru"];
-
-      const parsedLocale =
-        possibleLocales.find((l) => l === locale?.slice(0, 2)) ?? "en";
-
-      try {
-        const workwonders = new WorkWonders();
-
-        await workwonders.init({
-          organization: "hydra",
-          token,
-          locale: parsedLocale,
-        });
-
-        workwonders.changelog.initChangelogWidget();
-        workwonders.changelog.initChangelogWidgetMini();
-        const workWondersWithKnowledge =
-          workwonders as WorkWondersWithKnowledge;
-        workWondersWithKnowledge.knowledge?.initKnowledgeWidget?.();
-
-        if (token) {
-          workwonders.feedback.initFeedbackWidget();
-        }
-
-        workwondersRef.current = workwonders;
-      } catch (error) {
-        console.error("Failed to initialize Work Wonders SDK", error);
-      } finally {
-        workwondersInitializingRef.current = false;
-      }
-    },
-    [workwondersRef]
-  );
-
-  useEffect(() => {
-    const onClick = async (event: MouseEvent) => {
-      const userPreferences = await window.electron.getUserPreferences();
-      const language = userPreferences?.language ?? "en";
-
-      const articleMapping = {
-        pt: {
-          "cannot-write-directory": 1429,
-          seeding: 1442,
-          "peers-and-seeds": 1449,
-          "steam-achievements": 1412,
-          "install-duckstation": 6441,
-          "install-pcsx2": 6192,
-          "install-rpcs3": 6510,
-          "install-retroarch": 7108,
-          "install-ppsspp": 7315,
-          "install-dolphin": 7268,
-          "install-shadps4": 7859,
-          "wii-saves": 7384,
-          "retroachievements-emulators": 6629,
-          "downloading-metadata": 7719,
-        },
-        en: {
-          "cannot-write-directory": 4122,
-          seeding: 4116,
-          "peers-and-seeds": 4119,
-          "steam-achievements": 4140,
-          "install-duckstation": 6465,
-          "install-pcsx2": 6390,
-          "install-rpcs3": 6524,
-          "install-retroarch": 7120,
-          "install-ppsspp": 7328,
-          "install-dolphin": 7281,
-          "install-shadps4": 7871,
-          "wii-saves": 7406,
-          "retroachievements-emulators": 6692,
-          "downloading-metadata": 7773,
-        },
-        ru: {
-          "install-duckstation": 6479,
-          "install-pcsx2": 6429,
-          "install-rpcs3": 6541,
-          "install-retroarch": 7135,
-          "install-ppsspp": 7338,
-          "install-dolphin": 7292,
-          "install-shadps4": 7880,
-          "wii-saves": 7422,
-          "retroachievements-emulators": 6717,
-          "downloading-metadata": 7848,
-        },
-        es: {
-          "install-duckstation": 6492,
-          "install-pcsx2": 6410,
-          "install-rpcs3": 6552,
-          "install-retroarch": 7142,
-          "install-ppsspp": 7375,
-          "install-dolphin": 7303,
-          "install-shadps4": 7893,
-          "wii-saves": 7431,
-          "retroachievements-emulators": 6743,
-          "downloading-metadata": 7854,
-        },
-      };
-
-      const $helpCenterTarget = (event.target as HTMLElement).closest(
-        "[data-open-article]"
-      );
-
-      if ($helpCenterTarget) {
-        const article = $helpCenterTarget.getAttribute("data-open-article");
-        const articleId =
-          articleMapping[language.slice(0, 2)]?.[
-            article as keyof typeof articleMapping
-          ] ?? articleMapping["en"]?.[article as keyof typeof articleMapping];
-
-        if (articleId) {
-          const workWondersWithKnowledge =
-            workwondersRef.current as WorkWondersWithKnowledge | null;
-          workWondersWithKnowledge?.knowledge?.showArticle?.(articleId);
-        }
-      }
-    };
-
-    window.addEventListener("click", onClick);
-
-    return () => {
-      window.removeEventListener("click", onClick);
-    };
-  }, []);
-
   const setupExternalResources = useCallback(async () => {
     const cachedUserDetails = window.localStorage.getItem("userDetails");
 
@@ -350,23 +270,7 @@ export function App() {
       dispatch(setUserDetails(userDetails));
       dispatch(setProfileBackground(profileBackground));
     }
-
-    const userPreferences = await window.electron.getUserPreferences();
-    const userDetails = await fetchUserDetails().catch(() => null);
-
-    if (userDetails) {
-      updateUserDetails(userDetails);
-    }
-
-    setupWorkWonders(userDetails?.workwondersJwt, userPreferences?.language);
-
-    if (!document.getElementById("external-resources")) {
-      const $script = document.createElement("script");
-      $script.id = "external-resources";
-      $script.src = `${import.meta.env.RENDERER_VITE_EXTERNAL_RESOURCES_URL}/bundle.js?t=${Date.now()}`;
-      document.head.appendChild($script);
-    }
-  }, [fetchUserDetails, updateUserDetails, dispatch, setupWorkWonders]);
+  }, [dispatch]);
 
   useEffect(() => {
     setupExternalResources();
@@ -640,11 +544,7 @@ export function App() {
   ]);
 
   useEffect(() => {
-    const asyncScrollAndNotify = async () => {
-      if (contentRef.current) contentRef.current.scrollTop = 0;
-      await workwondersRef.current?.notifyUrlChange?.();
-    };
-    asyncScrollAndNotify();
+    if (contentRef.current) contentRef.current.scrollTop = 0;
   }, [location.pathname, location.search]);
 
   useEffect(() => {
@@ -734,6 +634,18 @@ export function App() {
     });
   }, []);
 
+  useEffect(() => {
+    return window.electron.onSocialGameInvite(({ friend, invite }) => {
+      dispatch(
+        showToast({
+          title: `Convite de ${friend.displayName}`,
+          message: `Chamou você para jogar ${invite.gameTitle}. Abra o chat para entrar.`,
+          type: "success",
+        })
+      );
+    });
+  }, [dispatch]);
+
   const handleToastClose = useCallback(() => {
     dispatch(closeToast());
   }, [dispatch]);
@@ -789,14 +701,6 @@ export function App() {
         duration={toast.duration}
       />
 
-      <LevelUpModal />
-
-      <CloudSubscriptionModal
-        visible={isHydraCloudModalVisible}
-        onClose={hideHydraCloudModal}
-        feature={hydraCloudFeature || undefined}
-      />
-
       <CloudGiftNotificationModal />
 
       <ArchiveDeletionModal
@@ -808,6 +712,16 @@ export function App() {
       <AddFriendModal
         visible={showAddFriendModal}
         onClose={() => setShowAddFriendModal(false)}
+      />
+
+      <SteamDepotAuthModal />
+
+      <FirstRunOnboardingModal
+        visible={
+          forceOpenOnboarding ||
+          (preferencesLoaded && !userPreferences?.hasCompletedFirstRunOnboarding)
+        }
+        onClose={() => setForceOpenOnboarding(false)}
       />
 
       <ScanGamesProvider>
